@@ -1,0 +1,28 @@
+[
+    {
+        "rack_id": 1,
+        "design": [
+            {
+                "level_id": 1,
+                "slot_id": 1,
+                "rfid": "ESOT-1102-1814",
+                "quantity": 203,
+                "weight": 31
+            },
+            {
+                "level_id": 1,
+                "slot_id": 2,
+                "rfid": "ESOT-1101-3333",
+                "quantity": 0,
+                "weight": 0
+            },
+            {
+                "level_id": 1,
+                "slot_id": 3,
+                "rfid": "ESOT-1101-1111",
+                "quantity": 2,
+                "weight": 15
+            }
+        ]
+    }
+]

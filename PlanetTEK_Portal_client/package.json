@@ -1,0 +1,71 @@
+{
+  "name": "PlanetTEK_Portal_client",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "main": "main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "build_exe": "pkg main.js --targets node18-win-x64 --output client.exe",
+    "preview": "vite preview",
+    "start-server": "node main.js",
+    "build-exe": "pkg main.js --targets node18-win-x64 --output client.exe"
+  },
+  "build": {
+    "appId": "com.batuhan.PlanetTEK_Portal",
+    "productName": "PlanetTEK_Portal_client",
+    "directories": {
+      "output": "dist_electron"
+    },
+    "files": [
+      "dist/**",
+      "node_modules/**",
+      "main.js",
+      "package.json"
+    ],
+    "mac": {
+      "target": ["dmg"],
+      "icon": "build/icon.icns"
+    },
+    "win": {
+      "target": ["nsis", "zip"],
+      "icon": "build/icon.ico"
+    },
+    "linux": {
+      "target": ["AppImage"],
+      "icon": "build/icons"
+    },
+    "asar": true
+  },
+  "dependencies": {
+    "@headlessui/react": "^2.2.7",
+    "axios": "^1.11.0",
+    "bonjour": "^3.5.0",
+    "bootstrap": "^5.3.8",
+    "bootstrap-icons": "^1.13.1",
+    "express": "^5.1.0",
+    "file-saver": "^2.0.5",
+    "lucide-react": "^0.540.0",
+    "open": "^10.2.0",
+    "react": "^19.1.1",
+    "react-bootstrap": "^2.10.10",
+    "react-dom": "^19.1.1",
+    "react-router-dom": "^7.9.1",
+    "react-select": "^5.10.2",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.33.0",
+    "@types/react": "^19.1.10",
+    "@types/react-dom": "^19.1.7",
+    "@vitejs/plugin-react-swc": "^4.0.0",
+    "electron": "^39.1.1",
+    "electron-builder": "^26.0.12",
+    "eslint": "^9.33.0",
+    "eslint-plugin-react-hooks": "^5.2.0",
+    "eslint-plugin-react-refresh": "^0.4.20",
+    "globals": "^16.3.0",
+    "vite": "^7.1.2"
+  }
+}

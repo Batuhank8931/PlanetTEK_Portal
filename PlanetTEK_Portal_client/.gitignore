@@ -1,0 +1,6 @@
+# Exclude the node_modules folder
+/node_modules
+
+/dist
+
+/config.exe

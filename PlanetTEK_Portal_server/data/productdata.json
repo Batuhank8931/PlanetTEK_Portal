@@ -1,0 +1,42 @@
+[
+  {
+    "id": "1",
+    "product_code": "123",
+    "description": "M8x25 Socket Head Screw",
+    "standard": "DIN 912",
+    "unit_weight_gram": 13.3,
+    "rfid": "ESOT-1101-4251"
+  },
+  {
+    "id": "3",
+    "product_code": "353592",
+    "description": "M10x20 Flat Washer",
+    "standard": "DIN 125",
+    "unit_weight_gram": 12.5,
+    "rfid": "ESOT-1101-9876"
+  },
+  {
+    "id": "4",
+    "product_code": "12",
+    "description": "M8x25 Socket Head Screw",
+    "standard": "DIN 912",
+    "unit_weight_gram": 13.3,
+    "rfid": "ESOT-1102-1814"
+  },
+  {
+    "id": "5",
+    "product_code": "123",
+    "description": "M8x25 Socket Head Screw",
+    "standard": "DIN 912",
+    "unit_weight_gram": 13.3,
+    "rfid": "ESOT-1101-3333"
+  },
+  {
+    "id": "6",
+    "unit_weight_gram": 12,
+    "rfid": "ESOT-1101-1111",
+    "product_code": "aaa",
+    "description": "vvv",
+    "standard": "sss"
+  }
+]
