@@ -10,10 +10,10 @@ function TeklifPage() {
   const [currentStep, setCurrentStep] = useState(1);
   const [formData, setFormData] = useState({
     customerInfo: { ticariUnvan: "", mensei: "Yerli", ulke: "", vergiDairesi: "", vergiNo: "", adres: "" },
-    planetDiskDetails: { },
-    equipments: { jenerator: false, kablo: false, pano: false, testCihazi: false },
-    capexDetails: { insaatMaliyeti: 0, lojistikMaliyeti: 0, gumrukMaliyeti: 0 },
-    opexDetails: { yillikBakim: 0, enerjiTuketimi: 0, personelMaliyeti: 0 },
+    planetDiskDetails: {},
+    equipments: {},
+    capexDetails: {},
+    opexDetails: {},
     notlar: ""
   });
 
@@ -55,7 +55,7 @@ function TeklifPage() {
       case 2:
         return <SelectPlanetDisk data={formData.planetDiskDetails} updateData={(data) => updateFormData("planetDiskDetails", data)} />;
       case 3:
-        return <SelectEquiptments data={formData.equipments} updateData={(data) => updateFormData("equipments", data)} />;
+        return <SelectEquiptments data={formData.planetDiskDetails} updateData={(data) => updateFormData("planetDiskDetails", data)} />;
       case 4:
         return <SelectCapex data={formData.capexDetails} updateData={(data) => updateFormData("capexDetails", data)} />;
       case 5:

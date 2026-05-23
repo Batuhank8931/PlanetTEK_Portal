@@ -61,10 +61,10 @@ function SelectCustomer({ data, updateData }) {
         setSearchResults([]);
 
         // Eğer indirim varsa en güncel olanı bulup inputlara otomatik dolduralım
-        const siraliIndirimler = customer.indirimler 
+        const siraliIndirimler = customer.indirimler
             ? [...customer.indirimler].sort((a, b) => new Date(b.indirimTarihi) - new Date(a.indirimTarihi))
             : [];
-        
+
         const enGuncelIndirim = siraliIndirimler[0] || {};
 
         updateData({
@@ -88,19 +88,22 @@ function SelectCustomer({ data, updateData }) {
         : [];
 
     return (
-        <div className="container-fluid p-0">
-            {/* Adım Başlığı */}
-            <div className="d-flex align-items-center mb-3">
-                <span className="fw-bold text-uppercase pe-2" style={{ fontSize: "11px", letterSpacing: "0.5px", color: "#e0f2f1" }}>
-                    Adım 1: Müşteri Genel Bilgileri
+        <div className="card border-0 text-white h-100 p-3 gap-3" style={{ backgroundColor: "#1a1c1d", borderRadius: "5px", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)" }}>
+
+            {/* Adım Başlığı - 2. koddaki başlık yapısı ve çizgisi ile eşitlendi */}
+            <div className="d-flex align-items-center">
+                <span className="fw-bold text-uppercase pe-2" style={{ fontSize: "11px", letterSpacing: "0.7px", color: "#00874e" }}>
+                    1. Müşteri Genel Bilgileri
                 </span>
-                <div className="flex-grow-1 border-bottom" style={{ borderColor: "rgba(255,255,255,0.15)" }}></div>
+                <div className="flex-grow-1 border-bottom" style={{ borderColor: "rgba(255,255,255,0.1)" }}></div>
             </div>
 
             {/* ANA SATIR: Müşteri Arama ve Dil Seçimi */}
-            <div className="row g-2 mb-2">
+            <div className="row g-3 py-3">
                 <div className="col-12 col-md-8 position-relative">
-                    <label className="form-label mb-1 small fw-medium text-white-50">Ticari Ünvan / Şirket Adı *</label>
+                    <label className="form-label mb-1 small fw-medium text-white-50" style={{ fontSize: "11px" }}>
+                        Ticari Ünvan / Şirket Adı *
+                    </label>
                     <input
                         type="text"
                         value={searchTerm}
@@ -111,18 +114,22 @@ function SelectCustomer({ data, updateData }) {
                                 updateData({ ...data, ticariUnvan: "" });
                             }
                         }}
-                        className="form-control form-control-sm border-0 bg-white text-dark"
+                        className="form-control form-control-sm text-white fw-bold border-0"
+                        style={{ backgroundColor: "#1e293b", borderRadius: "6px", fontSize: "12px" }}
                         placeholder="Müşteri adı ara..."
                     />
 
-                    {/* Arama Sonuçları Pop-up Listesi */}
+                    {/* Arama Sonuçları Pop-up Listesi - Koyu temaya uyarlandı */}
                     {searchResults.length > 0 && (
-                        <ul className="list-group position-absolute w-100 mt-1 shadow-lg" style={{ zIndex: 1050, maxHeight: "180px", overflowY: "auto" }}>
+                        <ul
+                            className="list-group position-absolute w-100 mt-1 shadow-lg border"
+                            style={{ zIndex: 1050, maxHeight: "180px", overflowY: "auto", backgroundColor: "#0f172a", borderColor: "#334155" }}
+                        >
                             {searchResults.map((customer) => (
                                 <li
                                     key={customer.id}
-                                    className="list-group-item list-group-item-action list-group-item-light small py-2"
-                                    style={{ cursor: "pointer" }}
+                                    className="list-group-item list-group-item-action small py-2 text-white-50"
+                                    style={{ cursor: "pointer", backgroundColor: "#0f172a", borderBottom: "1px solid #334155", fontSize: "12px" }}
                                     onClick={() => handleSelectCustomer(customer)}
                                 >
                                     {customer.ticariUnvan}
@@ -134,105 +141,115 @@ function SelectCustomer({ data, updateData }) {
 
                 {/* Teklif Dili Seçimi */}
                 <div className="col-12 col-md-4">
-                    <label className="form-label mb-1 small fw-medium text-white-50">Teklif Dili</label>
+                    <label className="form-label mb-1 small fw-medium text-white-50" style={{ fontSize: "11px" }}>
+                        Teklif Dili
+                    </label>
                     <select
                         name="teklifDili"
                         value={data.teklifDili || "Türkçe"}
                         onChange={handleChange}
-                        className="form-select form-select-sm border-0 bg-white text-dark"
+                        className="form-select form-select-sm text-white fw-bold border-0"
+                        style={{ backgroundColor: "#1e293b", borderRadius: "6px", fontSize: "12px" }}
                     >
-                        <option value="Türkçe">Türkçe</option>
-                        <option value="İngilizce">İngilizce</option>
-                        <option value="Almanca">Almanca</option>
+                        <option value="Türkçe" style={{ backgroundColor: "#0f172a" }}>Türkçe</option>
+                        <option value="İngilizce" style={{ backgroundColor: "#0f172a" }}>İngilizce</option>
+                        <option value="Almanca" style={{ backgroundColor: "#0f172a" }}>Almanca</option>
                     </select>
                 </div>
             </div>
 
             {/* Müşteri Seçildikten Sonra Yan Yana Açılacak Dinamik Alanlar */}
             {selectedCustomer && (
-                <div className="row g-2 align-items-end mb-3">
+                <div className="row g-2 align-items-end py-3">
 
                     {/* İlgili Kişi Seçimi */}
                     <div className="col-12 col-md-4">
-                        <label className="form-label mb-1 small fw-medium text-white-50">İlgili Kişi *</label>
+                        <label className="form-label mb-1 small fw-medium text-white-50" style={{ fontSize: "11px" }}>
+                            İlgili Kişi *
+                        </label>
                         <select
                             name="ilgiliKisi"
                             value={data.ilgiliKisi || ""}
                             onChange={handleChange}
-                            className="form-select form-select-sm border-0 bg-white text-dark"
+                            className="form-select form-select-sm text-white fw-bold border-0"
+                            style={{ backgroundColor: "#1e293b", borderRadius: "6px", fontSize: "12px" }}
                         >
-                            <option value="">Seçiniz...</option>
+                            <option value="" style={{ backgroundColor: "#0f172a" }}>Seçiniz...</option>
                             {selectedCustomer.ilgiliKisiler.map((kisi, index) => (
-                                <option key={index} value={kisi}>
+                                <option key={index} value={kisi} style={{ backgroundColor: "#0f172a" }}>
                                     {kisi}
                                 </option>
                             ))}
                         </select>
                     </div>
 
-                    {/* PlanetTEK İndirim Oranı */}
+                    {/* PlanetTEK İndirim Oranı - 2. koddaki input stili (Ön Arıtma Verimi vb.) ile eşitlendi */}
                     <div className="col-6 col-md-2">
-                        <label className="form-label mb-1 small fw-medium text-white-50">PlanetTEK (%)</label>
+                        <label className="text-white-50 d-block text-center mb-1" style={{ fontSize: "10px" }}>
+                            PlanetTEK (%)
+                        </label>
                         <input
                             type="number"
                             name="planetTekIndirim"
                             value={data.planetTekIndirim || ""}
                             onChange={handleChange}
-                            className="form-control form-control-sm border-0 bg-white text-dark"
+                            className="form-control form-control-sm border-0 text-white text-center fw-bold"
+                            style={{ backgroundColor: "#1e293b", fontSize: "12px", borderBottom: "2px solid #38bdf8", borderRadius: "4px 4px 0 0" }}
                             placeholder="0"
                         />
                     </div>
 
                     {/* Ekipman İndirim Oranı */}
                     <div className="col-6 col-md-2">
-                        <label className="form-label mb-1 small fw-medium text-white-50">Ekipman (%)</label>
+                        <label className="text-white-50 d-block text-center mb-1" style={{ fontSize: "10px" }}>
+                            Ekipman (%)
+                        </label>
                         <input
                             type="number"
                             name="ekipmanIndirim"
                             value={data.ekipmanIndirim || ""}
                             onChange={handleChange}
-                            className="form-control form-control-sm border-0 bg-white text-dark"
+                            className="form-control form-control-sm border-0 text-white text-center fw-bold"
+                            style={{ backgroundColor: "#1e293b", fontSize: "12px", borderBottom: "2px solid #38bdf8", borderRadius: "4px 4px 0 0" }}
                             placeholder="0"
                         />
                     </div>
 
-                    {/* Bilgi Gösterge Kartı / Tablo */}
+                    {/* Bilgi Gösterge Kartı / Tablo - Atıksu Kaynakları panel stiliyle eşitlendi */}
                     <div className="col-12 col-md-4">
                         <div
                             className="p-2 rounded border"
                             style={{
-                                backgroundColor: "rgba(255, 255, 255, 0.03)",
-                                borderColor: "rgba(255,255,255,0.1)",
+                                backgroundColor: "#0f172a",
+                                borderColor: "#334155",
                                 fontSize: "11px",
                                 lineHeight: "1.4",
-                                minHeight: "62px" // Boş kaldığında yükseklik çökmesin diye sabitledik
+                                minHeight: "62px"
                             }}
                         >
-                            <div className="text-white-50 fw-bold text-uppercase mb-1" style={{ letterSpacing: "0.3px" }}>
-                                Kayıtlı İndirim Geçmişi
+                            <div className="fw-medium text-white-50 mb-1" style={{ fontSize: "11px" }}>
+                                <i className="bi bi-clock-history me-1"></i> Kayıtlı İndirim Geçmişi
                             </div>
 
                             {siraliIndirimler.length === 0 ? (
-                                // DURUM 1: Hiç indirim oranı yoksa
-                                <div className="text-muted italic py-1">Kayıtlı indirim bulunamadı.</div>
+                                <div className="text-muted italic py-1" style={{ fontSize: "11px" }}>
+                                    Kayıtlı indirim bulunamadı.
+                                </div>
                             ) : (
-                                // DURUM 2: İndirim varsa (Yatay tablo/kolon düzeni)
                                 <div className="d-flex gap-2 overflow-auto pt-1">
                                     {siraliIndirimler.map((indirim, idx) => (
-                                        <div 
-                                            key={idx} 
-                                            className="pe-2 border-end text-white flex-shrink-0"
-                                            style={{ 
-                                                borderColor: "rgba(255,255,255,0.15) !important",
-                                                lastChild: { border: "none" } // Son elemanın çizgisi olmasın
+                                        <div
+                                            key={idx}
+                                            className="pe-2 text-white flex-shrink-0"
+                                            style={{
+                                                borderRight: idx === siraliIndirimler.length - 1 ? "none" : "1px solid #334155"
                                             }}
                                         >
-                                            {/* İlk kolon en güncel olduğu için ayırt edici bir badge ekledik */}
-                                            <div className="fw-bold" style={{ fontSize: "9px", color: idx === 0 ? "#5cffda" : "#a0aec0" }}>
+                                            <div className="fw-bold" style={{ fontSize: "9px", color: idx === 0 ? "#10b981" : "#64748b" }}>
                                                 {indirim.indirimTarihi} {idx === 0 && "(Güncel)"}
                                             </div>
-                                            <div>Plt: <strong className="text-info">%{indirim.planetTekIndirim}</strong></div>
-                                            <div>Ekp: <strong className="text-info">%{indirim.ekipmanIndirim}</strong></div>
+                                            <div style={{ fontSize: "11px" }}>Plt: <strong className="text-info">%{indirim.planetTekIndirim}</strong></div>
+                                            <div style={{ fontSize: "11px" }}>Ekp: <strong className="text-info">%{indirim.ekipmanIndirim}</strong></div>
                                         </div>
                                     ))}
                                 </div>

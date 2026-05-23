@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from "react";
 import hesaplaDiskKatsayisiDetayli from "../../../../utils/hesaplaDiskKatsayisiDetayli";
+import EmperikDetail from "./EmperikDetail";
 
-function KademeDetail({ data, updateData, openEmperikModal }) {
+function KademeDetail({ data, updateData }) {
 	const girisBoi = Number(data.girisBoi) || 0;
 	const sicaklik = Number(data.sicaklik) || 0;
 	const cikisBoi = Number(data.cikisBoi) || 0;
@@ -9,6 +10,15 @@ function KademeDetail({ data, updateData, openEmperikModal }) {
 	const kademeler = data.kademeler || [];
 	const [showsKademe, setShowKademe] = useState(false);
 	const [mainEmperik, setMainEmperik] = useState("");
+
+	const [isEmperikOpen, setIsEmperikOpen] = useState(false);
+	const [selectedKademeId, setSelectedSelectedKademeId] = useState(null);
+
+	// Grafik butonuna basınca modalı açan tetikleyici fonksiyon
+	const openEmperikModal = (id) => {
+		setSelectedSelectedKademeId(id);
+		setIsEmperikOpen(true);
+	};
 
 	useEffect(() => {
 		if (cikisBoi >= 40) {
@@ -50,7 +60,7 @@ function KademeDetail({ data, updateData, openEmperikModal }) {
 					[field]: field === "boi" ? (value === "" ? "" : Number(value)) : value,
 				};
 
-				// Eğer değişen alan boi ise, yeni empirik değerini hesapla ve ekle
+				// Eğer değişen alan boi ise, yeni Emperik değerini hesapla ve ekle
 				if (field === "boi" && value !== "") {
 					updatedKademe.emperik = hesaplaDiskKatsayisiDetayli(sicaklik, Number(value));
 				}
@@ -86,7 +96,7 @@ function KademeDetail({ data, updateData, openEmperikModal }) {
 				)}
 			</div>
 
-			<div className="position-relative d-flex align-items-center justify-content-between my-1 px-1" style={{ minHeight: "110px" }}>
+			<div className="position-relative d-flex align-items-center justify-content-between my-1 px-1" >
 				{/* Arka Plandaki Kesintisiz Ana Çizgi */}
 				<div className="position-absolute start-0 end-0" style={{ height: "2px", backgroundColor: "#475569", top: "35%", transform: "translateY(-50%)", zIndex: 1 }}></div>
 
@@ -193,11 +203,24 @@ function KademeDetail({ data, updateData, openEmperikModal }) {
 			</div>
 
 			{cikisBoi >= 40 && (
-				<div className="text-warning mt-4 text-center" style={{ fontSize: "11px" }}>
+				<div className="text-warning mt-0 text-center" style={{ fontSize: "11px" }}>
 					ℹ Çıkış BOİ ≥ 40 mg/l olduğundan kademe eklenemez.
 				</div>
 			)}
+
+			{/* Emperik Katsayı Hesaplama Modalı */}
+			{isEmperikOpen && (
+				<EmperikDetail
+					isOpen={isEmperikOpen}
+					onClose={() => setIsEmperikOpen(false)}
+					activeKademeId={selectedKademeId}
+					data={data}
+
+				/>
+			)}
 		</div>
+
+
 	);
 }
 

@@ -25,15 +25,22 @@
       "package.json"
     ],
     "mac": {
-      "target": ["dmg"],
+      "target": [
+        "dmg"
+      ],
       "icon": "build/icon.icns"
     },
     "win": {
-      "target": ["nsis", "zip"],
+      "target": [
+        "nsis",
+        "zip"
+      ],
       "icon": "build/icon.ico"
     },
     "linux": {
-      "target": ["AppImage"],
+      "target": [
+        "AppImage"
+      ],
       "icon": "build/icons"
     },
     "asar": true
@@ -44,12 +51,14 @@
     "bonjour": "^3.5.0",
     "bootstrap": "^5.3.8",
     "bootstrap-icons": "^1.13.1",
+    "chart.js": "^4.5.1",
     "express": "^5.1.0",
     "file-saver": "^2.0.5",
     "lucide-react": "^0.540.0",
     "open": "^10.2.0",
     "react": "^19.1.1",
     "react-bootstrap": "^2.10.10",
+    "react-chartjs-2": "^5.3.1",
     "react-dom": "^19.1.1",
     "react-router-dom": "^7.9.1",
     "react-select": "^5.10.2",

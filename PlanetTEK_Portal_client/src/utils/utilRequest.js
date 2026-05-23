@@ -21,8 +21,8 @@ async function getUrls() {
     const config = await loadConfig();
     //const baseUrl = `http://${config.API_HOST}:${config.API_PORT}/api/`;
     //const AuthUrl = `http://${config.API_HOST}:${config.API_PORT}/auth/`;
-    const baseUrl = " http://192.168.1.109:3008/api/"
-    const AuthUrl = " http://192.168.1.109:3008/auth/"
+    const baseUrl = " http://192.168.1.2:3008/api/"
+    const AuthUrl = " http://192.168.1.2:3008/auth/"
     return { baseUrl, AuthUrl };
 }
 
