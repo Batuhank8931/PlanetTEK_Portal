@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -28,7 +28,6 @@ const kilavuzCizgisiPlugin = {
   afterDatasetsDraw(chart) {
     const { ctx, scales: { x, y }, data } = chart;
 
-    // "Mevcut Durumunuz" dataset'ini buluyoruz (Genellikle son dataset)
     const mevcutDurumDatasetIndex = data.datasets.findIndex(
       (ds) => ds.label === "Mevcut Durumunuz"
     );
@@ -36,7 +35,6 @@ const kilavuzCizgisiPlugin = {
     if (mevcutDurumDatasetIndex === -1) return;
 
     const meta = chart.getDatasetMeta(mevcutDurumDatasetIndex);
-    // Nokta gizliyse veya çizilemiyorsa işlem yapma
     if (!meta.data || meta.data.length === 0 || meta.hidden) return;
 
     const nokta = meta.data[0];
@@ -46,14 +44,12 @@ const kilavuzCizgisiPlugin = {
     ctx.save();
     ctx.beginPath();
     ctx.lineWidth = 1.5;
-    ctx.strokeStyle = "rgba(239, 68, 68, 0.7)"; // Kırmızı noktanın renginde (opaklığı biraz azaltılmış)
-    ctx.setLineDash([4, 4]); // Kesikli çizgi efekti [çizgi boyu, boşluk boyu]
+    ctx.strokeStyle = "rgba(239, 68, 68, 0.7)";
+    ctx.setLineDash([4, 4]);
 
-    // X eksenine inen dikey çizgi (Noktadan aşağıya, X ekseninin başladığı yere kadar)
     ctx.moveTo(xPos, yPos);
     ctx.lineTo(xPos, y.bottom);
 
-    // Y eksenine uzanan yatay çizgi (Noktadan sola, Y ekseninin başladığı yere kadar)
     ctx.moveTo(xPos, yPos);
     ctx.lineTo(x.left, yPos);
 
@@ -62,22 +58,29 @@ const kilavuzCizgisiPlugin = {
   }
 };
 
-function EmperikDetail({ isOpen, onClose, data, activeKademeId }) {
+function EmperikDetail({ isOpen, onClose, data = {}, activeKademeId }) {
   if (!isOpen) return null;
 
+  // --- REVIZYON BAŞLANGICI: YENİ VERİ MİMARİSİNDEN OKUMA ---
+  const aritmaParametreleri = data?.tasarim?.aritmaParametreleri || {};
+  const kademeParametreleri = data?.tasarim?.kademeParametreleri || {};
 
-
-  // Gelen verileri alıyoruz ve sayıya dönüştürüyoruz
-  const sicaklik = Number(data?.sicaklik) || 0;
-  let cikisBoi = 0
+  // Sıcaklık artık aritmaParametreleri altında
+  const sicaklik = Number(aritmaParametreleri.sicaklik) || 0;
+  let cikisBoi = 0;
 
   if (activeKademeId === "cikis") {
-    cikisBoi = Number(data?.cikisBoi) || 0;
+    // Çıkış BOİ değeri de aritmaParametreleri altında
+    cikisBoi = Number(aritmaParametreleri.cikisBoi) || 0;
   } else {
-    const hedefKademe = data?.kademeler?.find(kademe => String(kademe.id) === String(activeKademeId));
+    // Kademeler dizisi artık kademeParametreleri altında tutuluyor
+    const kademelerListesi = kademeParametreleri.kademeler || [];
+    const hedefKademe = kademelerListesi.find(
+      (kademe) => String(kademe.id) === String(activeKademeId)
+    );
     cikisBoi = hedefKademe ? hedefKademe.boi : 0;
   }
-
+  // --- REVIZYON BİTİŞİ ---
 
   // 1. GRAFİK VERİLERİ (Görseldeki eğrilerin koordinat haritası)
   const hatlar = {
@@ -234,7 +237,6 @@ function EmperikDetail({ isOpen, onClose, data, activeKademeId }) {
 
           {/* Grafik Alanı */}
           <div className="p-3 rounded bg-dark bg-opacity-20 border border-secondary border-opacity-10" style={{ height: "320px", position: "relative" }}>
-            {/* plugins dizisine yazdığımız eklentiyi paslıyoruz */}
             <Line data={chartData} options={chartOptions} plugins={[kilavuzCizgisiPlugin]} />
           </div>
 

@@ -2,11 +2,17 @@ import React, { useState, useMemo, useEffect } from "react";
 import GiderimDetail from "./GiderimDetail";
 
 function YerlesimDetail({ data, finalMetrekare, updatedata }) {
-    const diskcapi = data.secilenDiskTipi === "MX" ? 2.05 : 1.35;
-    const hacim = data.secilenDiskTipi === "MX" ? 4.5 : 2.00;
+    const diskcapi = data?.tasarim?.diskParametreleri?.secilenDiskTipi === "MX" ? 2.05 : 1.35;
+    const hacim = data?.tasarim?.diskParametreleri?.secilenDiskTipi === "MX" ? 4.5 : 2.00;
+
+    const maxDiskAdedi = data?.tasarim?.diskParametreleri?.maxDiskAdedi || 135;
+    const minDiskAdedi = data?.tasarim?.diskParametreleri?.minDiskAdedi || 100;
+
     const tekDiskAlani = 2 * (Math.PI * Math.pow(diskcapi, 2) / 4);
 
     const [secilenUniteler, setSecilenUniteler] = useState({});
+    // Her kademenin sıra sayısını tutar: { 0: 2, 1: 3 } gibi (Varsayılan: 2 sıra)
+    const [secilenSiralar, setSecilenSiralar] = useState({});
     const [yerlesimDuzenleri, setYerlesimDuzenleri] = useState({});
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedKademeData, setSelectedKademeData] = useState(null);
@@ -19,8 +25,8 @@ function YerlesimDetail({ data, finalMetrekare, updatedata }) {
             const alanSayi = Number(kademeObj.alan) || 0;
             const toplamGerekliDisk = Math.ceil(alanSayi / tekDiskAlani);
 
-            const minUniteSayisi = Math.ceil(toplamGerekliDisk / (data.maxDiskAdedi || 135));
-            const maxUniteSayisi = Math.ceil(toplamGerekliDisk / (data.minDiskAdedi || 100));
+            const minUniteSayisi = Math.ceil(toplamGerekliDisk / maxDiskAdedi);
+            const maxUniteSayisi = Math.ceil(toplamGerekliDisk / minDiskAdedi);
 
             const alternatifUniteler = [];
             for (let i = minUniteSayisi; i <= maxUniteSayisi; i++) {
@@ -30,9 +36,24 @@ function YerlesimDetail({ data, finalMetrekare, updatedata }) {
             const mevcutSecim = secilenUniteler[index] || alternatifUniteler[0] || minUniteSayisi;
             const milBasinaDisk = Math.ceil(toplamGerekliDisk / mevcutSecim);
 
+            // Sıra sayısı seçimi (Varsayılan 2 sıra, en fazla 3)
+            const siraSayisi = secilenSiralar[index] || 2;
+
+            // Dağılım algoritması: Üniteleri sıra sayısına olabildiğince eşit böler
             const ozelDuzen = yerlesimDuzenleri[index];
-            const sira1Paralel = ozelDuzen ? ozelDuzen.sira1 : Math.ceil(mevcutSecim / 2);
-            const sira2Paralel = ozelDuzen ? ozelDuzen.sira2 : mevcutSecim - sira1Paralel;
+            let dagilim = [];
+
+            if (ozelDuzen && ozelDuzen.length === siraSayisi) {
+                dagilim = ozelDuzen;
+            } else {
+                // Otomatik dağıtım mantığı
+                let kalanUnite = mevcutSecim;
+                for (let s = 0; s < siraSayisi; s++) {
+                    const siraPayi = Math.ceil(kalanUnite / (siraSayisi - s));
+                    dagilim.push(siraPayi);
+                    kalanUnite -= siraPayi;
+                }
+            }
 
             return {
                 index: index + 1,
@@ -43,16 +64,29 @@ function YerlesimDetail({ data, finalMetrekare, updatedata }) {
                 alternatifUniteler,
                 mevcutSecim,
                 milBasinaDisk,
-                sira1Paralel,
-                sira2Paralel
+                siraSayisi,
+                dagilim // Örn: [2, 1, 1] -> 3 sıra için her sıradaki paralel ünite adedi
             };
         });
-    }, [finalMetrekare, tekDiskAlani, data.minDiskAdedi, data.maxDiskAdedi, secilenUniteler, yerlesimDuzenleri]);
+    }, [finalMetrekare, tekDiskAlani, minDiskAdedi, maxDiskAdedi, secilenUniteler, secilenSiralar, yerlesimDuzenleri]);
 
     const handleUniteChange = (kademeIndex, adet) => {
         const yeniAdet = parseInt(adet, 10);
         setSecilenUniteler(prev => ({ ...prev, [kademeIndex]: yeniAdet }));
 
+        // Ünite sayısı değiştiğinde özel yerleşimi sıfırla (otomatik dağıtıma dönsün)
+        setYerlesimDuzenleri(prev => {
+            const kopya = { ...prev };
+            delete kopya[kademeIndex];
+            return kopya;
+        });
+    };
+
+    const handleSiraChange = (kademeIndex, siraAdedi) => {
+        const yeniSira = parseInt(siraAdedi, 10);
+        setSecilenSiralar(prev => ({ ...prev, [kademeIndex]: yeniSira }));
+
+        // Sıra sayısı değiştiğinde eski düzene ait kayıtları sıfırla
         setYerlesimDuzenleri(prev => {
             const kopya = { ...prev };
             delete kopya[kademeIndex];
@@ -65,53 +99,40 @@ function YerlesimDetail({ data, finalMetrekare, updatedata }) {
         setIsModalOpen(true);
     };
 
-    // Tüm sıraları düz liste yapma mantığı
     const tumSiralar = useMemo(() => {
         const siralar = [];
         let genelSiraNo = 1;
 
         kademeHesaplari.forEach((kademe) => {
-            const HRT_Sira1 = data.debi ? (((hacim * kademe.sira1Paralel) / data.debi) * 24).toFixed(2) : 0;
+            kademe.dagilim.forEach((siraAdet, sIdx) => {
+                const HRT = data?.debi ? (((hacim * siraAdet) / data.debi) * 24).toFixed(2) : 0;
 
-            siralar.push({
-                isLamella: false,
-                genelSiraNo: genelSiraNo++,
-                kademeNo: kademe.index,
-                kademeRealIndex: kademe.realIndex,
-                siraTipi: 1,
-                adet: kademe.sira1Paralel,
-                milBasinaDisk: kademe.milBasinaDisk,
-                beklemeSuresi: HRT_Sira1,
-                color: "#15803d", // Gerçek makinedeki yeşil tonuna yaklaştırıldı
-                borderColor: "#16a34a",
-                textColor: "#4ade80"
-            });
-
-            const HRT_Sira2 = data.debi ? (((hacim * kademe.sira2Paralel) / data.debi) * 24).toFixed(2) : 0;
-            siralar.push({
-                isLamella: false,
-                genelSiraNo: genelSiraNo++,
-                kademeNo: kademe.index,
-                kademeRealIndex: kademe.realIndex,
-                siraTipi: 2,
-                adet: kademe.sira2Paralel,
-                milBasinaDisk: kademe.milBasinaDisk,
-                beklemeSuresi: HRT_Sira2,
-                color: "#15803d",
-                borderColor: "#16a34a",
-                textColor: "#4ade80"
+                siralar.push({
+                    isLamella: false,
+                    genelSiraNo: genelSiraNo++,
+                    kademeNo: kademe.index,
+                    kademeRealIndex: kademe.realIndex,
+                    siraTipi: sIdx,
+                    adet: siraAdet,
+                    milBasinaDisk: kademe.milBasinaDisk,
+                    beklemeSuresi: HRT,
+                    color: "#15803d",
+                    borderColor: "#16a34a",
+                    textColor: "#4ade80"
+                });
             });
         });
 
-        if (data && data.lamellaAdet && Number(data.lamellaAdet) > 0) {
+        const lamellaData = data?.tasarim?.lamella;
+        if (lamellaData && lamellaData.lamellaAdet && Number(lamellaData.lamellaAdet) > 0) {
             siralar.push({
                 isLamella: true,
                 genelSiraNo: genelSiraNo++,
                 kademeNo: "Çökeltim",
-                adet: Number(data.lamellaAdet),
-                model: data.secilenLamellaModeli || "Bilinmiyor",
-                alan: data.gerekliLamellaAlani || 0,
-                hacim: data.gerekliLamellaHacmi || 0,
+                adet: Number(lamellaData.lamellaAdet),
+                model: lamellaData.secilenLamellaModeli || "Bilinmiyor",
+                alan: lamellaData.gerekliLamellaAlani || 0,
+                hacim: lamellaData.gerekliLamellaHacmi || 0,
                 color: "#0f766e",
                 borderColor: "#14b8a6",
                 textColor: "#2dd4bf"
@@ -119,7 +140,31 @@ function YerlesimDetail({ data, finalMetrekare, updatedata }) {
         }
 
         return siralar;
-    }, [kademeHesaplari, hacim, data]);
+    }, [kademeHesaplari, hacim, data?.debi, data?.tasarim?.lamella]); // <-- Nesne yerine doğrudan field dinliyoruz
+
+
+    // YerlesimDetail.jsx içerisindeki ilgili Effect
+
+    useEffect(() => {
+        if (!updatedata || !data) return;
+
+        const yeniYerlesimStr = JSON.stringify(tumSiralar);
+        const mevcutYerlesimStr = JSON.stringify(data?.tasarim?.yerlesimSiralanisi);
+
+        if (!data?.tasarim?.yerlesimSiralanisi || mevcutYerlesimStr !== yeniYerlesimStr) {
+
+            // Üst bileşenin (DiskDetail) yazdığı kademeParametreleri vb. alanları kaybetmemek için
+            const guncelTasarim = {
+                ...(data?.tasarim || {}), // Üst bileşenin verilerini koru
+                yerlesimSiralanisi: tumSiralar
+            };
+
+            updatedata({
+                ...data,
+                tasarim: guncelTasarim
+            });
+        }
+    }, [tumSiralar, updatedata]); // data bağımlılığı zaten yok, bu doğru kalıyor.
 
     // --- HTML5 DRAG AND DROP FONKSİYONLARI ---
     const handleDragStart = (e, kaynakKademeIndex, kaynakSiraTipi) => {
@@ -139,40 +184,27 @@ function YerlesimDetail({ data, finalMetrekare, updatedata }) {
         const kaynakKademeIndex = parseInt(e.dataTransfer.getData("kaynakKademeIndex"), 10);
         const kaynakSiraTipi = parseInt(e.dataTransfer.getData("kaynakSiraTipi"), 10);
 
-        // Farklı kademeler arasında taşımayı engelle
-        if (kaynakKademeIndex !== hedefKademeIndex) return;
-        // Aynı sıranın içine bırakıldıysa işlem yapma
-        if (kaynakSiraTipi === hedefSiraTipi) return;
+        if (kaynakKademeIndex !== hedefKademeIndex) return; // Farklı kademeler arası engelle
+        if (kaynakSiraTipi === hedefSiraTipi) return; // Aynı sıraya bırakıldıysa iptal
 
         const ilgiliKademe = kademeHesaplari.find(k => k.realIndex === hedefKademeIndex);
         if (!ilgiliKademe) return;
 
-        let yeniSira1 = ilgiliKademe.sira1Paralel;
-        let yeniSira2 = ilgiliKademe.sira2Paralel;
+        // Mevcut dağılımın kopyasını alıyoruz
+        const yeniDagilim = [...ilgiliKademe.dagilim];
 
-        // 1. Sıradan 2. Sıraya taşıma
-        if (kaynakSiraTipi === 1 && hedefSiraTipi === 2) {
-            if (yeniSira1 > 0) {
-                yeniSira1 -= 1;
-                yeniSira2 += 1;
-            }
-        }
-        // 2. Sıradan 1. Sıraya taşıma (Hatalı kısım burasıydı, düzeltildi)
-        else if (kaynakSiraTipi === 2 && hedefSiraTipi === 1) {
-            if (yeniSira2 > 0) {
-                yeniSira2 -= 1;
-                yeniSira1 += 1;
-            }
+        // Kaynak sıradan 1 ünite azalt, hedef sıraya 1 ünite ekle
+        if (yeniDagilim[kaynakSiraTipi] > 0) {
+            yeniDagilim[kaynakSiraTipi] -= 1;
+            yeniDagilim[hedefSiraTipi] += 1;
         }
 
         setYerlesimDuzenleri(prev => ({
             ...prev,
-            [hedefKademeIndex]: {
-                sira1: yeniSira1,
-                sira2: yeniSira2
-            }
+            [hedefKademeIndex]: yeniDagilim
         }));
     };
+
 
     return (
         <div className="p-1 rounded" style={{ backgroundColor: "#1e293b", display: "flex", flexDirection: "column" }}>
@@ -184,7 +216,7 @@ function YerlesimDetail({ data, finalMetrekare, updatedata }) {
                         <div className="p-1 rounded bg-dark bg-opacity-50" style={{ border: "1px solid rgba(255,255,255,0.05)" }}>
                             <div className="d-flex justify-content-between align-items-center mb-2 pb-1 border-bottom" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
                                 <span className="fw-bold text-white" style={{ fontSize: "11px" }}>
-                                    {kademe.index}. Kademe (Biyolojik)
+                                    {kademe.index}. Kademe
                                 </span>
                                 <span className="text-white-50" style={{ fontSize: "11px" }}>
                                     <strong>{kademe.gerekliAlan.toFixed(2)} m²</strong> / {kademe.toplamGerekliDisk} Disk
@@ -200,23 +232,61 @@ function YerlesimDetail({ data, finalMetrekare, updatedata }) {
                             </div>
 
                             <div className="row g-1 align-items-end">
-                                <div className="col-6">
+                                {/* 1. Ünite Seçim Dropdown'u */}
+                                <div className="col-4">
+                                    <div className="text-white-50 mb-1" style={{ fontSize: "9px", paddingLeft: "2px" }}>Ünite:</div>
                                     <select
                                         value={kademe.mevcutSecim}
                                         onChange={(e) => handleUniteChange(kademe.realIndex, e.target.value)}
                                         className="form-select form-select-sm bg-dark text-white border-0"
-                                        style={{ fontSize: "12px" }}
+                                        style={{
+                                            fontSize: "11px",
+                                            fontWeight: "bold",
+                                            paddingLeft: "6px",
+                                            paddingRight: "12px",
+                                            height: "26px", // Tüm kutuların yüksekliği eşitlendi
+                                            backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e")`,
+                                            backgroundSize: "7px 7px",
+                                            backgroundPosition: "right 3px center"
+                                        }}
                                     >
                                         {kademe.alternatifUniteler.map(adet => (
-                                            <option key={adet} value={adet}>{adet} Ünite</option>
+                                            <option key={adet} value={adet}>{adet}</option>
                                         ))}
                                     </select>
                                 </div>
-                                <div className="col-6">
-                                    {/* İSTEDİĞİNİZ REVİZE ALAN (Burası güncellendi) */}
-                                    <div className="bg-dark p-2 rounded text-center" style={{ height: "31px", display: "flex", alignItems: "center", justifyContent: "center" }}>
-                                        <span className="text-white-50" style={{ fontSize: "11px" }}>
-                                            <strong style={{ color: "#00a86b" }}>{kademe.milBasinaDisk} Disk</strong>
+
+                                {/* 2. Sıra Seçim Dropdown'u */}
+                                <div className="col-4">
+                                    <div className="text-white-50 mb-1" style={{ fontSize: "9px", paddingLeft: "2px" }}>Sıra:</div>
+                                    <select
+                                        value={kademe.siraSayisi}
+                                        onChange={(e) => handleSiraChange(kademe.realIndex, e.target.value)}
+                                        className="form-select form-select-sm bg-dark text-white border-0"
+                                        style={{
+                                            fontSize: "11px",
+                                            fontWeight: "bold",
+                                            color: "#60a5fa",
+                                            paddingLeft: "6px",
+                                            paddingRight: "12px",
+                                            height: "26px",
+                                            backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%2360a5fa' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e")`,
+                                            backgroundSize: "7px 7px",
+                                            backgroundPosition: "right 3px center"
+                                        }}
+                                    >
+                                        <option value="1">1</option>
+                                        <option value="2">2</option>
+                                        <option value="3">3</option>
+                                    </select>
+                                </div>
+
+                                {/* 3. Disk Bilgi Alanı (Dümdüz Rakam Gösteren Sabit Kutu) */}
+                                <div className="col-4">
+                                    <div className="text-white-50 mb-1 text-center" style={{ fontSize: "9px" }}>Disk:</div>
+                                    <div className="bg-dark rounded text-center" style={{ height: "26px", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                                        <span style={{ fontSize: "11px", fontWeight: "bold", color: "#00a86b" }}>
+                                            {kademe.milBasinaDisk}
                                         </span>
                                     </div>
                                 </div>
@@ -224,7 +294,6 @@ function YerlesimDetail({ data, finalMetrekare, updatedata }) {
                         </div>
                     </div>
                 ))}
-
             </div>
 
             {/* 2. SÜRÜKLENEBİLİR VE BIRAKILABİLİR ALT SIRALAR */}
@@ -278,14 +347,12 @@ function YerlesimDetail({ data, finalMetrekare, updatedata }) {
                             >
                                 {Array.from({ length: sira.adet }).map((_, i) => (
                                     sira.isLamella ? (
-                                        /* LAMELLA İÇİN YEŞİL ÜÇGENİMSİ TASARIM (GÖRSEL %50 KÜÇÜK - FONT ORİJİNAL) */
                                         <div
                                             key={`lamella-visual-${i}`}
                                             className="d-flex flex-column align-items-center justify-content-center"
                                             style={{ width: "100%", maxWidth: "45px", marginTop: "2.5px" }}
                                             title={`Model: ${sira.model} Lamella Çökeltici`}
                                         >
-                                            {/* LAMELLA İÇİN ENDÜSTRİYEL HAVUZ VE KONİK ÇÖKELTİCİ TASARIMI */}
                                             <div
                                                 className="d-flex flex-column align-items-center justify-content-center"
                                                 style={{
@@ -293,9 +360,7 @@ function YerlesimDetail({ data, finalMetrekare, updatedata }) {
                                                     marginTop: "2.5px",
                                                     filter: "drop-shadow(0px 2px 3px rgba(0,0,0,0.5))"
                                                 }}
-                                                title={`Model: ${sira.model} Lamella Çökeltici`}
                                             >
-                                                {/* Üst Havuz Gövdesi ve İçindeki Plakalar */}
                                                 <div style={{
                                                     width: "40px",
                                                     height: "14px",
@@ -307,15 +372,12 @@ function YerlesimDetail({ data, finalMetrekare, updatedata }) {
                                                     overflow: "hidden",
                                                     borderBottom: "0.5px solid rgba(0,0,0,0.2)"
                                                 }}>
-                                                    {/* İçerideki Gerçekçi Lamella Plakaları */}
                                                     <div style={{
                                                         position: "absolute",
                                                         inset: "2px 4px",
                                                         backgroundImage: "repeating-linear-gradient(120deg, transparent, transparent 1px, rgba(255,255,255,0.3) 1px, rgba(255,255,255,0.3) 2.5px)",
                                                         opacity: 0.8
                                                     }} />
-
-                                                    {/* Su Seviyesi Çizgisi */}
                                                     <div style={{
                                                         position: "absolute",
                                                         top: 0, left: 0, right: 0,
@@ -324,8 +386,6 @@ function YerlesimDetail({ data, finalMetrekare, updatedata }) {
                                                         opacity: 0.6
                                                     }} />
                                                 </div>
-
-                                                {/* Alt Kısım: Çamur Toplama Konisi */}
                                                 <div style={{
                                                     width: "0",
                                                     height: "0",
@@ -334,27 +394,21 @@ function YerlesimDetail({ data, finalMetrekare, updatedata }) {
                                                     borderTop: "11px solid #0f766e",
                                                     position: "relative"
                                                 }}>
-                                                    {/* Koninin dip toplama noktası */}
                                                     <div style={{
                                                         position: "absolute",
-                                                        top: 0,
-                                                        left: "-2px",
-                                                        width: "4px",
-                                                        height: "2px",
+                                                        top: 0, left: "-2px",
+                                                        width: "4px", height: "2px",
                                                         backgroundColor: "#115e59",
                                                         borderBottomLeftRadius: "0.5px",
                                                         borderBottomRightRadius: "0.5px"
                                                     }} />
                                                 </div>
-
                                             </div>
-                                            {/* Dış etiket orijinal boyutuna getirildi */}
                                             <span style={{ fontSize: "9px", color: "#2dd4bf", fontWeight: "bold", marginTop: "4px", whiteSpace: "nowrap" }}>
                                                 Lamella-{i + 1}
                                             </span>
                                         </div>
                                     ) : (
-                                        /* RBC REAKTÖR MAKİNESİ TASARIMI (GÖRSEL %50 KÜÇÜK - FONT ORİJİNAL) */
                                         <div
                                             key={i}
                                             draggable
@@ -363,15 +417,7 @@ function YerlesimDetail({ data, finalMetrekare, updatedata }) {
                                             style={{ width: "100%", maxWidth: "45px", cursor: "grab", userSelect: "none" }}
                                             title={`${sira.milBasinaDisk} Disk - Sürükleyip sırasını değiştirebilirsiniz.`}
                                         >
-                                            {/* Kombine Kapsül Tasarımı - Endüstriyel SCADA Tarzı */}
-                                            <div
-                                                style={{
-                                                    width: "42.5px",
-                                                    filter: "drop-shadow(0px 2px 3px rgba(0,0,0,0.5))",
-                                                    position: "relative"
-                                                }}
-                                            >
-                                                {/* Üst Kısım: Turuncu, Bombeli ve Hacimli Kapak */}
+                                            <div style={{ width: "42.5px", filter: "drop-shadow(0px 2px 3px rgba(0,0,0,0.5))", position: "relative" }}>
                                                 <div style={{
                                                     height: "13px",
                                                     background: "linear-gradient(90deg, #ff7324 0%, #ea580c 30%, #c2410c 85%, #9a3412 100%)",
@@ -380,38 +426,31 @@ function YerlesimDetail({ data, finalMetrekare, updatedata }) {
                                                     boxShadow: "inset 0 1px 1.5px rgba(255,255,255,0.3)",
                                                     position: "relative"
                                                 }}>
-                                                    {/* Makine Yan Menhol Kapağı Detayı */}
                                                     <div style={{
                                                         position: "absolute",
-                                                        right: "7.5px",
-                                                        top: "4px",
-                                                        width: "5px",
-                                                        height: "5px",
+                                                        right: "7.5px", top: "4px",
+                                                        width: "5px", height: "5px",
                                                         borderRadius: "50%",
                                                         background: "radial-gradient(circle, #4b5563 0%, #1f2937 80%)",
                                                         border: "0.5px solid rgba(255,255,255,0.15)",
                                                         boxShadow: "0 0.5px 1px rgba(0,0,0,0.4)"
                                                     }} />
                                                 </div>
-
-                                                {/* Orta Ayrım: Siyah Çelik Şase Çizgisi */}
                                                 <div style={{ height: "1px", backgroundColor: "#334155", width: "100%" }} />
-
-                                                {/* Alt Kısım: Derinlikli Yeşil Gövde */}
-                                                <div
-                                                    className="d-flex flex-column align-items-center justify-content-center text-white"
-                                                    style={{
-                                                        height: "22px", // İçerideki orijinal fontların sığması için dikeyde hafif pay bırakıldı
-                                                        background: "linear-gradient(90deg, #22c55e 0%, #16a34a 25%, #15803d 75%, #166534 100%)",
-                                                        borderBottomLeftRadius: "3px",
-                                                        borderBottomRightRadius: "3px",
-                                                        boxShadow: "inset 0 -1.5px 2.5px rgba(0,0,0,0.3)",
-                                                        fontFamily: "monospace",
-                                                        lineHeight: "1.1",
-                                                        padding: "2px 0"
-                                                    }}
-                                                >
-                                                    {/* Sayı ve DİSK yazısı orijinal font boyutlarına döndü */}
+                                                <div style={{
+                                                    height: "22px",
+                                                    background: "linear-gradient(90deg, #22c55e 0%, #16a34a 25%, #15803d 75%, #166534 100%)",
+                                                    borderBottomLeftRadius: "3px",
+                                                    borderBottomRightRadius: "3px",
+                                                    boxShadow: "inset 0 -1.5px 2.5px rgba(0,0,0,0.3)",
+                                                    fontFamily: "monospace",
+                                                    lineHeight: "1.1",
+                                                    padding: "2px 0",
+                                                    display: "flex",
+                                                    flexDirection: "column",
+                                                    alignItems: "center",
+                                                    justifyContent: "center"
+                                                }}>
                                                     <span style={{ fontSize: "10px", fontWeight: "800", letterSpacing: "0.5px", textShadow: "1px 1px 2px rgba(0,0,0,0.6)" }}>
                                                         {sira.milBasinaDisk}
                                                     </span>
@@ -420,7 +459,6 @@ function YerlesimDetail({ data, finalMetrekare, updatedata }) {
                                                     </span>
                                                 </div>
                                             </div>
-                                            {/* Dış etiket orijinal boyutuna getirildi */}
                                             <span style={{ fontSize: "9px", color: "#a3e635", fontWeight: "500", marginTop: "4px", whiteSpace: "nowrap" }}>
                                                 RBC-{i + 1}
                                             </span>

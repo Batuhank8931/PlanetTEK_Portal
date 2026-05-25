@@ -129,7 +129,7 @@ function MusterilerPage() {
       style={{
         fontSize: "14px",
         fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-        backgroundColor: "#f4f6f8",
+        backgroundColor: "#1a2d3a",
         // Mobilde navbar arkasında kalmasın diye 70px (veya navbar yüksekliğin kadar) boşluk, masaüstünde 0
         paddingTop: window.innerWidth < 768 ? "75px" : "20px"
       }}
@@ -138,32 +138,30 @@ function MusterilerPage() {
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 pb-3 border-bottom gap-3" style={{ borderColor: "#dee2e6" }}>
         <div>
           <h5 className="mb-1 fw-semibold tracking-tight" style={{ color: "#1a1c1d" }}>
-            <i className="bi bi-building me-2" style={{ color: "#00874e" }}></i>Müşteri Portföyü
+            <i className="bi bi-building me-2" style={{ color: "#00874e" }}></i><span style={{ color: "#ffffff" }}>Müşteri Portföyü </span>
           </h5>
-          <p className="text-muted mb-0" style={{ fontSize: "12px" }}>Müşteri listesi, iletişim ve teklif takibi</p>
+          <p className="mb-0" style={{ fontSize: "12px", color: '#6b8aaa' }}>Müşteri listesi, iletişim ve teklif takibi</p>
         </div>
-        <button
-          onClick={openAddPanel}
-          className="btn text-white px-3 py-1.5 shadow-sm border-0 d-flex align-items-center fw-medium w-100 w-md-auto justify-content-center"
-          style={{ backgroundColor: "#00874e", fontSize: "13px", borderRadius: "6px", transition: "all 0.2s" }}
-        >
-          <i className="bi bi-plus-lg me-1.5"></i> Yeni Müşteri Ekle
-        </button>
+
       </div>
 
       {/* FİLTRELEME ALANI */}
-      <div className="card shadow-sm border-0 mb-4" style={{ borderRadius: "8px" }}>
-        <div className="card-body p-3 bg-white" style={{ borderRadius: "8px" }}>
+      <div className="card shadow-sm border-0 mb-4" style={{ backgroundColor: "transparent" }}>
+        <div className="card-body m-0 p-0 border-0">
           <div className="row g-2 align-items-center">
-            <div className="col-12 col-md-5">
+            <div className="col-12 col-md-4">
               <div className="input-group input-group-sm">
-                <span className="input-group-text bg-white border-end-0 text-muted" style={{ borderColor: "#dcdfe4" }}>
+                <span className="input-group-text border-end-0 text-white-50" style={{ backgroundColor: "#0f172a", borderColor: "#334155" }}>
                   <i className="bi bi-search"></i>
                 </span>
                 <input
                   type="text"
-                  className="form-control bg-white border-start-0"
-                  style={{ borderColor: "#dcdfe4", fontSize: "13px" }}
+                  className="form-control text-white border-start-0 custom-placeholder"
+                  style={{
+                    backgroundColor: "#0f172a",
+                    borderColor: "#334155",
+                    fontSize: "13px"
+                  }}
                   placeholder="Ticari ünvan, ülke veya satışçı ara..."
                   value={searchQuery}
                   onChange={(e) => { setSearchQuery(e.target.value); setCurrentPage(1); }}
@@ -172,104 +170,115 @@ function MusterilerPage() {
             </div>
             <div className="col-12 col-md-3">
               <select
-                className="form-select form-select-sm bg-white"
-                style={{ borderColor: "#dcdfe4", fontSize: "13px" }}
+                className="form-select form-select-sm text-white"
+                style={{ backgroundColor: "#0f172a", borderColor: "#334155", fontSize: "13px" }}
                 value={menseiFilter}
                 onChange={(e) => { setMenseiFilter(e.target.value); setCurrentPage(1); }}
               >
-                <option value="Hepsi">Menşei: Tümü</option>
-                <option value="Yerli">Yerli Firmalar</option>
-                <option value="Yabancı">Yabancı Firmalar</option>
+                <option value="Hepsi" style={{ backgroundColor: "#0f172a" }}>Menşei: Tümü</option>
+                <option value="Yerli" style={{ backgroundColor: "#0f172a" }}>Yerli Firmalar</option>
+                <option value="Yabancı" style={{ backgroundColor: "#0f172a" }}>Yabancı Firmalar</option>
               </select>
             </div>
-            <div className="col-12 col-md-4 d-flex align-items-center text-muted justify-content-start justify-content-md-end mt-2 mt-md-0" style={{ fontSize: "12px" }}>
-              Toplam: <span className="fw-semibold ms-1" style={{ color: "#1a1c1d" }}>{filteredCustomers.length} Müşteri</span>
+            <div className="col-12 col-md-2 d-flex align-items-center justify-content-start justify-content-md-end" style={{ fontSize: "12px", color: "#94a3b8" }}>
+              Toplam: <span className="fw-semibold ms-1" style={{ color: "#f8fafc" }}>{filteredCustomers.length} Müşteri</span>
+            </div>
+            {/* Buton d-flex ve justify-content-end ile en sağa yaslandı */}
+            <div className="col-12 col-md-3 d-flex justify-content-start justify-content-md-end">
+              <button
+                onClick={openAddPanel}
+                className="btn text-white px-3 py-2 shadow-sm border-0 d-flex align-items-center fw-medium w-md-auto justify-content-center"
+                style={{ backgroundColor: "#00874e", fontSize: "13px", borderRadius: "6px", transition: "all 0.2s" }}
+              >
+                <i className="bi bi-plus-lg me-1.5"></i> Yeni Müşteri Ekle
+              </button>
             </div>
           </div>
         </div>
       </div>
 
       {/* TABLO */}
-      <div className="card shadow-sm border-0 bg-white" style={{ borderRadius: "8px", overflow: "hidden" }}>
+      <div className="card shadow-sm border-0" style={{ borderRadius: "8px", overflow: "hidden", backgroundColor: "#1e293b" }}>
         <div className="table-responsive">
-          <table className="table table-hover align-middle mb-0" style={{ fontSize: "13px", minWidth: "800px" }}>
-            <thead className="text-secondary border-bottom" style={{ backgroundColor: "#f8f9fa", fontSize: "11px", letterSpacing: "0.5px", borderColor: "#dee2e6" }}>
+          {/* Bootstrap'in beyaz arka planı ezmesi için table-dark sınıfı eklendi */}
+          <table className="table table-dark table-hover align-middle mb-0" style={{ fontSize: "13px", minWidth: "800px", backgroundColor: "#1e293b" }}>
+            <thead className="text-muted border-bottom" style={{ fontSize: "11px", letterSpacing: "0.5px", borderColor: "#334155" }}>
               <tr>
-                <th className="py-3 px-4 fw-semibold text-uppercase">Firma / Menşei</th>
-                <th className="py-3 fw-semibold text-uppercase">Vergi Bilgileri</th>
-                <th className="py-3 fw-semibold text-uppercase">Primary Yetkili Kişi</th>
-                <th className="py-3 fw-semibold text-uppercase text-center">Teklif Durumu</th>
-                <th className="py-3 fw-semibold text-uppercase">Sorumlu Satışçı</th>
-                <th className="py-3 fw-semibold text-uppercase text-end px-4">İşlemler</th>
+                <th className="py-3 px-4 fw-semibold text-uppercase" style={{ color: "#94a3b8", backgroundColor: "#0f172a" }}>Firma / Menşei</th>
+                <th className="py-3 fw-semibold text-uppercase" style={{ color: "#94a3b8", backgroundColor: "#0f172a" }}>Vergi Bilgileri</th>
+                <th className="py-3 fw-semibold text-uppercase" style={{ color: "#94a3b8", backgroundColor: "#0f172a" }}>Primary Yetkili Kişi</th>
+                <th className="py-3 fw-semibold text-uppercase text-center" style={{ color: "#94a3b8", backgroundColor: "#0f172a" }}>Teklif Durumu</th>
+                <th className="py-3 fw-semibold text-uppercase" style={{ color: "#94a3b8", backgroundColor: "#0f172a" }}>Sorumlu Satışçı</th>
+                <th className="py-3 fw-semibold text-uppercase text-end px-4" style={{ color: "#94a3b8", backgroundColor: "#0f172a" }}>İşlemler</th>
               </tr>
             </thead>
             <tbody>
               {displayedCustomers.length > 0 ? (
                 displayedCustomers.map((customer) => (
-                  <tr key={customer.id}>
-                    <td className="px-4 py-3">
-                      <div className="fw-semibold" style={{ color: "#1a1c1d" }}>{customer.ticariUnvan}</div>
+                  <tr key={customer.id} style={{ borderColor: "#334155" }}>
+                    <td className="px-4 py-3" style={{ backgroundColor: "#1e293b" }}>
+                      <div className="fw-semibold" style={{ color: "#f8fafc" }}>{customer.ticariUnvan}</div>
                       <div className="d-flex align-items-center mt-1 gap-2" style={{ fontSize: "11px" }}>
                         <span
                           className="badge px-2 py-0.5 fw-medium"
                           style={customer.mensei === "Yerli"
-                            ? { backgroundColor: "rgba(0, 135, 78, 0.1)", color: "#00874e" }
-                            : { backgroundColor: "rgba(255, 193, 7, 0.15)", color: "#9a6e00" }
+                            ? { backgroundColor: "rgba(34, 197, 94, 0.2)", color: "#4ade80" }
+                            : { backgroundColor: "rgba(234, 179, 8, 0.2)", color: "#fef08a" }
                           }
                         >
                           {customer.mensei}
                         </span>
-                        <span className="text-muted"><i className="bi bi-geo-alt me-1"></i>{customer.ulke}</span>
+                        <span style={{ color: "#94a3b8" }}><i className="bi bi-geo-alt me-1"></i>{customer.ulke}</span>
                       </div>
                     </td>
-                    <td>
-                      <div className="fw-medium" style={{ color: "#2d3133" }}>{customer.vergiDairesi}</div>
-                      <div className="text-muted" style={{ fontSize: "11px" }}>No: {customer.vergiNo}</div>
+                    <td style={{ backgroundColor: "#1e293b" }}>
+                      <div className="fw-medium" style={{ color: "#e2e8f0" }}>{customer.vergiDairesi}</div>
+                      <div style={{ fontSize: "11px", color: "#94a3b8" }}>No: {customer.vergiNo}</div>
                     </td>
-                    <td>
+                    <td style={{ backgroundColor: "#1e293b" }}>
                       {customer.yetkililer && customer.yetkililer[0] ? (
                         <div>
-                          <div className="fw-medium" style={{ color: "#2d3133" }}>{customer.yetkililer[0].isim}</div>
-                          <div className="text-muted d-flex align-items-center gap-1" style={{ fontSize: "11px" }}>
-                            <i className="bi bi-envelope text-muted" style={{ fontSize: "10px" }}></i>
+                          <div className="fw-medium" style={{ color: "#e2e8f0" }}>{customer.yetkililer[0].isim}</div>
+                          <div className="d-flex align-items-center gap-1" style={{ fontSize: "11px", color: "#94a3b8" }}>
+                            <i className="bi bi-envelope" style={{ fontSize: "10px", color: "#94a3b8" }}></i>
                             {customer.yetkililer[0].mail}
                             {customer.yetkililer.length > 1 && (
-                              <span className="badge bg-light text-secondary border px-1.5 py-0.5 fw-normal" style={{ fontSize: "9px", borderColor: "#dee2e6" }}>
+                              <span className="badge border px-1.5 py-0.5 fw-normal" style={{ fontSize: "9px", borderColor: "#475569", backgroundColor: "#334155", color: "#cbd5e1" }}>
                                 +{customer.yetkililer.length - 1} Diğer
                               </span>
                             )}
                           </div>
                         </div>
                       ) : (
-                        <span className="text-danger-emphasis bg-danger-subtle px-2 py-0.5 rounded fw-medium" style={{ fontSize: "11px" }}>Atanmadı</span>
+                        <span className="px-2 py-0.5 rounded fw-medium" style={{ fontSize: "11px", color: "#f87171", backgroundColor: "rgba(239, 68, 68, 0.2)" }}>Atanmadı</span>
                       )}
                     </td>
-                    <td className="text-center">
+                    <td className="text-center" style={{ backgroundColor: "#1e293b" }}>
                       <span
                         className="badge px-2.5 py-1 fw-medium"
                         style={customer.teklifAdedi > 0
-                          ? { backgroundColor: "rgba(26, 28, 29, 0.05)", color: "#1a1c1d", border: "1px solid rgba(26, 28, 29, 0.1)" }
-                          : { backgroundColor: "transparent", color: "#adb5bd", border: "1px dashed #dee2e6" }
+                          ? { backgroundColor: "rgba(248, 250, 252, 0.08)", color: "#f8fafc", border: "1px solid rgba(248, 250, 252, 0.15)" }
+                          : { backgroundColor: "transparent", color: "#64748b", border: "1px dashed #475569" }
                         }
                       >
                         {customer.teklifAdedi} Teklif
                       </span>
                       {customer.teklifAdedi > 0 && (
-                        <div className="text-muted mt-1 text-truncate mx-auto" style={{ maxWidth: "150px", fontSize: "11px" }}>
+                        <div className="mt-1 text-truncate mx-auto" style={{ maxWidth: "150px", fontSize: "11px", color: "#94a3b8" }}>
                           {customer.teklifDetay}
                         </div>
                       )}
                     </td>
-                    <td>
-                      <span className="badge bg-light text-dark border px-2 py-1 fw-normal" style={{ borderColor: "#dee2e6" }}>
-                        <i className="bi bi-person me-1" style={{ color: "#00874e" }}></i>{customer.yetkiliSatisci || "Atanmadı"}
+                    <td style={{ backgroundColor: "#1e293b" }}>
+                      <span className="badge border px-2 py-1 fw-normal" style={{ borderColor: "#475569", backgroundColor: "#0f172a", color: "#cbd5e1" }}>
+                        <i className="bi bi-person me-1" style={{ color: "#4ade80" }}></i>{customer.yetkiliSatisci || "Atanmadı"}
                       </span>
                     </td>
-                    <td className="text-end px-4">
+                    <td className="text-end px-4" style={{ backgroundColor: "#1e293b" }}>
                       <div className="d-inline-flex gap-1">
                         <button
                           onClick={() => openEditPanel(customer)}
-                          className="btn btn-sm btn-link text-secondary p-1 text-decoration-none"
+                          className="btn btn-sm btn-link text-white p-1 text-decoration-none"
                           title="Düzenle"
                         >
                           <i className="bi bi-pencil" style={{ fontSize: "14px" }}></i>
@@ -287,7 +296,7 @@ function MusterilerPage() {
                 ))
               ) : (
                 <tr>
-                  <td colSpan="6" className="text-center py-5 text-muted" style={{ fontSize: "13px" }}>Kayıt bulunamadı.</td>
+                  <td colSpan="6" className="text-center py-5 text-muted" style={{ fontSize: "13px", color: "#94a3b8", backgroundColor: "#1e293b" }}>Kayıt bulunamadı.</td>
                 </tr>
               )}
             </tbody>
@@ -295,15 +304,16 @@ function MusterilerPage() {
         </div>
       </div>
 
-      {/* PAGINATION - Mobilde ortalandı veya dikey esnetildi */}
+      {/* PAGINATION */}
       {totalPages > 1 && (
         <div className="d-flex flex-column flex-sm-row justify-content-between align-items-center mt-3 px-1 gap-2" style={{ fontSize: "12px" }}>
-          <div className="text-muted text-center text-sm-start">Toplam {totalPages} sayfadan {currentPage}. sayfadasınız.</div>
+          <div className="text-white text-center text-sm-start">Toplam {totalPages} sayfadan {currentPage}. sayfadasınız.</div>
           <nav>
             <ul className="pagination pagination-sm mb-0">
               <li className={`page-item ${currentPage === 1 ? "disabled" : ""}`}>
                 <button
-                  className="page-link border-0 bg-transparent text-dark px-2"
+                  className="page-link border-0 bg-transparent px-2"
+                  style={{ color: "#94a3b8" }}
                   onClick={() => setCurrentPage(prev => Math.max(prev - 1, 1))}
                 >
                   <i className="bi bi-chevron-left" style={{ fontSize: "10px" }}></i>
@@ -315,7 +325,7 @@ function MusterilerPage() {
                     className="page-link border-0 mx-0.5 rounded-circle text-center d-flex align-items-center justify-content-center"
                     style={currentPage === idx + 1
                       ? { backgroundColor: "#00874e", color: "white", width: "24px", height: "24px", padding: 0 }
-                      : { color: "#1a1c1d", backgroundColor: "transparent", width: "24px", height: "24px", padding: 0 }
+                      : { color: "#cbd5e1", backgroundColor: "transparent", width: "24px", height: "24px", padding: 0 }
                     }
                     onClick={() => setCurrentPage(idx + 1)}
                   >
@@ -325,7 +335,8 @@ function MusterilerPage() {
               ))}
               <li className={`page-item ${currentPage === totalPages ? "disabled" : ""}`}>
                 <button
-                  className="page-link border-0 bg-transparent text-dark px-2"
+                  className="page-link border-0 bg-transparent px-2"
+                  style={{ color: "#94a3b8" }}
                   onClick={() => setCurrentPage(prev => Math.min(prev + 1, totalPages))}
                 >
                   <i className="bi bi-chevron-right" style={{ fontSize: "10px" }}></i>
@@ -335,6 +346,7 @@ function MusterilerPage() {
           </nav>
         </div>
       )}
+
 
       {/* DIŞARIYA ALINAN PENCERE BİLEŞENİ */}
       <AddPutMusteri

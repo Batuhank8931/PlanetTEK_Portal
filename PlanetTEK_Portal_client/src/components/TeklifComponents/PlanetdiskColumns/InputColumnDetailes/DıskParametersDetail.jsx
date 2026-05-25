@@ -1,22 +1,53 @@
-import React, { useState } from "react";
+import React, { useEffect } from "react";
 import KademeDetail from "./KademeDetail";
 
-function DiskParameters({ data, updateData }) {
-    // Modal görünürlük ve seçili kademe takibi için state'ler
+function DiskParameters({ data = {}, updateData }) {
+    // Verileri artık kendine ait temiz diskParametreleri düğümünden okuyoruz
+    const currentDiskData = data?.tasarim?.diskParametreleri;
+
+    // İlk kurulumda diskParametreleri objesini varsayılan değerlerle açıyoruz
+    useEffect(() => {
+        if (updateData && data?.tasarim && !data.tasarim.diskParametreleri) {
+            updateData({
+                ...data,
+                tasarim: {
+                    ...(data?.tasarim || {}),
+                    diskParametreleri: {
+                        secilenDiskTipi: "MX",
+                        maxDiskAdedi: 135,
+                        minDiskAdedi: 100
+                    }
+                }
+            });
+        }
+    }, [data, updateData]);
 
     const handleLocalChange = (e) => {
+        if (!updateData) return;
+
         const { name, value, type } = e.target;
         let parsedValue = value;
         if (type === "number") {
             parsedValue = value === "" ? "" : Number(value);
         }
-        updateData({ ...data, [name]: parsedValue });
+
+        updateData({
+            ...data,
+            tasarim: {
+                ...(data?.tasarim || {}),
+                // Doğrudan diskParametreleri altına kilitledik
+                diskParametreleri: {
+                    ...(data?.tasarim?.diskParametreleri || {}),
+                    [name]: parsedValue
+                }
+            }
+        });
     };
 
+    const safeDiskData = currentDiskData || { secilenDiskTipi: "MX", maxDiskAdedi: 135, minDiskAdedi: 100 };
+
     return (
-
         <div className="card-body p-0 px-4">
-
             {/* Başlık Bölümü */}
             <div className="d-flex align-items-center mb-3">
                 <span className="fw-bold text-uppercase pe-2" style={{ fontSize: "11px", letterSpacing: "0.7px", color: "#00874e" }}>
@@ -32,7 +63,7 @@ function DiskParameters({ data, updateData }) {
                         <label className="text-white-50 mb-1 d-block text-truncate" style={{ fontSize: "11px" }}>Model / Tipi</label>
                         <select
                             name="secilenDiskTipi"
-                            value={data.secilenDiskTipi || ""}
+                            value={safeDiskData.secilenDiskTipi}
                             onChange={handleLocalChange}
                             className="form-select form-select-sm bg-dark text-white border-0"
                             style={{ fontSize: "12px" }}
@@ -48,7 +79,7 @@ function DiskParameters({ data, updateData }) {
                         <input
                             type="number"
                             name="maxDiskAdedi"
-                            value={data.maxDiskAdedi !== undefined ? data.maxDiskAdedi : 135}
+                            value={safeDiskData.maxDiskAdedi !== undefined ? safeDiskData.maxDiskAdedi : ""}
                             onChange={handleLocalChange}
                             className="form-control form-control-sm bg-dark text-white border-0 text-center fw-bold"
                             style={{ fontSize: "12px" }}
@@ -60,7 +91,7 @@ function DiskParameters({ data, updateData }) {
                         <input
                             type="number"
                             name="minDiskAdedi"
-                            value={data.minDiskAdedi !== undefined ? data.minDiskAdedi : 100}
+                            value={safeDiskData.minDiskAdedi !== undefined ? safeDiskData.minDiskAdedi : ""}
                             onChange={handleLocalChange}
                             className="form-control form-control-sm bg-dark text-white border-0 text-center fw-bold"
                             style={{ fontSize: "12px" }}
@@ -69,13 +100,12 @@ function DiskParameters({ data, updateData }) {
                 </div>
             </div>
 
-            {/* Yeni Taşınan Arıtma Kademesi Seçimi Paneli */}
+            {/* Arıtma Kademeleri Paneli */}
             <KademeDetail
                 data={data}
                 updateData={updateData}
             />
         </div>
-
     );
 }
 

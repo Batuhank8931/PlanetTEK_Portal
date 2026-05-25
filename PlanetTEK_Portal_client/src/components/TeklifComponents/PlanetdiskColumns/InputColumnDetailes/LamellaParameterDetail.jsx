@@ -7,21 +7,24 @@ const LAMELLA_MODELS = [
   { id: "LS_45", name: "LS 45", hacim: 4.5, alan: 45 },
 ];
 
-function LamellaParameters({ data, updateData }) {
+function LamellaParameters({ data = {}, updateData }) {
   const debiGun = parseFloat(data.debi) || 0;
   const debiSaat = debiGun / 24;
 
-  const displayBeklemeSuresi = data.beklemeSuresiMin ?? "30";
-  const displayLamellaKatsayisi = data.lamellaKatsayisi ?? "0.40";
+  // Yeni veri mimarisinden (data.tasarim.lamella) okuma yapıyoruz
+  const currentLamellaData = data?.tasarim?.lamella || {};
 
-  const beklemeSuresiMin = parseFloat(displayBeklemeSuresi) || 0;
+  const displayBeklemeSuresi = currentLamellaData.LamellabeklemeSuresiMin ?? "30";
+  const displayLamellaKatsayisi = currentLamellaData.lamellaKatsayisi ?? "0.40";
+
+  const LamellabeklemeSuresiMin = parseFloat(displayBeklemeSuresi) || 0;
   const lamellaKatsayisi = parseFloat(displayLamellaKatsayisi) || 0;
 
   const { gerekliAlan, gerekliHacim, adet, secilenModel } = useMemo(() => {
     const alan = debiSaat * lamellaKatsayisi;
-    const hacim = debiSaat * (beklemeSuresiMin / 60);
+    const hacim = debiSaat * (LamellabeklemeSuresiMin / 60);
 
-    const model = LAMELLA_MODELS.find(m => m.id === data.secilenLamellaModeli);
+    const model = LAMELLA_MODELS.find(m => m.id === currentLamellaData.secilenLamellaModeli);
     let modelAdet = 0;
 
     if (model) {
@@ -31,23 +34,53 @@ function LamellaParameters({ data, updateData }) {
     }
 
     return { gerekliAlan: alan, gerekliHacim: hacim, adet: modelAdet, secilenModel: model };
-  }, [debiSaat, lamellaKatsayisi, beklemeSuresiMin, data.secilenLamellaModeli]);
+  }, [debiSaat, lamellaKatsayisi, LamellabeklemeSuresiMin, currentLamellaData.secilenLamellaModeli]);
 
+  // Hesaplanan verileri data.tasarim.lamella altına push eden tetikleyici
   useEffect(() => {
-    if (debiGun > 0) {
-      updateData({
-        ...data,
-        beklemeSuresiMin: displayBeklemeSuresi,
-        lamellaKatsayisi: displayLamellaKatsayisi,
-        gerekliLamellaAlani: gerekliAlan.toFixed(2),
-        gerekliLamellaHacmi: gerekliHacim.toFixed(2),
-        lamellaAdet: adet
-      });
+    if (debiGun > 0 && updateData) {
+      const yeniGerekliAlan = gerekliAlan.toFixed(2);
+      const yeniGerekliHacim = gerekliHacim.toFixed(2);
+
+      // Sonsuz render döngüsünü engellemek için kritik değerlerin değişimini kontrol ediyoruz
+      if (
+        currentLamellaData.gerekliLamellaAlani !== yeniGerekliAlan ||
+        currentLamellaData.gerekliLamellaHacmi !== yeniGerekliHacim ||
+        currentLamellaData.lamellaAdet !== adet ||
+        currentLamellaData.LamellabeklemeSuresiMin !== displayBeklemeSuresi ||
+        currentLamellaData.lamellaKatsayisi !== displayLamellaKatsayisi
+      ) {
+        updateData({
+          ...data, // Ana yapıyı koru
+          tasarim: {
+            ...data?.tasarim, // tasarim altındaki diğer olası modülleri koru
+            lamella: {
+              ...currentLamellaData, // Kullanıcının seçtiği modeli vb. koru
+              LamellabeklemeSuresiMin: displayBeklemeSuresi,
+              lamellaKatsayisi: displayLamellaKatsayisi,
+              gerekliLamellaAlani: yeniGerekliAlan,
+              gerekliLamellaHacmi: yeniGerekliHacim,
+              lamellaAdet: adet
+            }
+          }
+        });
+      }
     }
-  }, [gerekliAlan, gerekliHacim, adet, displayBeklemeSuresi, displayLamellaKatsayisi]);
+  }, [gerekliAlan, gerekliHacim, adet, displayBeklemeSuresi, displayLamellaKatsayisi, data, updateData, currentLamellaData, debiGun]);
 
   const handleLocalChange = (e) => {
-    updateData({ ...data, [e.target.name]: e.target.value });
+    if (updateData) {
+      updateData({
+        ...data,
+        tasarim: {
+          ...data?.tasarim,
+          lamella: {
+            ...currentLamellaData,
+            [e.target.name]: e.target.value
+          }
+        }
+      });
+    }
   };
 
   return (
@@ -72,7 +105,7 @@ function LamellaParameters({ data, updateData }) {
             </label>
             <input
               type="number"
-              name="beklemeSuresiMin"
+              name="LamellabeklemeSuresiMin"
               value={displayBeklemeSuresi}
               onChange={handleLocalChange}
               className="form-control form-control-sm bg-dark text-white border-0 text-center fw-bold"
@@ -133,7 +166,7 @@ function LamellaParameters({ data, updateData }) {
             <label className="text-white-50 mb-1" style={{ fontSize: "11px" }}>Lamella Ünite Modeli</label>
             <select
               name="secilenLamellaModeli"
-              value={data.secilenLamellaModeli || ""}
+              value={currentLamellaData.secilenLamellaModeli || ""}
               onChange={handleLocalChange}
               className="form-select form-select-sm bg-dark text-white border-0"
               style={{ fontSize: "12px" }}

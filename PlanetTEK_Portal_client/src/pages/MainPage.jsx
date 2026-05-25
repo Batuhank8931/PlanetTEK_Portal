@@ -47,7 +47,7 @@ function MainPage() {
           style={{
             overflowY: "auto",
             height: "100vh",
-            backgroundColor: "#f8f9fa",
+            backgroundColor: "#1a2d3a",
           }}
         >
           <Routes>

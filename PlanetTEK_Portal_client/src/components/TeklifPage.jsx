@@ -73,7 +73,7 @@ function TeklifPage() {
       style={{
         fontSize: "14px",
         fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-        backgroundColor: "#f4f6f8",
+        backgroundColor: "#1a2d3a",
         // Mobilde navbar arkasında kalmasın diye 70px (veya navbar yüksekliğin kadar) boşluk, masaüstünde 0
         paddingTop: window.innerWidth < 768 ? "75px" : "20px"
       }}
@@ -82,83 +82,108 @@ function TeklifPage() {
       <div className="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom" style={{ borderColor: "#dee2e6" }}>
         <div>
           <h5 className="mb-1 fw-semibold tracking-tight" style={{ color: "#1a1c1d" }}>
-            <i className="bi bi-file-earmark-plus me-2" style={{ color: "#00874e" }}></i>Yeni Teklif Oluştur
+            <i className="bi bi-file-earmark-plus me-2" style={{ color: "#00874e" }}></i > <span style={{ color: "#ffffff" }}>Yeni Teklif Oluştur</span>
           </h5>
-          <p className="text-muted mb-0" style={{ fontSize: "12px" }}>Adım adım teklif parametrelerini belirleyin</p>
+          <p className="mb-0" style={{ fontSize: "12px", color: '#6b8aaa' }}>Adım adım teklif parametrelerini belirleyin</p>
         </div>
       </div>
 
-      {/* PROGRESS STEP BAR */}
-      <div className="card shadow-sm border-0 p-3 mb-4" style={{ borderRadius: "8px" }}>
-        <div className="d-flex justify-content-between position-relative align-items-center flex-wrap gap-2">
-          {steps.map((step) => {
-            const isActive = currentStep === step.id;
-            const isCompleted = currentStep > step.id;
-            return (
-              <div
-                key={step.id}
-                className="d-flex align-items-center"
-                style={{ opacity: isActive || isCompleted ? 1 : 0.5, transition: "all 0.3s" }}
-              >
+      {/* PROGRESS STEP BAR & AKSİYON BUTONLARI */}
+      <div className="card shadow-sm border-0 p-3 mb-4" style={{ backgroundColor: "transparent" }}>
+        <div className="d-flex align-items-center justify-content-between flex-wrap gap-3">
+
+          {/* GERİ BUTONU */}
+          <button
+            type="button"
+            className="btn btn-sm text-white px-3 py-2 fw-semibold d-flex align-items-center"
+            onClick={prevStep}
+            disabled={currentStep === 1}
+            style={{
+              borderRadius: "6px",
+              backgroundColor: currentStep === 1 ? "transparent" : "#334155",
+              border: "1px solid #475569",
+              opacity: currentStep === 1 ? 0.4 : 1,
+              color: "#e2e8f0",
+              fontSize: "13px"
+            }}
+          >
+            <i className="bi bi-arrow-left me-1.5"></i> Geri
+          </button>
+
+          {/* ADIMLAR (PROGRESS STEPS) */}
+          <div className="d-flex justify-content-around align-items-center flex-grow-1 flex-wrap gap-2 px-md-4">
+            {steps.map((step) => {
+              const isActive = currentStep === step.id;
+              const isCompleted = currentStep > step.id;
+
+              let textColor = "#94a3b8";
+              if (isActive) textColor = "#ffffff";
+              if (isCompleted) textColor = "#e2e8f0";
+
+              return (
                 <div
-                  className={`rounded-circle d-flex align-items-center justify-content-center me-2 text-white shadow-sm`}
-                  style={{
-                    width: "32px",
-                    height: "32px",
-                    backgroundColor: isActive || isCompleted ? "#00874e" : "#6c757d",
-                    fontSize: "13px"
-                  }}
+                  key={step.id}
+                  className="d-flex align-items-center"
+                  style={{ transition: "all 0.3s" }}
                 >
-                  {isCompleted ? <i className="bi bi-check-lg"></i> : step.id}
+                  <div
+                    className="rounded-circle d-flex align-items-center justify-content-center me-2 text-white shadow-sm"
+                    style={{
+                      width: "28px", // Yükseklikten kazanmak için hafif küçültüldü
+                      height: "28px",
+                      backgroundColor: isActive || isCompleted ? "#00874e" : "#475569",
+                      fontSize: "12px",
+                      fontWeight: isActive ? "600" : "400"
+                    }}
+                  >
+                    {isCompleted ? <i className="bi bi-check-lg"></i> : step.id}
+                  </div>
+                  <div>
+                    <span
+                      className={`d-none d-md-inline ${isActive ? "fw-semibold" : "fw-medium"}`}
+                      style={{
+                        fontSize: "12px",
+                        color: textColor,
+                        transition: "color 0.3s"
+                      }}
+                    >
+                      {step.label}
+                    </span>
+                  </div>
                 </div>
-                <div>
-                  <span className={`fw-medium d-none d-md-inline ${isActive ? "text-dark" : "text-muted"}`} style={{ fontSize: "12px" }}>
-                    {step.label}
-                  </span>
-                </div>
-              </div>
-            );
-          })}
+              );
+            })}
+          </div>
+
+          {/* İLERİ / BİTİR BUTONU */}
+          {currentStep < steps.length ? (
+            <button
+              type="button"
+              className="btn btn-sm text-white px-3 py-2 fw-bold d-flex align-items-center"
+              onClick={nextStep}
+              style={{ backgroundColor: "#00874e", borderRadius: "6px", border: "none", fontSize: "13px" }}
+            >
+              İleri <i className="bi bi-arrow-right ms-1.5"></i>
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-sm text-dark px-3 py-2 fw-bold border-0 shadow-sm d-flex align-items-center"
+              onClick={handleSubmit}
+              style={{ backgroundColor: "#eab308", borderRadius: "6px", fontSize: "13px" }}
+            >
+              <i className="bi bi-check-all me-1.5" style={{ fontSize: "15px" }}></i> Kaydet
+            </button>
+          )}
+
         </div>
       </div>
 
       {/* MERKEZİ DUMMY BİLEŞEN KARTI */}
-      <div className="card shadow-sm border-0 mb-4 p-4 text-white" style={{ borderRadius: "8px", backgroundColor: "#1a1c1dab" }}>
+      <div className="card shadow-sm border-0 mb-4 text-white" style={{ borderRadius: "8px", backgroundColor: "#1a1c1dab" }}>
         {renderStepComponent()}
       </div>
 
-      {/* AKSİYON BUTONLARI */}
-      <div className="d-flex justify-content-between align-items-center mt-3 bg-white p-3 rounded shadow-sm border">
-        <button
-          type="button"
-          className="btn btn-sm btn-outline-secondary px-4 py-2 fw-semibold"
-          onClick={prevStep}
-          disabled={currentStep === 1}
-          style={{ borderRadius: "6px" }}
-        >
-          <i className="bi bi-arrow-left me-1"></i> Geri
-        </button>
-
-        {currentStep < steps.length ? (
-          <button
-            type="button"
-            className="btn btn-sm text-white px-4 py-2 fw-bold"
-            onClick={nextStep}
-            style={{ backgroundColor: "#00874e", borderRadius: "6px" }}
-          >
-            İleri <i className="bi bi-arrow-right ms-1"></i>
-          </button>
-        ) : (
-          <button
-            type="button"
-            className="btn btn-sm bg-warning text-dark px-4 py-2 fw-bold border-0 shadow-sm"
-            onClick={handleSubmit}
-            style={{ borderRadius: "6px" }}
-          >
-            <i className="bi bi-check-all me-1"></i> Teklifi Bitir ve Kaydet
-          </button>
-        )}
-      </div>
     </div>
   );
 }
