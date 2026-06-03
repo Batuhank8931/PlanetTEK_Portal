@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useTeklifStore } from "../../utils/teklifStore"; // Store yolunu kontrol edin
 
 // API sonradan bağlanacağı için simüle edilmiş birden fazla indirim geçmişi barındıran veri havuzu
 const MOCK_CUSTOMERS_DB = [
@@ -7,7 +8,6 @@ const MOCK_CUSTOMERS_DB = [
         ticariUnvan: "Acme Endüstri A.Ş.",
         teklifDili: "Türkçe",
         ilgiliKisiler: ["Ahmet Yılmaz (Satın Alma Müdürü)", "Mehmet Kaya (Operasyon)"],
-        // İndirimler dizi olarak tutuluyor. Hiç olmayabilir, 1 veya birden fazla olabilir.
         indirimler: [
             { planetTekIndirim: 15, ekipmanIndirim: 10, indirimTarihi: "2026-04-12" },
             { planetTekIndirim: 20, ekipmanIndirim: 12, indirimTarihi: "2026-05-15" } // En güncel bu
@@ -31,12 +31,22 @@ const MOCK_CUSTOMERS_DB = [
     }
 ];
 
-function SelectCustomer({ data, updateData }) {
-    const [searchTerm, setSearchTerm] = useState(data.ticariUnvan || "");
+function SelectCustomer() {
+    // 1. Store'dan veriyi çekerken default boş obje atıyoruz ki undefined hatası patlamasın
+    const customerInfo = useTeklifStore((state) => state.formData.customerInfo) || {};
+    const updateSection = useTeklifStore((state) => state.updateSection);
+
+    // 2. Lokal UI State'leri
+    const [searchTerm, setSearchTerm] = useState(customerInfo.ticariUnvan || "");
     const [searchResults, setSearchResults] = useState([]);
     const [isSelecting, setIsSelecting] = useState(false);
-    const [selectedCustomer, setSelectedCustomer] = useState(null);
 
+    // Geçmiş indirim listesi için seçili objeyi lokalde eşleştiriyoruz
+    const [selectedCustomer, setSelectedCustomer] = useState(
+        MOCK_CUSTOMERS_DB.find(c => c.ticariUnvan === customerInfo.ticariUnvan) || null
+    );
+
+    // Arama mekanizmasını yöneten useEffect
     useEffect(() => {
         if (isSelecting) {
             setIsSelecting(false);
@@ -60,15 +70,15 @@ function SelectCustomer({ data, updateData }) {
         setSearchTerm(customer.ticariUnvan);
         setSearchResults([]);
 
-        // Eğer indirim varsa en güncel olanı bulup inputlara otomatik dolduralım
+        // Eğer indirim varsa en güncel olanı bulalım
         const siraliIndirimler = customer.indirimler
             ? [...customer.indirimler].sort((a, b) => new Date(b.indirimTarihi) - new Date(a.indirimTarihi))
             : [];
 
         const enGuncelIndirim = siraliIndirimler[0] || {};
 
-        updateData({
-            ...data,
+        // "customerInfo" key'ini ilk kez burada komple doldurarak store'a pushluyoruz
+        updateSection("customerInfo", {
             ticariUnvan: customer.ticariUnvan,
             teklifDili: customer.teklifDili || "Türkçe",
             planetTekIndirim: enGuncelIndirim.planetTekIndirim || "",
@@ -78,19 +88,24 @@ function SelectCustomer({ data, updateData }) {
     };
 
     const handleChange = (e) => {
-        updateData({ ...data, [e.target.name]: e.target.value });
+        // Obje içindeki tekil key güncellemelerini doğrudan "customerInfo" altına basıyoruz
+        updateSection("customerInfo", { [e.target.name]: e.target.value });
     };
 
     // Seçilen müşterinin indirimlerini tarihe göre sıralayalım (En yeni -> En eski)
-    // Böylece map ile dönerken en güncel en solda (ilk sırada) render edilecek.
     const siraliIndirimler = selectedCustomer?.indirimler
         ? [...selectedCustomer.indirimler].sort((a, b) => new Date(b.indirimTarihi) - new Date(a.indirimTarihi))
         : [];
+/* 
+    const formData = useTeklifStore((state) => state.formData);
 
+    // Her render anında konsola güncel veriyi basar
+    console.log("Güncel Form Verisi:", formData); */
+    
     return (
         <div className="card border-0 text-white h-100 p-3 gap-3" style={{ backgroundColor: "#1a1c1d", borderRadius: "5px", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)" }}>
 
-            {/* Adım Başlığı - 2. koddaki başlık yapısı ve çizgisi ile eşitlendi */}
+            {/* Adım Başlığı */}
             <div className="d-flex align-items-center">
                 <span className="fw-bold text-uppercase pe-2" style={{ fontSize: "11px", letterSpacing: "0.7px", color: "#00874e" }}>
                     1. Müşteri Genel Bilgileri
@@ -111,7 +126,13 @@ function SelectCustomer({ data, updateData }) {
                             setSearchTerm(e.target.value);
                             if (e.target.value === "") {
                                 setSelectedCustomer(null);
-                                updateData({ ...data, ticariUnvan: "" });
+                                // Arama silinirse store'daki bu key'in içini temizliyoruz
+                                updateSection("customerInfo", {
+                                    ticariUnvan: "",
+                                    planetTekIndirim: "",
+                                    ekipmanIndirim: "",
+                                    ilgiliKisi: ""
+                                });
                             }
                         }}
                         className="form-control form-control-sm text-white fw-bold border-0"
@@ -119,7 +140,7 @@ function SelectCustomer({ data, updateData }) {
                         placeholder="Müşteri adı ara..."
                     />
 
-                    {/* Arama Sonuçları Pop-up Listesi - Koyu temaya uyarlandı */}
+                    {/* Arama Sonuçları Pop-up Listesi */}
                     {searchResults.length > 0 && (
                         <ul
                             className="list-group position-absolute w-100 mt-1 shadow-lg border"
@@ -146,7 +167,7 @@ function SelectCustomer({ data, updateData }) {
                     </label>
                     <select
                         name="teklifDili"
-                        value={data.teklifDili || "Türkçe"}
+                        value={customerInfo.teklifDili || "Türkçe"}
                         onChange={handleChange}
                         className="form-select form-select-sm text-white fw-bold border-0"
                         style={{ backgroundColor: "#1e293b", borderRadius: "6px", fontSize: "12px" }}
@@ -169,7 +190,7 @@ function SelectCustomer({ data, updateData }) {
                         </label>
                         <select
                             name="ilgiliKisi"
-                            value={data.ilgiliKisi || ""}
+                            value={customerInfo.ilgiliKisi || ""}
                             onChange={handleChange}
                             className="form-select form-select-sm text-white fw-bold border-0"
                             style={{ backgroundColor: "#1e293b", borderRadius: "6px", fontSize: "12px" }}
@@ -183,7 +204,7 @@ function SelectCustomer({ data, updateData }) {
                         </select>
                     </div>
 
-                    {/* PlanetTEK İndirim Oranı - 2. koddaki input stili (Ön Arıtma Verimi vb.) ile eşitlendi */}
+                    {/* PlanetTEK İndirim Oranı */}
                     <div className="col-6 col-md-2">
                         <label className="text-white-50 d-block text-center mb-1" style={{ fontSize: "10px" }}>
                             PlanetTEK (%)
@@ -191,7 +212,7 @@ function SelectCustomer({ data, updateData }) {
                         <input
                             type="number"
                             name="planetTekIndirim"
-                            value={data.planetTekIndirim || ""}
+                            value={customerInfo.planetTekIndirim || ""}
                             onChange={handleChange}
                             className="form-control form-control-sm border-0 text-white text-center fw-bold"
                             style={{ backgroundColor: "#1e293b", fontSize: "12px", borderBottom: "2px solid #38bdf8", borderRadius: "4px 4px 0 0" }}
@@ -207,7 +228,7 @@ function SelectCustomer({ data, updateData }) {
                         <input
                             type="number"
                             name="ekipmanIndirim"
-                            value={data.ekipmanIndirim || ""}
+                            value={customerInfo.ekipmanIndirim || ""}
                             onChange={handleChange}
                             className="form-control form-control-sm border-0 text-white text-center fw-bold"
                             style={{ backgroundColor: "#1e293b", fontSize: "12px", borderBottom: "2px solid #38bdf8", borderRadius: "4px 4px 0 0" }}
@@ -215,7 +236,7 @@ function SelectCustomer({ data, updateData }) {
                         />
                     </div>
 
-                    {/* Bilgi Gösterge Kartı / Tablo - Atıksu Kaynakları panel stiliyle eşitlendi */}
+                    {/* Bilgi Gösterge Kartı / Tablo */}
                     <div className="col-12 col-md-4">
                         <div
                             className="p-2 rounded border"

@@ -1,73 +1,101 @@
-import React, { useState, useEffect } from "react";
+import React from "react";
+import { useTeklifStore } from "../../utils/teklifStore";
+
 import OnAritmaDetail from "./EqipmentsColumns/OnAritmaDetail";
 import FeedPumpDetail from "./EqipmentsColumns/FeedPumpDetail";
 import IleriAritmaDetail from "./EqipmentsColumns/IleriAritmaDetail";
 import FiltrasyonDetail from "./EqipmentsColumns/FiltrasyonDetail";
 import SludgeDewateringDetail from "./EqipmentsColumns/SludgeDewateringDetail";
 
-function SelectEquiptments({ data, updateData }) {
+function SelectEquiptments() {
   const CALC_HOURS = 24;
-  const hourlyFlow = data.debi ? data.debi / CALC_HOURS : 0;
 
-  // Modüllerin state'i
-  const [modules, setModules] = useState({
-    onAritma: { id: "onAritma", label: "1. Ön Arıtma Sistemi", checked: true },
-    feedPump: { id: "feedPump", label: "2. Terfi Pompası", checked: true },
-    ileriAritma: { id: "ileriAritma", label: "3. İleri Arıtma Ünitesi", checked: false },
-    filtrasyon: { id: "filtrasyon", label: "4. Filtrasyon Sistemi", checked: false },
-    sludgeDewatering: { id: "sludgeDewatering", label: "5. Çamur Susuzlaştırma", checked: false },
-  });
+  // 1. ZUSTAND STORE BAĞLANTISI
+  const formData = useTeklifStore((state) => state.formData);
+  const updateSection = useTeklifStore((state) => state.updateSection);
 
-  const [activeTab, setActiveTab] = useState("onAritma");
+  const debi = parseFloat(formData.planetDiskDetails?.debi) || 0;
+  const hourlyFlow = debi ? debi / CALC_HOURS : 0;
   
-  // Kullanıcının sekmeyi en az bir kez ziyaret edip etmediğini tutan state (Trendyol tarzı zorunluluk kontrolü için)
-  const [visitedTabs, setVisitedTabs] = useState({ onAritma: true });
+  const equipmentsCache = formData.equipments || {};
 
-  // Bir tab aktif olduğunda onu ziyaret edilmiş olarak işaretle
+  // 2. MODÜLLERİN INITIAL STATE YÖNETİMİ
+  // Yeni yapıda visited ve isActiveTab doğrudan modül nesnesinin içinde tutuluyor.
+  const modules = equipmentsCache.modulesState || {
+    onAritma: { id: "onAritma", label: "1. Ön Arıtma Sistemi", checked: true, visited: false, isActiveTab: true },
+    feedPump: { id: "feedPump", label: "2. Terfi Pompası", checked: true, visited: false, isActiveTab: false },
+    ileriAritma: { id: "ileriAritma", label: "3. İleri Arıtma Ünitesi", checked: false, visited: false, isActiveTab: false },
+    filtrasyon: { id: "filtrasyon", label: "4. Filtrasyon Sistemi", checked: false, visited: false, isActiveTab: false },
+    sludgeDewatering: { id: "sludgeDewatering", label: "5. Çamur Susuzlaştırma", checked: false, visited: false, isActiveTab: false },
+  };
+
+  // Aktif sekmeyi bulmak için objeyi tarıyoruz (Dinamik Selector)
+  const activeModule = Object.values(modules).find((m) => m.isActiveTab && m.checked);
+  const activeTabId = activeModule ? activeModule.id : "";
+
+  // Merkezi Store Senkronizasyon Helper Fonksiyonu (Sadece tek bir obje gönderiyoruz)
+  const syncEquipmentsStore = (nextModules) => {
+    updateSection("equipments", {
+      modulesState: nextModules,
+    });
+  };
+
+  // Bir taba tıklandığında: Diğer tüm sekmelerin isActiveTab'ini false yap, tıklananı true ve visited: true yap
   const handleTabClick = (moduleId) => {
-    setActiveTab(moduleId);
-    setVisitedTabs((prev) => ({ ...prev, [moduleId]: true }));
+    const nextModules = Object.keys(modules).reduce((acc, key) => {
+      acc[key] = {
+        ...modules[key],
+        isActiveTab: key === moduleId,
+        visited: key === moduleId ? true : modules[key].visited,
+      };
+      return acc;
+    }, {});
+
+    syncEquipmentsStore(nextModules);
   };
 
   // Checkbox değişim yönetimi
   const handleCheckboxChange = (moduleId) => {
-    setModules((prev) => {
-      const updated = {
-        ...prev,
-        [moduleId]: { ...prev[moduleId], checked: !prev[moduleId].checked },
-      };
+    const isTargetChecked = !modules[moduleId].checked;
 
-      // Eğer modül aktif edildiyse ama şu an aktif tab boşsa veya kapatılan tab ise oraya odaklan
-      if (updated[moduleId].checked) {
-        // İlk defa tikleniyorsa ziyaret listesine otomatik ekleme (isteğe bağlı, tıklamayı zorunlu kılmak için false da kalabilir)
-        // Biz burada tıklamayı zorunlu kılmak için ziyaret edilmiş saymıyoruz.
-      }
+    // Hedef modülün checked durumunu güncelle
+    let updatedModules = {
+      ...modules,
+      [moduleId]: { 
+        ...modules[moduleId], 
+        checked: isTargetChecked,
+        // Eğer açılıyorsa otomatik visited sayılabilir, kapanıyorsa false'a çekilebilir
+        visited: isTargetChecked ? modules[moduleId].visited : false 
+      },
+    };
 
-      // Eğer kullanıcı açık olan sekmeyi kapatırsa, aktif sekmeyi ilk bulduğu görünür sekmeye kaydırır
-      if (activeTab === moduleId && !updated[moduleId].checked) {
-        const firstAvailable = Object.values(updated).find((m) => m.checked);
-        const nextTab = firstAvailable ? firstAvailable.id : "";
-        setActiveTab(nextTab);
-        if (nextTab) {
-          setVisitedTabs((prevV) => ({ ...prevV, [nextTab]: true }));
-        }
-      }
-      
-      // Parent state'i güncelle
-      if (updateData) {
-        updateData({
-          ...data,
-          activeModules: Object.keys(updated).filter((k) => updated[k].checked)
-        });
-      }
+    // EĞER aktif olan sekmeyi kapatırsak, başka bir görünür/checked sekmeyi aktif yapmamız gerekir
+    if (activeTabId === moduleId && !isTargetChecked) {
+      // Önce kapanan sekmenin aktifliğini alalım
+      updatedModules[moduleId].isActiveTab = false;
 
-      return updated;
-    });
+      // Tikli olan ilk uygun modülü bulalım
+      const firstAvailable = Object.values(updatedModules).find((m) => m.checked);
+      if (firstAvailable) {
+        updatedModules[firstAvailable.id] = {
+          ...updatedModules[firstAvailable.id],
+          isActiveTab: true,
+          visited: true, // Aktif hale geldiği için ziyaret edilmiş sayıyoruz
+        };
+      }
+    } 
+    // EĞER hiç aktif sekme yoksa ve yeni bir sekme açılıyorsa, onu direkt aktif sekme yapalım
+    else if (!activeTabId && isTargetChecked) {
+      updatedModules[moduleId].isActiveTab = true;
+      updatedModules[moduleId].visited = true;
+    }
+
+    syncEquipmentsStore(updatedModules);
   };
 
-  // Tiklenmiş ama henüz ziyaret edilmemiş (tıklanıp içi açılmamış) bir modül var mı kontrolü
+  // Tiklenmiş ama henüz ziyaret edilmemiş bir modül var mı kontrolü (Doğrudan objeden okunuyor)
   const hasUnvisitedActiveModule = Object.values(modules).some(
-    (mod) => mod.checked && !visitedTabs[mod.id]
+    (mod) => mod.checked && !mod.visited
   );
 
   return (
@@ -82,17 +110,17 @@ function SelectEquiptments({ data, updateData }) {
       {/* BAŞLIK & HİDROLİK YÜK PANELİ */}
       <div className="d-flex align-items-center justify-content-between border-bottom pb-2" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
         <span className="fw-bold text-uppercase" style={{ fontSize: "12px", letterSpacing: "0.8px", color: "#10b981" }}>
-          <i className="bi bi-cpu-fill me-2"></i>3. Otomatik Ekipman Seçim Modülleri
+          <i className="bi bi-cpu-fill me-2"></i>3. Ekipman Seçim Modülleri
         </span>
         <div className="p-1 px-3 rounded text-white-50 d-flex gap-3 align-items-center" style={{ backgroundColor: "#1e293b", fontSize: "11px", border: "1px dashed #334155" }}>
           <span><i className="bi bi-info-circle me-1.5 text-info"></i>Mevcut Hidrolik Yük:</span>
           <span className="text-white fw-bold">
-            {data.debi || 0} m³/gün <span className="text-white-50 fw-normal">({hourlyFlow.toFixed(2)} m³/h)</span>
+            {debi} m³/gün <span className="text-white-50 fw-normal">({hourlyFlow.toFixed(2)} m³/h)</span>
           </span>
         </div>
       </div>
 
-      {/* TRENDYOL YEMEK TARZI UYARI BANNERI */}
+      {/* ZORUNLULUK KONTROL UYARI BANNERI */}
       {hasUnvisitedActiveModule && (
         <div className="alert alert-warning d-flex align-items-center gap-2 m-0 p-2" style={{ fontSize: "11px", backgroundColor: "rgba(245, 158, 11, 0.1)", border: "1px solid rgba(245, 158, 11, 0.2)", color: "#f59e0b" }}>
           <i className="bi bi-exclamation-circle-fill"></i>
@@ -100,7 +128,7 @@ function SelectEquiptments({ data, updateData }) {
         </div>
       )}
 
-      {/* ANA DÜZEN: SOL SEÇİM PANELİ | SAĞ DETAY PANELİ */}
+      {/* ANA DÜZEN */}
       <div className="row g-3" style={{ minHeight: "250px" }}>
 
         {/* SOL KOLON: MODÜL SEÇİM VE KONTROL */}
@@ -111,13 +139,12 @@ function SelectEquiptments({ data, updateData }) {
             </span>
 
             {Object.values(modules).map((mod) => {
-              const isSelected = activeTab === mod.id;
-              const isVisited = visitedTabs[mod.id];
-              const needAttention = mod.checked && !isVisited; // Tikli ama bakılmamışsa uyarı ver
+              const isSelected = mod.isActiveTab;
+              const needAttention = mod.checked && !mod.visited;
 
-              let textColor = "#ef4444"; // Tiksizse kırmızı
+              let textColor = "#ef4444"; 
               if (mod.checked) {
-                textColor = needAttention ? "#f59e0b" : "#10b981"; // Tikli ama bakılmadıysa turuncu, bakıldıysa yeşil
+                textColor = needAttention ? "#f59e0b" : "#10b981"; 
               }
 
               return (
@@ -143,9 +170,7 @@ function SelectEquiptments({ data, updateData }) {
                         width: "15px",
                         height: "15px",
                         cursor: "pointer",
-                        accentColor: "#10b981",
-                        backgroundColor: mod.checked ? "#10b981" : "transparent",
-                        borderColor: mod.checked ? "#10b981" : "#ef4444"
+                        accentColor: "#10b981"
                       }}
                       onChange={(e) => {
                         e.stopPropagation();
@@ -164,11 +189,10 @@ function SelectEquiptments({ data, updateData }) {
                     </span>
                   </div>
 
-                  {/* Durum İkonları */}
                   {mod.checked && (
                     <div className="d-flex align-items-center gap-1">
                       {needAttention ? (
-                        <i className="bi bi-exclamation-circle text-warning animate-pulse" style={{ fontSize: "11px" }} title="Lütfen bu adımı kontrol edin"></i>
+                        <i className="bi bi-exclamation-circle text-warning" style={{ fontSize: "11px" }} title="Lütfen bu adımı kontrol edin"></i>
                       ) : (
                         <i className="bi bi-check-circle-fill text-success" style={{ fontSize: "10px" }}></i>
                       )}
@@ -181,54 +205,47 @@ function SelectEquiptments({ data, updateData }) {
           </div>
         </div>
 
-        {/* SAĞ KOLON: ARKA PLANDA ÇALIŞAN DİNAMİK ÖZELLİK DETAY ALANI */}
+        {/* SAĞ KOLON: DİNAMİK ÖZELLİK DETAY ALANI */}
         <div className="col-md-8 col-12 d-flex flex-column justify-content-center">
           {Object.values(modules).some(m => m.checked) ? (
             <div className="p-3 rounded" style={{ backgroundColor: "#1e293b", border: "1px solid #334155", height: "100%" }}>
 
-              {/* 
-                Kritik Değişiklik: Burada '&&' ile render etmek yerine, 
-                modül checked ise DOM'a basıyoruz (böylece içindeki useEffect default datayı state'e yazıyor).
-                Ancak d-none bootstrap sınıfı ile sadece activeTab olmayanları gizliyoruz.
-              */}
-
               {/* 1. Ön Arıtma Detayı */}
               {modules.onAritma.checked && (
-                <div className={activeTab === "onAritma" ? "" : "d-none"}>
-                  <OnAritmaDetail data={data} updateData={updateData} />
+                <div className={modules.onAritma.isActiveTab ? "" : "d-none"}>
+                  <OnAritmaDetail />
                 </div>
               )}
 
               {/* 2. Terfi Pompası Detayı */}
               {modules.feedPump.checked && (
-                <div className={activeTab === "feedPump" ? "" : "d-none"}>
-                  <FeedPumpDetail data={data} updateData={updateData} />
+                <div className={modules.feedPump.isActiveTab ? "" : "d-none"}>
+                  <FeedPumpDetail />
                 </div>
               )}
 
               {/* 3. İleri Arıtma Detayı */}
               {modules.ileriAritma.checked && (
-                <div className={activeTab === "ileriAritma" ? "" : "d-none"}>
-                  <IleriAritmaDetail data={data} updateData={updateData} />
+                <div className={modules.ileriAritma.isActiveTab ? "" : "d-none"}>
+                  <IleriAritmaDetail />
                 </div>
               )}
 
               {/* 4. Filtrasyon Detayı */}
               {modules.filtrasyon.checked && (
-                <div className={activeTab === "filtrasyon" ? "" : "d-none"}>
-                  <FiltrasyonDetail data={data} updateData={updateData} />
+                <div className={modules.filtrasyon.isActiveTab ? "" : "d-none"}>
+                  <FiltrasyonDetail />
                 </div>
               )}
 
               {/* 5. Çamur Susuzlaştırma Detayı */}
               {modules.sludgeDewatering.checked && (
-                <div className={activeTab === "sludgeDewatering" ? "" : "d-none"}>
-                  <SludgeDewateringDetail data={data} updateData={updateData} />
+                <div className={modules.sludgeDewatering.isActiveTab ? "" : "d-none"}>
+                  <SludgeDewateringDetail />
                 </div>
               )}
 
-              {/* Eğer aktif sekme seçili modüllerden biri değilse (hepsi gizliyse arka planda) koruyucu mesaj */}
-              {!activeTab && (
+              {!activeTabId && (
                 <div className="text-center text-muted p-4" style={{ fontSize: "11px" }}>
                   Lütfen detayını düzenlemek istediğiniz aktif modüle tıklayın.
                 </div>

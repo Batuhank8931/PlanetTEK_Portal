@@ -1,4 +1,5 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useMemo } from "react";
+import { useTeklifStore } from "../../../../utils/teklifStore"; // Store yolunu kontrol edin
 
 const LAMELLA_MODELS = [
   { id: "LS_8", name: "LS 8", hacim: 1, alan: 8 },
@@ -7,19 +8,26 @@ const LAMELLA_MODELS = [
   { id: "LS_45", name: "LS 45", hacim: 4.5, alan: 45 },
 ];
 
-function LamellaParameters({ data = {}, updateData }) {
-  const debiGun = parseFloat(data.debi) || 0;
+function LamellaParameters() {
+  // 1. Zustand Store entegrasyonu
+  const formData = useTeklifStore((state) => state.formData);
+  const updateSection = useTeklifStore((state) => state.updateSection);
+
+  // Bir önceki adımdan gelen debi bilgisini güvenli bir şekilde çekiyoruz
+  const debiGun = parseFloat(formData.planetDiskDetails?.debi) || 0;
   const debiSaat = debiGun / 24;
 
-  // Yeni veri mimarisinden (data.tasarim.lamella) okuma yapıyoruz
-  const currentLamellaData = data?.tasarim?.lamella || {};
+  // Store'daki lamella düğümünü alıyoruz
+  const currentLamellaData = formData.planetDiskDetails?.tasarim?.lamella || {};
 
+  // 2. Controlled Fallback (Boşsa varsayılan değerleri atıyoruz)
   const displayBeklemeSuresi = currentLamellaData.LamellabeklemeSuresiMin ?? "30";
   const displayLamellaKatsayisi = currentLamellaData.lamellaKatsayisi ?? "0.40";
 
   const LamellabeklemeSuresiMin = parseFloat(displayBeklemeSuresi) || 0;
   const lamellaKatsayisi = parseFloat(displayLamellaKatsayisi) || 0;
 
+  // 3. Hesaplamaları useMemo ile senkronize yürütüyoruz (useEffect İPTAL)
   const { gerekliAlan, gerekliHacim, adet, secilenModel } = useMemo(() => {
     const alan = debiSaat * lamellaKatsayisi;
     const hacim = debiSaat * (LamellabeklemeSuresiMin / 60);
@@ -36,51 +44,43 @@ function LamellaParameters({ data = {}, updateData }) {
     return { gerekliAlan: alan, gerekliHacim: hacim, adet: modelAdet, secilenModel: model };
   }, [debiSaat, lamellaKatsayisi, LamellabeklemeSuresiMin, currentLamellaData.secilenLamellaModeli]);
 
-  // Hesaplanan verileri data.tasarim.lamella altına push eden tetikleyici
-  useEffect(() => {
-    if (debiGun > 0 && updateData) {
-      const yeniGerekliAlan = gerekliAlan.toFixed(2);
-      const yeniGerekliHacim = gerekliHacim.toFixed(2);
-
-      // Sonsuz render döngüsünü engellemek için kritik değerlerin değişimini kontrol ediyoruz
-      if (
-        currentLamellaData.gerekliLamellaAlani !== yeniGerekliAlan ||
-        currentLamellaData.gerekliLamellaHacmi !== yeniGerekliHacim ||
-        currentLamellaData.lamellaAdet !== adet ||
-        currentLamellaData.LamellabeklemeSuresiMin !== displayBeklemeSuresi ||
-        currentLamellaData.lamellaKatsayisi !== displayLamellaKatsayisi
-      ) {
-        updateData({
-          ...data, // Ana yapıyı koru
-          tasarim: {
-            ...data?.tasarim, // tasarim altındaki diğer olası modülleri koru
-            lamella: {
-              ...currentLamellaData, // Kullanıcının seçtiği modeli vb. koru
-              LamellabeklemeSuresiMin: displayBeklemeSuresi,
-              lamellaKatsayisi: displayLamellaKatsayisi,
-              gerekliLamellaAlani: yeniGerekliAlan,
-              gerekliLamellaHacmi: yeniGerekliHacim,
-              lamellaAdet: adet
-            }
-          }
-        });
-      }
-    }
-  }, [gerekliAlan, gerekliHacim, adet, displayBeklemeSuresi, displayLamellaKatsayisi, data, updateData, currentLamellaData, debiGun]);
-
+  // 4. Input Değişim Yönetimi (Sadece kullanıcı dokunduğunda anlık hesaplananlar ile store'u doldurur)
   const handleLocalChange = (e) => {
-    if (updateData) {
-      updateData({
-        ...data,
-        tasarim: {
-          ...data?.tasarim,
-          lamella: {
-            ...currentLamellaData,
-            [e.target.name]: e.target.value
-          }
-        }
-      });
+    const { name, value } = e.target;
+
+    // O anki değişen inputa göre geçici bir obje simüle edip yeni adetleri anlık öngörüyoruz
+    const nextLamellaState = {
+      LamellabeklemeSuresiMin: displayBeklemeSuresi,
+      lamellaKatsayisi: displayLamellaKatsayisi,
+      secilenLamellaModeli: currentLamellaData.secilenLamellaModeli,
+      [name]: value
+    };
+
+    const nextBekleme = parseFloat(nextLamellaState.LamellabeklemeSuresiMin) || 0;
+    const nextKatsayi = parseFloat(nextLamellaState.lamellaKatsayisi) || 0;
+    
+    const nextAlan = debiSaat * nextKatsayi;
+    const nextHacim = debiSaat * (nextBekleme / 60);
+
+    const targetModel = LAMELLA_MODELS.find(m => m.id === nextLamellaState.secilenLamellaModeli);
+    let nextAdet = 0;
+    if (targetModel) {
+      nextAdet = Math.ceil(Math.max(nextAlan / targetModel.alan, nextHacim / targetModel.hacim)) || 1;
     }
+
+    // "planetDiskDetails" düğümü altındaki derin yapıyı bozmadan update atıyoruz
+    updateSection("planetDiskDetails", {
+      tasarim: {
+        ...formData.planetDiskDetails?.tasarim,
+        lamella: {
+          ...currentLamellaData,
+          [name]: value,
+          gerekliLamellaAlani: nextAlan.toFixed(2),
+          gerekliLamellaHacmi: nextHacim.toFixed(2),
+          lamellaAdet: nextAdet
+        }
+      }
+    });
   };
 
   return (

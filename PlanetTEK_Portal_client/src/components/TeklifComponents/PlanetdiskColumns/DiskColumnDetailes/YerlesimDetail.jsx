@@ -1,23 +1,37 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo } from "react";
 import GiderimDetail from "./GiderimDetail";
+import { useTeklifStore } from "../../../../utils/teklifStore"; // Store yolunu kontrol edin
 
-function YerlesimDetail({ data, finalMetrekare, updatedata }) {
-    const diskcapi = data?.tasarim?.diskParametreleri?.secilenDiskTipi === "MX" ? 2.05 : 1.35;
-    const hacim = data?.tasarim?.diskParametreleri?.secilenDiskTipi === "MX" ? 4.5 : 2.00;
+function YerlesimDetail({ finalMetrekare }) {
+    // 1. ZUSTAND STORE BAĞLANTISI
+    const formData = useTeklifStore((state) => state.formData);
+    const updateSection = useTeklifStore((state) => state.updateSection);
 
-    const maxDiskAdedi = data?.tasarim?.diskParametreleri?.maxDiskAdedi || 135;
-    const minDiskAdedi = data?.tasarim?.diskParametreleri?.minDiskAdedi || 100;
+    // İhtiyacımız olan tüm parametreleri güvenli köklerden topluyoruz
+    const diskDetails = formData.planetDiskDetails || {};
+    const diskParametreleri = diskDetails.tasarim?.diskParametreleri || {};
+    const lamellaData = diskDetails.tasarim?.lamella || {};
+    const Q = Number(diskDetails.debi) || 0;
+
+    // Önceki adımlardan veya geçmiş seçimlerden kalan store verileri (varsa)
+    const kaydedilmisSecimler = diskDetails.tasarim?.yerlesimSecimleri || {};
+
+    const diskcapi = diskParametreleri.secilenDiskTipi === "MX" ? 2.05 : 1.35;
+    const hacim = diskParametreleri.secilenDiskTipi === "MX" ? 4.5 : 2.00;
+    const maxDiskAdedi = diskParametreleri.maxDiskAdedi || 135;
+    const minDiskAdedi = diskParametreleri.minDiskAdedi || 100;
 
     const tekDiskAlani = 2 * (Math.PI * Math.pow(diskcapi, 2) / 4);
 
-    const [secilenUniteler, setSecilenUniteler] = useState({});
-    // Her kademenin sıra sayısını tutar: { 0: 2, 1: 3 } gibi (Varsayılan: 2 sıra)
-    const [secilenSiralar, setSecilenSiralar] = useState({});
-    const [yerlesimDuzenleri, setYerlesimDuzenleri] = useState({});
+    // 2. LOKAL STATELERİ STORE İLE BAŞLATIYORUZ (HAFIZA BURADA DEVREYE GİRİYOR)
+    const [secilenUniteler, setSecilenUniteler] = useState(kaydedilmisSecimler.secilenUniteler || {});
+    const [secilenSiralar, setSecilenSiralar] = useState(kaydedilmisSecimler.secilenSiralar || {});
+    const [yerlesimDuzenleri, setYerlesimDuzenleri] = useState(kaydedilmisSecimler.yerlesimDuzenleri || {});
+    
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedKademeData, setSelectedKademeData] = useState(null);
 
-    // Kademelerin temel hesapları (Disk Kademeleri)
+    // Kademelerin temel hesapları
     const kademeHesaplari = useMemo(() => {
         if (!finalMetrekare || finalMetrekare.length === 0) return [];
 
@@ -33,20 +47,17 @@ function YerlesimDetail({ data, finalMetrekare, updatedata }) {
                 alternatifUniteler.push(i);
             }
 
-            const mevcutSecim = secilenUniteler[index] || alternatifUniteler[0] || minUniteSayisi;
+            // Eğer store'dan gelen veri varsa onu kullan, yoksa alternatifi ilk elemanı seç
+            const mevcutSecim = secilenUniteler[index] !== undefined ? secilenUniteler[index] : (alternatifUniteler[0] || minUniteSayisi);
+            const siraSayisi = secilenSiralar[index] !== undefined ? secilenSiralar[index] : 2;
+
             const milBasinaDisk = Math.ceil(toplamGerekliDisk / mevcutSecim);
-
-            // Sıra sayısı seçimi (Varsayılan 2 sıra, en fazla 3)
-            const siraSayisi = secilenSiralar[index] || 2;
-
-            // Dağılım algoritması: Üniteleri sıra sayısına olabildiğince eşit böler
             const ozelDuzen = yerlesimDuzenleri[index];
             let dagilim = [];
 
             if (ozelDuzen && ozelDuzen.length === siraSayisi) {
                 dagilim = ozelDuzen;
             } else {
-                // Otomatik dağıtım mantığı
                 let kalanUnite = mevcutSecim;
                 for (let s = 0; s < siraSayisi; s++) {
                     const siraPayi = Math.ceil(kalanUnite / (siraSayisi - s));
@@ -65,53 +76,25 @@ function YerlesimDetail({ data, finalMetrekare, updatedata }) {
                 mevcutSecim,
                 milBasinaDisk,
                 siraSayisi,
-                dagilim // Örn: [2, 1, 1] -> 3 sıra için her sıradaki paralel ünite adedi
+                dagilim
             };
         });
     }, [finalMetrekare, tekDiskAlani, minDiskAdedi, maxDiskAdedi, secilenUniteler, secilenSiralar, yerlesimDuzenleri]);
 
-    const handleUniteChange = (kademeIndex, adet) => {
-        const yeniAdet = parseInt(adet, 10);
-        setSecilenUniteler(prev => ({ ...prev, [kademeIndex]: yeniAdet }));
-
-        // Ünite sayısı değiştiğinde özel yerleşimi sıfırla (otomatik dağıtıma dönsün)
-        setYerlesimDuzenleri(prev => {
-            const kopya = { ...prev };
-            delete kopya[kademeIndex];
-            return kopya;
-        });
-    };
-
-    const handleSiraChange = (kademeIndex, siraAdedi) => {
-        const yeniSira = parseInt(siraAdedi, 10);
-        setSecilenSiralar(prev => ({ ...prev, [kademeIndex]: yeniSira }));
-
-        // Sıra sayısı değiştiğinde eski düzene ait kayıtları sıfırla
-        setYerlesimDuzenleri(prev => {
-            const kopya = { ...prev };
-            delete kopya[kademeIndex];
-            return kopya;
-        });
-    };
-
-    const openDetailModal = (kademeVerisi, kademeSiraNo) => {
-        setSelectedKademeData({ ...kademeVerisi, kademeNo: kademeSiraNo });
-        setIsModalOpen(true);
-    };
-
+    // 3. RUNTIME SIRALAMA HESAPLAMASI
     const tumSiralar = useMemo(() => {
         const siralar = [];
         let genelSiraNo = 1;
 
         kademeHesaplari.forEach((kademe) => {
             kademe.dagilim.forEach((siraAdet, sIdx) => {
-                const HRT = data?.debi ? (((hacim * siraAdet) / data.debi) * 24).toFixed(2) : 0;
+                const HRT = Q > 0 ? (((hacim * siraAdet) / Q) * 24).toFixed(2) : 0;
 
                 siralar.push({
                     isLamella: false,
                     genelSiraNo: genelSiraNo++,
                     kademeNo: kademe.index,
-                    kademeRealIndex: kademe.realIndex,
+                    parentKademeIndex: kademe.realIndex, // drag-drop eşleşmesi için kritik
                     siraTipi: sIdx,
                     adet: siraAdet,
                     milBasinaDisk: kademe.milBasinaDisk,
@@ -123,7 +106,6 @@ function YerlesimDetail({ data, finalMetrekare, updatedata }) {
             });
         });
 
-        const lamellaData = data?.tasarim?.lamella;
         if (lamellaData && lamellaData.lamellaAdet && Number(lamellaData.lamellaAdet) > 0) {
             siralar.push({
                 isLamella: true,
@@ -140,31 +122,55 @@ function YerlesimDetail({ data, finalMetrekare, updatedata }) {
         }
 
         return siralar;
-    }, [kademeHesaplari, hacim, data?.debi, data?.tasarim?.lamella]); // <-- Nesne yerine doğrudan field dinliyoruz
+    }, [kademeHesaplari, hacim, Q, lamellaData]);
 
+    // 4. MERKEZİ STORE GÜNCELLEME HELPER FONKSİYONU
+    // Yapılan seçimleri (Uniteler, Sıralar ve Düzeler) tek elden store'a kaydeder.
+    const syncWithStore = (currentUniteler, currentSiralar, currentDuzenleri, currentSiralanis) => {
+        updateSection("planetDiskDetails", {
+            tasarim: {
+                ...diskDetails.tasarim,
+                yerlesimSiralanisi: currentSiralanis || tumSiralar,
+                yerlesimSecimleri: {
+                    secilenUniteler: currentUniteler || secilenUniteler,
+                    secilenSiralar: currentSiralar || secilenSiralar,
+                    yerlesimDuzenleri: currentDuzenleri || yerlesimDuzenleri
+                }
+            }
+        });
+    };
 
-    // YerlesimDetail.jsx içerisindeki ilgili Effect
+    const handleUniteChange = (kademeIndex, adet) => {
+        const yeniAdet = parseInt(adet, 10);
+        
+        const yeniUniteler = { ...secilenUniteler, [kademeIndex]: yeniAdet };
+        const yeniDuzenleri = { ...yerlesimDuzenleri };
+        delete yeniDuzenleri[kademeIndex]; // Ünite değiştiği için drag drop özel dağılımı sıfırlansın
 
-    useEffect(() => {
-        if (!updatedata || !data) return;
+        setSecilenUniteler(yeniUniteler);
+        setYerlesimDuzenleri(yeniDuzenleri);
 
-        const yeniYerlesimStr = JSON.stringify(tumSiralar);
-        const mevcutYerlesimStr = JSON.stringify(data?.tasarim?.yerlesimSiralanisi);
+        // State'lerin güncel halini doğrudan basıyoruz (asenkron gecikmeyi önlemek için)
+        setTimeout(() => syncWithStore(yeniUniteler, secilenSiralar, yeniDuzenleri, null), 0);
+    };
 
-        if (!data?.tasarim?.yerlesimSiralanisi || mevcutYerlesimStr !== yeniYerlesimStr) {
+    const handleSiraChange = (kademeIndex, siraAdedi) => {
+        const yeniSira = parseInt(siraAdedi, 10);
+        
+        const yeniSiralar = { ...secilenSiralar, [kademeIndex]: yeniSira };
+        const yeniDuzenleri = { ...yerlesimDuzenleri };
+        delete yeniDuzenleri[kademeIndex]; // Sıra sayısı değiştiği için drag drop özel dağılımı sıfırlansın
 
-            // Üst bileşenin (DiskDetail) yazdığı kademeParametreleri vb. alanları kaybetmemek için
-            const guncelTasarim = {
-                ...(data?.tasarim || {}), // Üst bileşenin verilerini koru
-                yerlesimSiralanisi: tumSiralar
-            };
+        setSecilenSiralar(yeniSiralar);
+        setYerlesimDuzenleri(yeniDuzenleri);
 
-            updatedata({
-                ...data,
-                tasarim: guncelTasarim
-            });
-        }
-    }, [tumSiralar, updatedata]); // data bağımlılığı zaten yok, bu doğru kalıyor.
+        setTimeout(() => syncWithStore(secilenUniteler, yeniSiralar, yeniDuzenleri, null), 0);
+    };
+
+    const openDetailModal = (kademeVerisi, kademeSiraNo) => {
+        setSelectedKademeData({ ...kademeVerisi, kademeNo: kademeSiraNo });
+        setIsModalOpen(true);
+    };
 
     // --- HTML5 DRAG AND DROP FONKSİYONLARI ---
     const handleDragStart = (e, kaynakKademeIndex, kaynakSiraTipi) => {
@@ -184,32 +190,37 @@ function YerlesimDetail({ data, finalMetrekare, updatedata }) {
         const kaynakKademeIndex = parseInt(e.dataTransfer.getData("kaynakKademeIndex"), 10);
         const kaynakSiraTipi = parseInt(e.dataTransfer.getData("kaynakSiraTipi"), 10);
 
-        if (kaynakKademeIndex !== hedefKademeIndex) return; // Farklı kademeler arası engelle
-        if (kaynakSiraTipi === hedefSiraTipi) return; // Aynı sıraya bırakıldıysa iptal
+        if (kaynakKademeIndex !== hedefKademeIndex) return; 
+        if (kaynakSiraTipi === hedefSiraTipi) return; 
 
         const ilgiliKademe = kademeHesaplari.find(k => k.realIndex === hedefKademeIndex);
         if (!ilgiliKademe) return;
 
-        // Mevcut dağılımın kopyasını alıyoruz
         const yeniDagilim = [...ilgiliKademe.dagilim];
 
-        // Kaynak sıradan 1 ünite azalt, hedef sıraya 1 ünite ekle
         if (yeniDagilim[kaynakSiraTipi] > 0) {
             yeniDagilim[kaynakSiraTipi] -= 1;
             yeniDagilim[hedefSiraTipi] += 1;
         }
 
-        setYerlesimDuzenleri(prev => ({
-            ...prev,
-            [hedefKademeIndex]: yeniDagilim
-        }));
-    };
+        const yeniDuzenleri = { ...yerlesimDuzenleri, [hedefKademeIndex]: yeniDagilim };
+        setYerlesimDuzenleri(yeniDuzenleri);
 
+        // Drag and drop sonrası tumSiralar listesini anlık simüle edip store'a gönderelim
+        const guncelSiralar = tumSiralar.map(s => {
+            if (!s.isLamella && s.parentKademeIndex === hedefKademeIndex) {
+                if (s.siraTipi === kaynakSiraTipi) return { ...s, adet: s.adet - 1 };
+                if (s.siraTipi === hedefSiraTipi) return { ...s, adet: s.adet + 1 };
+            }
+            return s;
+        });
+
+        setTimeout(() => syncWithStore(secilenUniteler, secilenSiralar, yeniDuzenleri, guncelSiralar), 0);
+    };
 
     return (
         <div className="p-1 rounded" style={{ backgroundColor: "#1e293b", display: "flex", flexDirection: "column" }}>
-
-            {/* 1. ÜST KISIM DROPDOWNLAR VE LAMELLA BİLGİ KARTI */}
+            {/* 1. DROPDOWN ALANLARI */}
             <div className="row g-1">
                 {kademeHesaplari.map((kademe) => (
                     <div key={`dropdown-${kademe.index}`} className="col-12 col-md-4">
@@ -232,23 +243,13 @@ function YerlesimDetail({ data, finalMetrekare, updatedata }) {
                             </div>
 
                             <div className="row g-1 align-items-end">
-                                {/* 1. Ünite Seçim Dropdown'u */}
                                 <div className="col-4">
                                     <div className="text-white-50 mb-1" style={{ fontSize: "9px", paddingLeft: "2px" }}>Ünite:</div>
                                     <select
                                         value={kademe.mevcutSecim}
                                         onChange={(e) => handleUniteChange(kademe.realIndex, e.target.value)}
                                         className="form-select form-select-sm bg-dark text-white border-0"
-                                        style={{
-                                            fontSize: "11px",
-                                            fontWeight: "bold",
-                                            paddingLeft: "6px",
-                                            paddingRight: "12px",
-                                            height: "26px", // Tüm kutuların yüksekliği eşitlendi
-                                            backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%23ffffff' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e")`,
-                                            backgroundSize: "7px 7px",
-                                            backgroundPosition: "right 3px center"
-                                        }}
+                                        style={{ fontSize: "11px", fontWeight: "bold", paddingLeft: "6px", height: "26px" }}
                                     >
                                         {kademe.alternatifUniteler.map(adet => (
                                             <option key={adet} value={adet}>{adet}</option>
@@ -256,24 +257,13 @@ function YerlesimDetail({ data, finalMetrekare, updatedata }) {
                                     </select>
                                 </div>
 
-                                {/* 2. Sıra Seçim Dropdown'u */}
                                 <div className="col-4">
                                     <div className="text-white-50 mb-1" style={{ fontSize: "9px", paddingLeft: "2px" }}>Sıra:</div>
                                     <select
                                         value={kademe.siraSayisi}
                                         onChange={(e) => handleSiraChange(kademe.realIndex, e.target.value)}
                                         className="form-select form-select-sm bg-dark text-white border-0"
-                                        style={{
-                                            fontSize: "11px",
-                                            fontWeight: "bold",
-                                            color: "#60a5fa",
-                                            paddingLeft: "6px",
-                                            paddingRight: "12px",
-                                            height: "26px",
-                                            backgroundImage: `url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3e%3cpath fill='none' stroke='%2360a5fa' stroke-linecap='round' stroke-linejoin='round' stroke-width='2' d='m2 5 6 6 6-6'/%3e%3c/svg%3e")`,
-                                            backgroundSize: "7px 7px",
-                                            backgroundPosition: "right 3px center"
-                                        }}
+                                        style={{ fontSize: "11px", fontWeight: "bold", color: "#60a5fa", paddingLeft: "6px", height: "26px" }}
                                     >
                                         <option value="1">1</option>
                                         <option value="2">2</option>
@@ -281,7 +271,6 @@ function YerlesimDetail({ data, finalMetrekare, updatedata }) {
                                     </select>
                                 </div>
 
-                                {/* 3. Disk Bilgi Alanı (Dümdüz Rakam Gösteren Sabit Kutu) */}
                                 <div className="col-4">
                                     <div className="text-white-50 mb-1 text-center" style={{ fontSize: "9px" }}>Disk:</div>
                                     <div className="bg-dark rounded text-center" style={{ height: "26px", display: "flex", alignItems: "center", justifyContent: "center" }}>
@@ -296,30 +285,17 @@ function YerlesimDetail({ data, finalMetrekare, updatedata }) {
                 ))}
             </div>
 
-            {/* 2. SÜRÜKLENEBİLİR VE BIRAKILABİLİR ALT SIRALAR */}
-            <div
-                className="p-1 my-2 rounded bg-dark"
-                style={{
-                    border: "1px solid rgba(255,255,255,0.05)",
-                    display: "flex",
-                    flexDirection: "row",
-                    alignItems: "stretch",
-                    justifyContent: "space-around",
-                    gap: "8px",
-                    overflowX: "auto",
-                    width: "100%"
-                }}
-            >
+            {/* 2. SÜRÜKLENEBİLİR SIRALAR ŞEMASI */}
+            <div className="p-1 my-2 rounded bg-dark" style={{ border: "1px solid rgba(255,255,255,0.05)", display: "flex", flexDirection: "row", alignItems: "stretch", justifyContent: "space-around", gap: "8px", overflowX: "auto", width: "100%" }}>
                 {tumSiralar.map((sira, idx) => (
                     <React.Fragment key={idx}>
                         <div
                             className="d-flex flex-column align-items-center gap-1 p-1 rounded"
                             onDragOver={!sira.isLamella ? handleDragOver : undefined}
-                            onDrop={!sira.isLamella ? (e) => handleDrop(e, sira.isLamella, sira.kademeRealIndex, sira.siraTipi) : undefined}
+                            onDrop={!sira.isLamella ? (e) => handleDrop(e, sira.isLamella, sira.parentKademeIndex, sira.siraTipi) : undefined}
                             style={{
                                 flex: "1 1 0px",
                                 maxWidth: "140px",
-                                transition: "background-color 0.2s",
                                 border: sira.isLamella ? "1px solid rgba(20, 184, 166, 0.3)" : "1px dashed rgba(255,255,255,0.05)",
                                 backgroundColor: sira.isLamella ? "rgba(15, 118, 110, 0.1)" : "transparent"
                             }}
@@ -340,68 +316,17 @@ function YerlesimDetail({ data, finalMetrekare, updatedata }) {
                                 )}
                             </div>
 
-                            {/* İçerideki Makine/Kapsül Elemanlarının Listelendiği Alan */}
-                            <div
-                                className="d-flex flex-column gap-3 align-items-center justify-content-start w-100 p-1 rounded"
-                                style={{ minHeight: "60px", backgroundColor: "rgba(255,255,255,0.02)" }}
-                            >
+                            <div className="d-flex flex-column gap-3 align-items-center justify-content-start w-100 p-1 rounded" style={{ minHeight: "60px", backgroundColor: "rgba(255,255,255,0.02)" }}>
                                 {Array.from({ length: sira.adet }).map((_, i) => (
                                     sira.isLamella ? (
-                                        <div
-                                            key={`lamella-visual-${i}`}
-                                            className="d-flex flex-column align-items-center justify-content-center"
-                                            style={{ width: "100%", maxWidth: "45px", marginTop: "2.5px" }}
-                                            title={`Model: ${sira.model} Lamella Çökeltici`}
-                                        >
-                                            <div
-                                                className="d-flex flex-column align-items-center justify-content-center"
-                                                style={{
-                                                    width: "45px",
-                                                    marginTop: "2.5px",
-                                                    filter: "drop-shadow(0px 2px 3px rgba(0,0,0,0.5))"
-                                                }}
-                                            >
-                                                <div style={{
-                                                    width: "40px",
-                                                    height: "14px",
-                                                    background: "linear-gradient(90deg, #0d9488 0%, #14b8a6 25%, #0f766e 75%, #115e59 100%)",
-                                                    borderTopLeftRadius: "2px",
-                                                    borderTopRightRadius: "2px",
-                                                    position: "relative",
-                                                    boxShadow: "inset 0 1px 2px rgba(255,255,255,0.2)",
-                                                    overflow: "hidden",
-                                                    borderBottom: "0.5px solid rgba(0,0,0,0.2)"
-                                                }}>
-                                                    <div style={{
-                                                        position: "absolute",
-                                                        inset: "2px 4px",
-                                                        backgroundImage: "repeating-linear-gradient(120deg, transparent, transparent 1px, rgba(255,255,255,0.3) 1px, rgba(255,255,255,0.3) 2.5px)",
-                                                        opacity: 0.8
-                                                    }} />
-                                                    <div style={{
-                                                        position: "absolute",
-                                                        top: 0, left: 0, right: 0,
-                                                        height: "1px",
-                                                        backgroundColor: "#2dd4bf",
-                                                        opacity: 0.6
-                                                    }} />
+                                        <div key={`lamella-visual-${i}`} className="d-flex flex-column align-items-center justify-content-center" style={{ width: "100%", maxWidth: "45px", marginTop: "2.5px" }}>
+                                            <div className="d-flex flex-column align-items-center justify-content-center" style={{ width: "45px", marginTop: "2.5px", filter: "drop-shadow(0px 2px 3px rgba(0,0,0,0.5))" }}>
+                                                <div style={{ width: "40px", height: "14px", background: "linear-gradient(90deg, #0d9488 0%, #14b8a6 25%, #0f766e 75%, #115e59 100%)", borderTopLeftRadius: "2px", borderTopRightRadius: "2px", position: "relative", boxShadow: "inset 0 1px 2px rgba(255,255,255,0.2)", overflow: "hidden", borderBottom: "0.5px solid rgba(0,0,0,0.2)" }}>
+                                                    <div style={{ position: "absolute", inset: "2px 4px", backgroundImage: "repeating-linear-gradient(120deg, transparent, transparent 1px, rgba(255,255,255,0.3) 1px, rgba(255,255,255,0.3) 2.5px)", opacity: 0.8 }} />
+                                                    <div style={{ position: "absolute", top: 0, left: 0, right: 0, height: "1px", backgroundColor: "#2dd4bf", opacity: 0.6 }} />
                                                 </div>
-                                                <div style={{
-                                                    width: "0",
-                                                    height: "0",
-                                                    borderLeft: "20px solid transparent",
-                                                    borderRight: "20px solid transparent",
-                                                    borderTop: "11px solid #0f766e",
-                                                    position: "relative"
-                                                }}>
-                                                    <div style={{
-                                                        position: "absolute",
-                                                        top: 0, left: "-2px",
-                                                        width: "4px", height: "2px",
-                                                        backgroundColor: "#115e59",
-                                                        borderBottomLeftRadius: "0.5px",
-                                                        borderBottomRightRadius: "0.5px"
-                                                    }} />
+                                                <div style={{ width: "0", height: "0", borderLeft: "20px solid transparent", borderRight: "20px solid transparent", borderTop: "11px solid #0f766e", position: "relative" }}>
+                                                    <div style={{ position: "absolute", top: 0, left: "-2px", width: "4px", height: "2px", backgroundColor: "#115e59", borderBottomLeftRadius: "0.5px", borderBottomRightRadius: "0.5px" }} />
                                                 </div>
                                             </div>
                                             <span style={{ fontSize: "9px", color: "#2dd4bf", fontWeight: "bold", marginTop: "4px", whiteSpace: "nowrap" }}>
@@ -412,45 +337,16 @@ function YerlesimDetail({ data, finalMetrekare, updatedata }) {
                                         <div
                                             key={i}
                                             draggable
-                                            onDragStart={(e) => handleDragStart(e, sira.kademeRealIndex, sira.siraTipi)}
+                                            onDragStart={(e) => handleDragStart(e, sira.parentKademeIndex, sira.siraTipi)}
                                             className="d-flex flex-column align-items-center justify-content-center"
                                             style={{ width: "100%", maxWidth: "45px", cursor: "grab", userSelect: "none" }}
-                                            title={`${sira.milBasinaDisk} Disk - Sürükleyip sırasını değiştirebilirsiniz.`}
                                         >
                                             <div style={{ width: "42.5px", filter: "drop-shadow(0px 2px 3px rgba(0,0,0,0.5))", position: "relative" }}>
-                                                <div style={{
-                                                    height: "13px",
-                                                    background: "linear-gradient(90deg, #ff7324 0%, #ea580c 30%, #c2410c 85%, #9a3412 100%)",
-                                                    borderTopLeftRadius: "21px 13px",
-                                                    borderTopRightRadius: "21px 13px",
-                                                    boxShadow: "inset 0 1px 1.5px rgba(255,255,255,0.3)",
-                                                    position: "relative"
-                                                }}>
-                                                    <div style={{
-                                                        position: "absolute",
-                                                        right: "7.5px", top: "4px",
-                                                        width: "5px", height: "5px",
-                                                        borderRadius: "50%",
-                                                        background: "radial-gradient(circle, #4b5563 0%, #1f2937 80%)",
-                                                        border: "0.5px solid rgba(255,255,255,0.15)",
-                                                        boxShadow: "0 0.5px 1px rgba(0,0,0,0.4)"
-                                                    }} />
+                                                <div style={{ height: "13px", background: "linear-gradient(90deg, #ff7324 0%, #ea580c 30%, #c2410c 85%, #9a3412 100%)", borderTopLeftRadius: "21px 13px", borderTopRightRadius: "21px 13px", boxShadow: "inset 0 1px 1.5px rgba(255,255,255,0.3)", position: "relative" }}>
+                                                    <div style={{ position: "absolute", right: "7.5px", top: "4px", width: "5px", height: "5px", borderRadius: "50%", background: "radial-gradient(circle, #4b5563 0%, #1f2937 80%)", border: "0.5px solid rgba(255,255,255,0.15)", boxShadow: "0 0.5px 1px rgba(0,0,0,0.4)" }} />
                                                 </div>
                                                 <div style={{ height: "1px", backgroundColor: "#334155", width: "100%" }} />
-                                                <div style={{
-                                                    height: "22px",
-                                                    background: "linear-gradient(90deg, #22c55e 0%, #16a34a 25%, #15803d 75%, #166534 100%)",
-                                                    borderBottomLeftRadius: "3px",
-                                                    borderBottomRightRadius: "3px",
-                                                    boxShadow: "inset 0 -1.5px 2.5px rgba(0,0,0,0.3)",
-                                                    fontFamily: "monospace",
-                                                    lineHeight: "1.1",
-                                                    padding: "2px 0",
-                                                    display: "flex",
-                                                    flexDirection: "column",
-                                                    alignItems: "center",
-                                                    justifyContent: "center"
-                                                }}>
+                                                <div style={{ height: "22px", background: "linear-gradient(90deg, #22c55e 0%, #16a34a 25%, #15803d 75%, #166534 100%)", borderBottomLeftRadius: "3px", borderBottomRightRadius: "3px", boxShadow: "inset 0 -1.5px 2.5px rgba(0,0,0,0.3)", fontFamily: "monospace", lineHeight: "1.1", padding: "2px 0", display: "flex", flexDirection: "column", alignItems: "center", justifycontent: "center" }}>
                                                     <span style={{ fontSize: "10px", fontWeight: "800", letterSpacing: "0.5px", textShadow: "1px 1px 2px rgba(0,0,0,0.6)" }}>
                                                         {sira.milBasinaDisk}
                                                     </span>
@@ -469,10 +365,7 @@ function YerlesimDetail({ data, finalMetrekare, updatedata }) {
                         </div>
 
                         {idx < tumSiralar.length - 1 && (
-                            <div
-                                className="d-flex align-items-center justify-content-center text-white-50"
-                                style={{ fontSize: "14px", paddingTop: "55px", userSelect: "none", flexShrink: 0 }}
-                            >
+                            <div className="d-flex align-items-center justify-content-center text-white-50" style={{ fontSize: "14px", paddingTop: "55px", userSelect: "none", flexShrink: 0 }}>
                                 ➔
                             </div>
                         )}
@@ -480,16 +373,15 @@ function YerlesimDetail({ data, finalMetrekare, updatedata }) {
                 ))}
             </div>
 
-            {/* 3. MODAL BİLEŞENİ */}
+            {/* 3. MODAL GÖSTERİMİ */}
             {isModalOpen && (
                 <GiderimDetail
                     isOpen={isModalOpen}
                     onClose={() => setIsModalOpen(false)}
                     kademeData={selectedKademeData}
-                    genelVeri={data}
+                    genelVeri={diskDetails}
                 />
             )}
-
         </div>
     );
 }

@@ -47,6 +47,7 @@
   },
   "dependencies": {
     "@headlessui/react": "^2.2.7",
+    "@microlink/react-json-view": "^1.31.20",
     "axios": "^1.11.0",
     "bonjour": "^3.5.0",
     "bootstrap": "^5.3.8",
@@ -62,7 +63,8 @@
     "react-dom": "^19.1.1",
     "react-router-dom": "^7.9.1",
     "react-select": "^5.10.2",
-    "xlsx": "^0.18.5"
+    "xlsx": "^0.18.5",
+    "zustand": "^5.0.13"
   },
   "devDependencies": {
     "@eslint/js": "^9.33.0",

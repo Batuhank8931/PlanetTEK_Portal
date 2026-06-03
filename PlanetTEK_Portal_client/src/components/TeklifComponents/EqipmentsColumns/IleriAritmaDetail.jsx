@@ -5,20 +5,16 @@ import IleriAritmaPumpSelections from "./ileriAritmaSelections/IleriAritmaPumpSe
 import IleriAritmaDozajSelections from "./ileriAritmaSelections/IleriAritmaDozajSelections";
 import IleriAritmaTankMixerSelections from "./ileriAritmaSelections/IleriAritmaTankMixerSelections";
 
-function IleriAritmaDetail({ data, updateData }) {
+function IleriAritmaDetail() {
     return (
         <div className="flex flex-col gap-4">
             <IleriAritmaInputSelections
-                data={data} updateData={updateData}
             />
             <IleriAritmaPumpSelections
-                data={data} updateData={updateData}
             />
             <IleriAritmaDozajSelections
-                data={data} updateData={updateData}
             />
             <IleriAritmaTankMixerSelections
-                data={data} updateData={updateData}
             />
         </div>
     );

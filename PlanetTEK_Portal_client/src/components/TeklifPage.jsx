@@ -1,23 +1,26 @@
 import React, { useState } from "react";
+
+import { useTeklifStore } from "../utils/teklifStore"; // Store yolunu kontrol edin
+
 import SelectCustomer from "./TeklifComponents/SelectCustomer_step_1";
 import SelectPlanetDisk from "./TeklifComponents/SelectPlanetDisk_step_2";
 import SelectEquiptments from "./TeklifComponents/SelectEquiptments_step_3";
 import SelectCapex from "./TeklifComponents/SelectCapex_step_4";
 import SelectOpex from "./TeklifComponents/SelectOpex_step_5";
 import SelectFinal from "./TeklifComponents/SelectFinal";
+import SelectionsModal from "./TeklifComponents/SelectionsModal";
 
 function TeklifPage() {
-  const [currentStep, setCurrentStep] = useState(1);
-  const [formData, setFormData] = useState({
-    customerInfo: { ticariUnvan: "", mensei: "Yerli", ulke: "", vergiDairesi: "", vergiNo: "", adres: "" },
-    planetDiskDetails: {},
-    equipments: {},
-    capexDetails: {},
-    opexDetails: {},
-    notlar: ""
-  });
+  // 1. Store'dan sadece formData'yı dinliyoruz
+  const formData = useTeklifStore((state) => state.formData);
 
-  // Adım adları ve ikonları (Gelecekte buraya ekleme/çıkarma yapabilirsin)
+  // 2. Adım takibini tamamen bu ana komponentin lokal state'ine bırakıyoruz
+  const [currentStep, setCurrentStep] = useState(1);
+  
+  // Modal görünürlük state'i
+  const [showModal, setShowModal] = useState(false);
+
+  // Sabit adım listesi
   const steps = [
     { id: 1, label: "Müşteri Seçimi", icon: "bi-building" },
     { id: 2, label: "Planet Disk", icon: "bi-disc" },
@@ -27,13 +30,7 @@ function TeklifPage() {
     { id: 6, label: "Özet & Onay", icon: "bi-check2-circle" }
   ];
 
-  const updateFormData = (section, data) => {
-    setFormData((prev) => ({
-      ...prev,
-      [section]: data
-    }));
-  };
-
+  // Adım değiştirme fonksiyonları (Lokal state'i günceller)
   const nextStep = () => {
     if (currentStep < steps.length) setCurrentStep((prev) => prev + 1);
   };
@@ -47,23 +44,16 @@ function TeklifPage() {
     console.log("Oluşturulan Teklif Verisi: ", formData);
   };
 
-  // Aktif adımı render eden fonksiyon
+  // Aktif adımı render eden fonksiyon (Proplar temiz, state lokalden geliyor)
   const renderStepComponent = () => {
     switch (currentStep) {
-      case 1:
-        return <SelectCustomer data={formData.customerInfo} updateData={(data) => updateFormData("customerInfo", data)} />;
-      case 2:
-        return <SelectPlanetDisk data={formData.planetDiskDetails} updateData={(data) => updateFormData("planetDiskDetails", data)} />;
-      case 3:
-        return <SelectEquiptments data={formData.planetDiskDetails} updateData={(data) => updateFormData("planetDiskDetails", data)} />;
-      case 4:
-        return <SelectCapex data={formData.capexDetails} updateData={(data) => updateFormData("capexDetails", data)} />;
-      case 5:
-        return <SelectOpex data={formData.opexDetails} updateData={(data) => updateFormData("opexDetails", data)} />;
-      case 6:
-        return <SelectFinal formData={formData} onSubmit={handleSubmit} />;
-      default:
-        return <div>Hatalı Adım</div>;
+      case 1: return <SelectCustomer />;
+      case 2: return <SelectPlanetDisk />;
+      case 3: return <SelectEquiptments />;
+      case 4: return <SelectCapex />;
+      case 5: return <SelectOpex />;
+      case 6: return <SelectFinal onSubmit={handleSubmit} />;
+      default: return <div>Hatalı Adım</div>;
     }
   };
 
@@ -74,15 +64,14 @@ function TeklifPage() {
         fontSize: "14px",
         fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
         backgroundColor: "#1a2d3a",
-        // Mobilde navbar arkasında kalmasın diye 70px (veya navbar yüksekliğin kadar) boşluk, masaüstünde 0
         paddingTop: window.innerWidth < 768 ? "75px" : "20px"
       }}
     >
       {/* ÜST BAŞLIK */}
       <div className="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom" style={{ borderColor: "#dee2e6" }}>
         <div>
-          <h5 className="mb-1 fw-semibold tracking-tight" style={{ color: "#1a1c1d" }}>
-            <i className="bi bi-file-earmark-plus me-2" style={{ color: "#00874e" }}></i > <span style={{ color: "#ffffff" }}>Yeni Teklif Oluştur</span>
+          <h5 className="mb-1 fw-semibold tracking-tight" style={{ color: "#ffffff" }}>
+            <i className="bi bi-file-earmark-plus me-2" style={{ color: "#00874e" }}></i> Yeni Teklif Oluştur
           </h5>
           <p className="mb-0" style={{ fontSize: "12px", color: '#6b8aaa' }}>Adım adım teklif parametrelerini belirleyin</p>
         </div>
@@ -129,7 +118,7 @@ function TeklifPage() {
                   <div
                     className="rounded-circle d-flex align-items-center justify-content-center me-2 text-white shadow-sm"
                     style={{
-                      width: "28px", // Yükseklikten kazanmak için hafif küçültüldü
+                      width: "28px",
                       height: "28px",
                       backgroundColor: isActive || isCompleted ? "#00874e" : "#475569",
                       fontSize: "12px",
@@ -155,34 +144,55 @@ function TeklifPage() {
             })}
           </div>
 
-          {/* İLERİ / BİTİR BUTONU */}
-          {currentStep < steps.length ? (
+          {/* SAĞ TARAF: AKSİYON + MODAL BUTON GRUBU */}
+          <div className="d-flex align-items-center gap-2">
+            {/* İLERİ / BİTİR BUTONU */}
+            {currentStep < steps.length ? (
+              <button
+                type="button"
+                className="btn btn-sm text-white px-3 py-2 fw-bold d-flex align-items-center"
+                onClick={nextStep}
+                style={{ backgroundColor: "#00874e", borderRadius: "6px", border: "none", fontSize: "13px" }}
+              >
+                İleri <i className="bi bi-arrow-right ms-1.5"></i>
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="btn btn-sm text-dark px-3 py-2 fw-bold border-0 shadow-sm d-flex align-items-center"
+                onClick={handleSubmit}
+                style={{ backgroundColor: "#eab308", borderRadius: "6px", fontSize: "13px" }}
+              >
+                <i className="bi bi-check-all me-1.5" style={{ fontSize: "15px" }}></i> Kaydet
+              </button>
+            )}
+
+            {/* DÖKÜMAN LOGOLU KÜÇÜK MODAL BUTONU */}
             <button
               type="button"
-              className="btn btn-sm text-white px-3 py-2 fw-bold d-flex align-items-center"
-              onClick={nextStep}
-              style={{ backgroundColor: "#00874e", borderRadius: "6px", border: "none", fontSize: "13px" }}
+              className="btn btn-sm text-white py-2 px-2.5 d-flex align-items-center justify-content-center border-0 shadow-sm"
+              onClick={() => setShowModal(true)}
+              title="Anlık JSON Çıktısı"
+              style={{ 
+                backgroundColor: "#475569", 
+                borderRadius: "6px", 
+                fontSize: "14px"
+              }}
             >
-              İleri <i className="bi bi-arrow-right ms-1.5"></i>
+              <i className="bi bi-file-earmark-code"></i>
             </button>
-          ) : (
-            <button
-              type="button"
-              className="btn btn-sm text-dark px-3 py-2 fw-bold border-0 shadow-sm d-flex align-items-center"
-              onClick={handleSubmit}
-              style={{ backgroundColor: "#eab308", borderRadius: "6px", fontSize: "13px" }}
-            >
-              <i className="bi bi-check-all me-1.5" style={{ fontSize: "15px" }}></i> Kaydet
-            </button>
-          )}
+          </div>
 
         </div>
       </div>
 
-      {/* MERKEZİ DUMMY BİLEŞEN KARTI */}
+      {/* MERKEZİ BİLEŞEN KARTI */}
       <div className="card shadow-sm border-0 mb-4 text-white" style={{ borderRadius: "8px", backgroundColor: "#1a1c1dab" }}>
         {renderStepComponent()}
       </div>
+
+      {/* SELECTIONS MODAL */}
+      <SelectionsModal show={showModal} onClose={() => setShowModal(false)} />
 
     </div>
   );

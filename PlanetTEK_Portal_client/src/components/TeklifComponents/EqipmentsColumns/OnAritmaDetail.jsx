@@ -1,76 +1,102 @@
-import React, { useState, useEffect } from "react";
+import React, { useEffect } from "react";
+import { useTeklifStore } from "../../../utils/teklifStore";
 
 // Izgara Tipi Seçenekleri
 const IZGARA_OPTIONS = ["Manuel Izgara", "Otomatik Mekanik Izgara"];
 
-function OnAritmaDetail({ data, updateData }) {
-  const CALC_HOURS = 24;
+function OnAritmaDetail() {
+  // 1. ZUSTAND STORE BAĞLANTISI
+  const formData = useTeklifStore((state) => state.formData);
+  const updateSection = useTeklifStore((state) => state.updateSection);
 
-  // Hesaplamalar ve kontroller için temiz ayrım
-  const günlükDebi = data.debi || 0;
-  const hourlyFlow = günlükDebi / CALC_HOURS;
+  // Bir önceki adımdan gelen debi
+  const günlükDebi = parseFloat(formData.planetDiskDetails?.debi) || 0;
 
-  // 1. Manuel müdahale offset state'i
-  const [izgaraOffset, setIzgaraOffset] = useState(0);
+  // Store hiyerarşisini doğrudan equipments altından okuyoruz
+  const equipmentsCache = formData.equipments || {};
+  
+  // onAritma artık doğrudan equipments objesinin altında (modulesState yanında)
+  const storeOnAritma = equipmentsCache.onAritma || {};
 
-  // 2. İdeal Izgara İndeksini Hesaplama (Otomatik Seçim)
-  const getIdealIzgaraIndex = (currentDebi) => {
-    if (!currentDebi) return 0;
-    return currentDebi < 50 ? 0 : 1; // <50 Manuel Izgara (0. indeks), >=50 Mekanik Izgara (1. indeks)
+  // Store'daki mevcut değerler (Yoksa default değerler)
+  const izgaraOffset = storeOnAritma.izgaraOffset || 0;
+  const currentIzgaraTipi = storeOnAritma.izgaraTipi || IZGARA_OPTIONS[0];
+  const currentYagTutucuBoyut = storeOnAritma.yagTutucuBoyut || "Seçilmedi";
+
+  // 2. YARDIMCI HESAPLAMA FONKSİYONLARI
+  const getIdealIzgaraIndex = (debi) => {
+    if (!debi) return 0;
+    return debi < 50 ? 0 : 1; // <50 Manuel, >=50 Mekanik
   };
 
-  // 3. Yağ Tutucu Boyutu Belirleme
-  const getYagTutucuBoyut = (currentDebi) => {
-    if (!currentDebi) return "Seçilmedi";
-    if (currentDebi <= 10) return "1000 x 1000 mm";
-    if (currentDebi <= 25) return "1500 x 1000 mm";
-    if (currentDebi <= 50) return "1500 x 1500 mm";
-    if (currentDebi <= 100) return "1500 x 2000 mm";
-    if (currentDebi <= 150) return "2000 x 2000 mm";
-    if (currentDebi <= 250) return "2500 x 2000 mm";
+  const getYagTutucuBoyut = (debi) => {
+    if (!debi) return "Seçilmedi";
+    if (debi <= 10) return "1000 x 1000 mm";
+    if (debi <= 25) return "1500 x 1000 mm";
+    if (debi <= 50) return "1500 x 1500 mm";
+    if (debi <= 100) return "1500 x 2000 mm";
+    if (debi <= 150) return "2000 x 2000 mm";
+    if (debi <= 250) return "2500 x 2000 mm";
     return "2500 x 2500 mm";
   };
 
-  // --- Izgara Nihai Karar Mekanizması ---
-  const idealIzgaraIndex = getIdealIzgaraIndex(günlükDebi);
-  let finalIzgaraIndex = idealIzgaraIndex + izgaraOffset;
-
-  // Sınır kontrolleri (Dizi dışına çıkmasın)
-  if (finalIzgaraIndex < 0) finalIzgaraIndex = 0;
-  if (finalIzgaraIndex >= IZGARA_OPTIONS.length) finalIzgaraIndex = IZGARA_OPTIONS.length - 1;
-
-  const selectedIzgara = IZGARA_OPTIONS[finalIzgaraIndex];
-  const calculatedYagTutucu = getYagTutucuBoyut(günlükDebi);
-
-  // Ana debi her değiştiğinde manuel kaydırmayı sıfırla
+  // 3. EFFECT: İLK RENDER VE DEBİ DEĞİŞİMİNDE DEFAULT DATA ATAMA
+  // Bu effect sadece bileşen yüklendiğinde ve `günlükDebi` değiştiğinde çalışır.
   useEffect(() => {
-    setIzgaraOffset(0);
-  }, [günlükDebi]);
+    const idealIndex = getIdealIzgaraIndex(günlükDebi);
+    
+    // Offset'i de hesaba katarak default indeksi buluyoruz
+    let finalIndex = idealIndex + izgaraOffset;
+    if (finalIndex < 0) finalIndex = 0;
+    if (finalIndex >= IZGARA_OPTIONS.length) finalIndex = IZGARA_OPTIONS.length - 1;
 
-  // updateData ile parent state'ini doğrudan besleyen tetikleyici
-  // --- DÜZELTİLMİŞ SEKTÖR ---
-  useEffect(() => {
-    if (updateData) {
-      // Sadece üst bileşendeki veri bizim hesapladığımızdan farklıysa güncelleme yap!
-      if (
-        data.izgaraTipi !== selectedIzgara ||
-        data.yagTutucuBoyut !== calculatedYagTutucu
-      ) {
-        updateData({
-          ...data,
-          izgaraTipi: selectedIzgara,
-          yagTutucuBoyut: calculatedYagTutucu
-        });
-      }
+    const defaultIzgara = IZGARA_OPTIONS[finalIndex];
+    const defaultYagTutucu = getYagTutucuBoyut(günlükDebi);
+
+    // Eğer store'daki veriler hedef verilerle uyuşmuyorsa store'u güncelle
+    if (
+      !storeOnAritma.izgaraTipi || 
+      storeOnAritma.izgaraTipi !== defaultIzgara || 
+      storeOnAritma.yagTutucuBoyut !== defaultYagTutucu
+    ) {
+      updateSection("equipments", {
+        ...equipmentsCache, // Mevcut diğer tüm alanları (modulesState, ileriAritma vs.) koru
+        onAritma: {
+          ...storeOnAritma,
+          izgaraOffset: izgaraOffset,
+          izgaraTipi: defaultIzgara,
+          yagTutucuBoyut: defaultYagTutucu
+        }
+      });
     }
-    // data.izgaraTipi ve data.yagTutucuBoyut bağımlılıklarını eklemek 
-    // güncel durumu doğru kıyaslamak için şarttır.
-  }, [selectedIzgara, calculatedYagTutucu, data.izgaraTipi, data.yagTutucuBoyut, updateData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [günlükDebi]); 
 
+  // 4. MANUEL BUTON TIKLAMA REAKSİYONU
+  const handleOffsetChange = (direction) => {
+    const nextOffset = izgaraOffset + direction;
+    const idealIndex = getIdealIzgaraIndex(günlükDebi);
+    
+    let targetIndex = idealIndex + nextOffset;
+    if (targetIndex < 0 || targetIndex >= IZGARA_OPTIONS.length) return; // Sınır dışı ise engelle
+
+    updateSection("equipments", {
+      ...equipmentsCache, // Mevcut verileri koru
+      onAritma: {
+        ...storeOnAritma,
+        izgaraOffset: nextOffset,
+        izgaraTipi: IZGARA_OPTIONS[targetIndex],
+        yagTutucuBoyut: currentYagTutucuBoyut // Mevcut yağ tutucuyu koru
+      }
+    });
+  };
+
+  // UI butonlarının disable durumları için anlık index kontrolü
+  const idealIndex = getIdealIzgaraIndex(günlükDebi);
+  const finalIzgaraIndex = idealIndex + izgaraOffset;
 
   return (
     <div className="d-flex flex-column gap-3">
-      {/* Alt Başlık Bilgisi */}
       <div className="text-white-50 border-bottom pb-1 mb-1" style={{ fontSize: "11px", fontWeight: "600" }}>
         ÖN ARITMA PARAMETRELERİ
       </div>
@@ -90,8 +116,8 @@ function OnAritmaDetail({ data, updateData }) {
               height: "36px"
             }}
           >
-            <div className="fw-bold text-white text-truncate pe-1" style={{ fontSize: "11px" }} title={selectedIzgara}>
-              {selectedIzgara}
+            <div className="fw-bold text-white text-truncate pe-1" style={{ fontSize: "11px" }} title={currentIzgaraTipi}>
+              {currentIzgaraTipi}
             </div>
 
             {/* Manuel Değiştirme Butonları */}
@@ -101,7 +127,7 @@ function OnAritmaDetail({ data, updateData }) {
                 className="btn btn-dark p-0 d-flex align-items-center justify-content-center"
                 style={{ width: "20px", height: "20px", backgroundColor: "#1e293b", border: "1px solid #334155" }}
                 disabled={finalIzgaraIndex <= 0}
-                onClick={() => setIzgaraOffset(prev => prev - 1)}
+                onClick={() => handleOffsetChange(-1)}
                 title="Bir Alt Seçenek"
               >
                 <i className="bi bi-chevron-down text-white" style={{ fontSize: "9px" }}></i>
@@ -112,7 +138,7 @@ function OnAritmaDetail({ data, updateData }) {
                 className="btn btn-dark p-0 d-flex align-items-center justify-content-center"
                 style={{ width: "20px", height: "20px", backgroundColor: "#1e293b", border: "1px solid #334155" }}
                 disabled={finalIzgaraIndex >= IZGARA_OPTIONS.length - 1}
-                onClick={() => setIzgaraOffset(prev => prev + 1)}
+                onClick={() => handleOffsetChange(1)}
                 title="Bir Üst Seçenek"
               >
                 <i className="bi bi-chevron-up text-white" style={{ fontSize: "9px" }}></i>
@@ -136,9 +162,9 @@ function OnAritmaDetail({ data, updateData }) {
               height: "36px",
               lineHeight: "20px"
             }}
-            title={calculatedYagTutucu}
+            title={currentYagTutucuBoyut}
           >
-            {calculatedYagTutucu}
+            {currentYagTutucuBoyut}
           </div>
         </div>
       </div>

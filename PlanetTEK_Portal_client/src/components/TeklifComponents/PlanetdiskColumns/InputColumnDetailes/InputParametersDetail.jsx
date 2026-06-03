@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from "react";
 import hesaplaDiskKatsayisiDetayli from "../../../../utils/hesaplaDiskKatsayisiDetayli";
+import { useTeklifStore } from "../../../../utils/teklifStore"; // Store yolunu projenize göre kontrol edin
 
-function InputParameters({ data = {}, updateData }) {
+function InputParameters() {
     const [showInfoModal, setShowInfoModal] = useState(false);
 
-    // Yeni veri mimarisinden (data.tasarim.aritmaParametreleri) güvenli okuma yapıyoruz
-    const currentParamData = data?.tasarim?.aritmaParametreleri || {};
+    // 1. Zustand Store'dan ana form objesini ve güncelleme fonksiyonunu çekiyoruz
+    const formData = useTeklifStore((state) => state.formData);
+    const updateSection = useTeklifStore((state) => state.updateSection);
 
     // Sıcaklığa göre nitrifikasyon emperik katsayısını hesaplayan yardımcı fonksiyon
     const hesaplaNitrifikasyonEmperik = (sicaklik) => {
@@ -19,46 +21,46 @@ function InputParameters({ data = {}, updateData }) {
         return 1.0;
     };
 
+    // 2. DEFAULT DEĞERLERİ OLUŞTURMA (Eğer store boşsa fallback verileri hazırlıyoruz)
+    const storePlanetDisk = formData.planetDiskDetails || {};
+    const storeAritmaParametreleri = storePlanetDisk.tasarim?.aritmaParametreleri || {};
+
+    // Eğer kaynaklar henüz tanımlanmadıysa default ilk kaynağı hazırlayalım
+    const defaultKaynaklar = [
+        { id: Date.now(), ad: "1. KAYNAK", kisiSayisi: 3000, organikYuk: 60, hidrolikYuk: 200 }
+    ];
+
+    // UI'ın render olurken doğrudan kullanacağı nihai/saf veri havuzu (Kırılmaları önler)
+    const currentParamData = {
+        hesapYontemi: storeAritmaParametreleri.hesapYontemi || "hidrolik",
+        atiksutype: storeAritmaParametreleri.atiksutype || "evsel",
+        girisBoi: storeAritmaParametreleri.girisBoi !== undefined ? storeAritmaParametreleri.girisBoi : 350,
+        debi: storeAritmaParametreleri.debi !== undefined ? storeAritmaParametreleri.debi : 70,
+        cikisBoi: storeAritmaParametreleri.cikisBoi !== undefined ? storeAritmaParametreleri.cikisBoi : 40,
+        sicaklik: storeAritmaParametreleri.sicaklik !== undefined ? storeAritmaParametreleri.sicaklik : 19,
+        giderimVerimi: storeAritmaParametreleri.giderimVerimi !== undefined ? storeAritmaParametreleri.giderimVerimi : 33,
+        emperik: storeAritmaParametreleri.emperik !== undefined ? storeAritmaParametreleri.emperik : 22.00,
+        nitrifikasyon: storeAritmaParametreleri.nitrifikasyon || "nitrifikasyonYok",
+        girisAmonyum: storeAritmaParametreleri.girisAmonyum !== undefined ? storeAritmaParametreleri.girisAmonyum : 48,
+        cikisAmonyum: storeAritmaParametreleri.cikisAmonyum !== undefined ? storeAritmaParametreleri.cikisAmonyum : 8,
+        nitrifikasyonEmperik: storeAritmaParametreleri.nitrifikasyonEmperik !== undefined 
+            ? storeAritmaParametreleri.nitrifikasyonEmperik 
+            : hesaplaNitrifikasyonEmperik(storeAritmaParametreleri.sicaklik ?? 19),
+        kaynaklar: storeAritmaParametreleri.kaynaklar || defaultKaynaklar
+    };
+
+    // Ana debi bilgisini de güvenli bir şekilde store'dan veya varsayılandan alıyoruz
+    const rootDebi = storePlanetDisk.debi !== undefined ? storePlanetDisk.debi : 70;
+
+    // 3. İLK RENDERDA STORE'U SENKRONİZE ETME
+    // Eğer store içindeki obje tamamen boşsa, yukarıda hazırladığımız default şablonu store'a kalıcı olarak yazıyoruz.
     useEffect(() => {
-        const updatedFields = {};
-
-        if (currentParamData.cikisBoi === undefined) updatedFields.cikisBoi = 40;
-        if (currentParamData.sicaklik === undefined) updatedFields.sicaklik = 19;
-        
-        // 🚀 DÜZELTME: maxDiskAdedi, minDiskAdedi ve secilenDiskTipi kontrol satırları buradan kaldırıldı!
-        
-        if (currentParamData.giderimVerimi === undefined) updatedFields.giderimVerimi = 33;
-        if (currentParamData.emperik === undefined) updatedFields.emperik = 22.00;
-        if (!currentParamData.hesapYontemi) updatedFields.hesapYontemi = "hidrolik";
-        if (!currentParamData.atiksutype) updatedFields.atiksutype = "evsel";
-        if (currentParamData.girisBoi === undefined) updatedFields.girisBoi = 350;
-
-        if (data.debi === undefined) updatedFields.debi = 70;
-        if (currentParamData.girisBoi === undefined) updatedFields.girisBoi = 350;
-
-        if (!currentParamData.nitrifikasyon) updatedFields.nitrifikasyon = "nitrifikasyonYok";
-        if (currentParamData.girisAmonyum === undefined) updatedFields.girisAmonyum = 48;
-        if (currentParamData.cikisAmonyum === undefined) updatedFields.cikisAmonyum = 8;
-        if (currentParamData.nitrifikasyonEmperik === undefined) {
-            updatedFields.nitrifikasyonEmperik = hesaplaNitrifikasyonEmperik(currentParamData.sicaklik ?? 19);
-        }
-
-        if (!currentParamData.kaynaklar || currentParamData.kaynaklar.length === 0) {
-            updatedFields.kaynaklar = [
-                { id: Date.now(), ad: "1. KAYNAK", kisiSayisi: 3000, organikYuk: 60, hidrolikYuk: 200 }
-            ];
-        }
-
-        if (Object.keys(updatedFields).length > 0 && updateData) {
-            updateData({
-                ...data,
-                debi: updatedFields.debi !== undefined ? updatedFields.debi : (data.debi ?? 70),
+        if (!storePlanetDisk.tasarim || !storePlanetDisk.tasarim.aritmaParametreleri) {
+            updateSection("planetDiskDetails", {
+                debi: rootDebi,
                 tasarim: {
-                    ...data?.tasarim,
-                    aritmaParametreleri: {
-                        ...currentParamData,
-                        ...updatedFields
-                    }
+                    ...storePlanetDisk.tasarim,
+                    aritmaParametreleri: currentParamData
                 }
             });
         }
@@ -94,27 +96,21 @@ function InputParameters({ data = {}, updateData }) {
             updatedParamData.nitrifikasyonEmperik = hesaplaNitrifikasyonEmperik(val);
         }
 
-        const nextData = {
-            ...data,
+        // Değişiklikleri "planetDiskDetails" objesi altına güvenli bir şekilde basıyoruz
+        updateSection("planetDiskDetails", {
+            debi: name === "debi" ? val : rootDebi,
             tasarim: {
-                ...data?.tasarim,
+                ...storePlanetDisk.tasarim,
                 aritmaParametreleri: updatedParamData
             }
-        };
-
-        if (name === "debi") {
-            nextData.debi = val;
-        }
-
-        updateData(nextData);
+        });
     };
 
     const handleTypeToggle = (e) => {
         const selectedType = e.target.checked ? "endustriyel" : "evsel";
-        updateData({
-            ...data,
+        updateSection("planetDiskDetails", {
             tasarim: {
-                ...data?.tasarim,
+                ...storePlanetDisk.tasarim,
                 aritmaParametreleri: {
                     ...currentParamData,
                     atiksutype: selectedType
@@ -127,10 +123,9 @@ function InputParameters({ data = {}, updateData }) {
         const isChecked = e.target.checked;
         const selectedType = isChecked ? "nitrifikasyonVar" : "nitrifikasyonYok";
 
-        updateData({
-            ...data,
+        updateSection("planetDiskDetails", {
             tasarim: {
-                ...data?.tasarim,
+                ...storePlanetDisk.tasarim,
                 aritmaParametreleri: {
                     ...currentParamData,
                     nitrifikasyon: selectedType,
@@ -142,11 +137,10 @@ function InputParameters({ data = {}, updateData }) {
 
     const handleYontemChange = (yontem) => {
         if (yontem === "hidrolik") {
-            updateData({
-                ...data,
+            updateSection("planetDiskDetails", {
                 debi: 70,
                 tasarim: {
-                    ...data?.tasarim,
+                    ...storePlanetDisk.tasarim,
                     aritmaParametreleri: {
                         ...currentParamData,
                         hesapYontemi: yontem,
@@ -157,11 +151,10 @@ function InputParameters({ data = {}, updateData }) {
             });
         } else {
             const { nihaiDebi, nihaiGirisBoi } = recalculateNihaiDegerler(currentParamData.kaynaklar || []);
-            updateData({
-                ...data,
+            updateSection("planetDiskDetails", {
                 debi: nihaiDebi,
                 tasarim: {
-                    ...data?.tasarim,
+                    ...storePlanetDisk.tasarim,
                     aritmaParametreleri: {
                         ...currentParamData,
                         hesapYontemi: yontem,
@@ -179,11 +172,10 @@ function InputParameters({ data = {}, updateData }) {
         const yeniKaynaklar = [...(currentParamData.kaynaklar || []), yeniKaynak];
         const { nihaiDebi, nihaiGirisBoi } = recalculateNihaiDegerler(yeniKaynaklar);
 
-        updateData({
-            ...data,
+        updateSection("planetDiskDetails", {
             debi: nihaiDebi,
             tasarim: {
-                ...data?.tasarim,
+                ...storePlanetDisk.tasarim,
                 aritmaParametreleri: {
                     ...currentParamData,
                     kaynaklar: yeniKaynaklar,
@@ -200,11 +192,10 @@ function InputParameters({ data = {}, updateData }) {
         const yeniKaynaklar = filtrelenmis.map((k, index) => ({ ...k, ad: `${index + 1}. KAYNAK` }));
         const { nihaiDebi, nihaiGirisBoi } = recalculateNihaiDegerler(yeniKaynaklar);
 
-        updateData({
-            ...data,
+        updateSection("planetDiskDetails", {
             debi: nihaiDebi,
             tasarim: {
-                ...data?.tasarim,
+                ...storePlanetDisk.tasarim,
                 aritmaParametreleri: {
                     ...currentParamData,
                     kaynaklar: yeniKaynaklar,
@@ -225,11 +216,10 @@ function InputParameters({ data = {}, updateData }) {
         });
         const { nihaiDebi, nihaiGirisBoi } = recalculateNihaiDegerler(yeniKaynaklar);
 
-        updateData({
-            ...data,
+        updateSection("planetDiskDetails", {
             debi: nihaiDebi,
             tasarim: {
-                ...data?.tasarim,
+                ...storePlanetDisk.tasarim,
                 aritmaParametreleri: {
                     ...currentParamData,
                     kaynaklar: yeniKaynaklar,
@@ -242,7 +232,7 @@ function InputParameters({ data = {}, updateData }) {
 
     return (
         <div className="card-body p-4 d-flex flex-column gap-3" style={{ position: "relative" }}>
-            {/* 1. BAŞLIK BÖLÜMÜ */}
+            {/* JSX kodlarınız (Mevcut HTML/CSS tasarımınız tamamen korunmuştur) */}
             <div className="d-flex align-items-center">
                 <span className="fw-bold text-uppercase pe-2" style={{ fontSize: "11px", letterSpacing: "0.7px", color: "#00874e" }}>
                     1. Arıtma Parametreleri
@@ -250,7 +240,7 @@ function InputParameters({ data = {}, updateData }) {
                 <div className="flex-grow-1 border-bottom" style={{ borderColor: "rgba(255,255,255,0.1)" }}></div>
             </div>
 
-            {/* 2. YÖNTEM SEÇİMİ */}
+            {/* YÖNTEM SEÇİMİ */}
             <div>
                 <div className="btn-group w-100" role="group" style={{ backgroundColor: "#1e293b", padding: "4px", borderRadius: "8px" }}>
                     <button
@@ -282,7 +272,7 @@ function InputParameters({ data = {}, updateData }) {
                 </div>
             </div>
 
-            {/* 3. DİNAMİK PANEL ALANI */}
+            {/* DİNAMİK PANEL ALANI */}
             <div className="rounded p-2.5" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
                 {currentParamData.hesapYontemi === "hidrolik" ? (
                     <div className="row g-2 p-1">
@@ -291,7 +281,7 @@ function InputParameters({ data = {}, updateData }) {
                             <input
                                 type="number"
                                 name="girisBoi"
-                                value={currentParamData.girisBoi === 0 ? "" : (currentParamData.girisBoi ?? "")}
+                                value={currentParamData.girisBoi === 0 ? "" : currentParamData.girisBoi}
                                 onChange={handleChange}
                                 className="form-control form-control-sm text-white fw-bold border-0 text-center"
                                 style={{ backgroundColor: "rgba(239, 68, 68, 0.15)", borderRadius: "6px" }}
@@ -302,7 +292,7 @@ function InputParameters({ data = {}, updateData }) {
                             <input
                                 type="number"
                                 name="debi"
-                                value={currentParamData.debi === 0 ? "" : (currentParamData.debi ?? "")}
+                                value={currentParamData.debi === 0 ? "" : currentParamData.debi}
                                 onChange={handleChange}
                                 className="form-control form-control-sm text-white fw-bold border-0 text-center"
                                 style={{ backgroundColor: "rgba(239, 68, 68, 0.15)", borderRadius: "6px" }}
@@ -349,23 +339,23 @@ function InputParameters({ data = {}, updateData }) {
                 )}
             </div>
 
-            {/* 4. 3 PARALEL PARAMETRE */}
+            {/* 3 PARALEL PARAMETRE */}
             <div className="row g-1 pt-2" style={{ borderTop: "1px dashed #334155" }}>
                 <div className="col-4">
                     <label className="text-white-50 d-block text-center mb-1" style={{ fontSize: "10px" }}>Hedef BOİ</label>
-                    <input type="number" name="cikisBoi" value={currentParamData.cikisBoi === 0 ? "" : (currentParamData.cikisBoi ?? 40)} onChange={handleChange} className="form-control form-control-sm border-0 text-white text-center fw-bold" style={{ backgroundColor: "#1e293b", fontSize: "12px", borderBottom: "2px solid #38bdf8", borderRadius: "4px 4px 0 0" }} />
+                    <input type="number" name="cikisBoi" value={currentParamData.cikisBoi === 0 ? "" : currentParamData.cikisBoi} onChange={handleChange} className="form-control form-control-sm border-0 text-white text-center fw-bold" style={{ backgroundColor: "#1e293b", fontSize: "12px", borderBottom: "2px solid #38bdf8", borderRadius: "4px 4px 0 0" }} />
                 </div>
                 <div className="col-4">
                     <label className="text-white-50 d-block text-center mb-1" style={{ fontSize: "10px" }}>Sıcaklık</label>
-                    <input type="number" name="sicaklik" value={currentParamData.sicaklik === 0 ? "" : (currentParamData.sicaklik ?? 19)} onChange={handleChange} className="form-control form-control-sm border-0 text-white text-center fw-bold" style={{ backgroundColor: "#1e293b", fontSize: "12px", borderBottom: "2px solid #38bdf8", borderRadius: "4px 4px 0 0" }} />
+                    <input type="number" name="sicaklik" value={currentParamData.sicaklik === 0 ? "" : currentParamData.sicaklik} onChange={handleChange} className="form-control form-control-sm border-0 text-white text-center fw-bold" style={{ backgroundColor: "#1e293b", fontSize: "12px", borderBottom: "2px solid #38bdf8", borderRadius: "4px 4px 0 0" }} />
                 </div>
                 <div className="col-4">
                     <label className="text-white-50 d-block text-center mb-1" style={{ fontSize: "10px" }}>Ön Arıtma Verim, (%)</label>
-                    <input type="number" name="giderimVerimi" value={currentParamData.giderimVerimi === 0 ? "" : (currentParamData.giderimVerimi ?? 33)} onChange={handleChange} className="form-control form-control-sm border-0 text-white text-center fw-bold" style={{ backgroundColor: "#1e293b", fontSize: "12px", borderBottom: "2px solid #38bdf8", borderRadius: "4px 4px 0 0" }} />
+                    <input type="number" name="giderimVerimi" value={currentParamData.giderimVerimi === 0 ? "" : currentParamData.giderimVerimi} onChange={handleChange} className="form-control form-control-sm border-0 text-white text-center fw-bold" style={{ backgroundColor: "#1e293b", fontSize: "12px", borderBottom: "2px solid #38bdf8", borderRadius: "4px 4px 0 0" }} />
                 </div>
             </div>
 
-            {/* 5. ATİKSU TİPİ SWITCH SEÇİMİ */}
+            {/* ATİKSU TİPİ SWITCH SEÇİMİ */}
             <div className="d-flex justify-content-between align-items-center p-2 rounded" style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
                 <span className="fw-medium text-white-50" style={{ fontSize: "12px" }}>
                     {currentParamData.atiksutype === "endustriyel" ? (
@@ -387,7 +377,7 @@ function InputParameters({ data = {}, updateData }) {
                 </div>
             </div>
 
-            {/* 6. NİTRİFİKASYON PANELİ */}
+            {/* NİTRİFİKASYON PANELİ */}
             <div className="d-flex flex-column gap-2 p-2 rounded" style={{ backgroundColor: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.05)" }}>
                 <div className="d-flex justify-content-between align-items-center">
                     <span className="fw-medium text-white-50" style={{ fontSize: "12px" }}>
@@ -418,7 +408,7 @@ function InputParameters({ data = {}, updateData }) {
                             <input
                                 type="number"
                                 name="girisAmonyum"
-                                value={currentParamData.girisAmonyum === 0 ? "" : (currentParamData.girisAmonyum ?? 48)}
+                                value={currentParamData.girisAmonyum === 0 ? "" : currentParamData.girisAmonyum}
                                 onChange={handleChange}
                                 className="form-control form-control-sm bg-dark text-white text-center fw-semibold border-0 py-1"
                                 style={{ fontSize: "11px", borderRadius: "4px" }}
@@ -429,7 +419,7 @@ function InputParameters({ data = {}, updateData }) {
                             <input
                                 type="number"
                                 name="cikisAmonyum"
-                                value={currentParamData.cikisAmonyum === 0 ? "" : (currentParamData.cikisAmonyum ?? 8)}
+                                value={currentParamData.cikisAmonyum === 0 ? "" : currentParamData.cikisAmonyum}
                                 onChange={handleChange}
                                 className="form-control form-control-sm bg-dark text-white text-center fw-semibold border-0 py-1"
                                 style={{ fontSize: "11px", borderRadius: "4px" }}
@@ -448,14 +438,14 @@ function InputParameters({ data = {}, updateData }) {
                                 className="form-control form-control-sm text-center fw-bold border-0 py-1 text-warning"
                                 style={{ backgroundColor: "rgba(255, 193, 7, 0.15)", fontSize: "11px", borderRadius: "4px" }}
                             >
-                                {currentParamData.nitrifikasyonEmperik ?? 1.4}
+                                {currentParamData.nitrifikasyonEmperik}
                             </div>
                         </div>
                     </div>
                 )}
             </div>
 
-            {/* KÜÇÜK BİLGİ MODALI (INFO MODAL) */}
+            {/* INFO MODAL */}
             {showInfoModal && (
                 <div style={{
                     position: "absolute",
@@ -472,12 +462,7 @@ function InputParameters({ data = {}, updateData }) {
                         <span className="text-white fw-bold" style={{ fontSize: "12px" }}>
                             <i className="bi bi-info-circle me-1.5 text-info"></i>Nitrifikasyon Emperik Katsayıları
                         </span>
-                        <button
-                            type="button"
-                            className="btn-close btn-close-white"
-                            style={{ transform: "scale(0.75)" }}
-                            onClick={() => setShowInfoModal(false)}
-                        ></button>
+                        <button type="button" className="btn-close btn-close-white" style={{ transform: "scale(0.75)" }} onClick={() => setShowInfoModal(false)}></button>
                     </div>
                     <div className="text-white-50" style={{ fontSize: "11px", lineHeight: "1.6" }}>
                         <p className="mb-2">Sıcaklık kademelerine göre uygulanan <b>gr/m²·gün</b> katsayı kriterleri:</p>
