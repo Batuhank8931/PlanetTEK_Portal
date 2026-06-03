@@ -51,18 +51,30 @@ function FeedPumpDetail() {
   const formData = useTeklifStore((state) => state.formData);
   const updateSection = useTeklifStore((state) => state.updateSection);
 
+  // Sayfadaki güncel ana debi
   const debi = parseFloat(formData.planetDiskDetails?.debi) || 0;
   const defaultHourlyFlowStr = debi ? (debi / CALC_HOURS).toFixed(2) : "0";
   const defaultMinMssStr = "5.9";
 
-  // Veriyi doğrudan equipments altından (modulesState'e dokunmadan) okuyoruz
   const equipmentsCache = formData.equipments || {};
   const storeFeedPump = equipmentsCache.feedPump || {};
 
-  // Store'da veri varsa onu yoksa hesaplanan default metni baz alıyoruz
-  const manualHourlyFlow = storeFeedPump.manualHourlyFlow !== undefined ? storeFeedPump.manualHourlyFlow : defaultHourlyFlowStr;
-  const manualMinMss = storeFeedPump.manualMinMss !== undefined ? storeFeedPump.manualMinMss : defaultMinMssStr;
-  const pumpOffset = storeFeedPump.pumpOffset || 0;
+  // Kritik Değişiklik 1: Store'da daha önce kaydedilmiş olan "hesaplamaya esas ana debi" yi alıyoruz
+  const lastCalculatedMainDebi = storeFeedPump.calculatedMainDebi !== undefined ? storeFeedPump.calculatedMainDebi : null;
+
+  // Kritik Değişiklik 2: Eğer ana debi değişmişse, store dolu olsa bile onu görmezden gelip varsayılan değerleri basıyoruz
+  const isMainDebiChanged = lastCalculatedMainDebi !== null && lastCalculatedMainDebi !== debi;
+
+  const manualHourlyFlow = (storeFeedPump.manualHourlyFlow !== undefined && !isMainDebiChanged) 
+    ? storeFeedPump.manualHourlyFlow 
+    : defaultHourlyFlowStr;
+
+  const manualMinMss = (storeFeedPump.manualMinMss !== undefined && !isMainDebiChanged) 
+    ? storeFeedPump.manualMinMss 
+    : defaultMinMssStr;
+
+  const pumpOffset = !isMainDebiChanged ? (storeFeedPump.pumpOffset || 0) : 0;
+  const isInputsChanged = !isMainDebiChanged ? (storeFeedPump.isManualUserControl || false) : false;
 
   const activeHourlyFlow = useMemo(() => {
     const val = parseFloat(manualHourlyFlow);
@@ -73,10 +85,6 @@ function FeedPumpDetail() {
     const val = parseFloat(manualMinMss);
     return isNaN(val) ? 5.9 : val;
   }, [manualMinMss]);
-
-  const isInputsChanged = useMemo(() => {
-    return manualHourlyFlow !== defaultHourlyFlowStr || manualMinMss !== defaultMinMssStr;
-  }, [manualHourlyFlow, manualMinMss, defaultHourlyFlowStr]);
 
   // Doğrusal İnterpolasyon Fonksiyonu
   const getMssValue = (pump, qSaat) => {
@@ -108,7 +116,7 @@ function FeedPumpDetail() {
     return null;
   };
 
-  // --- SEÇİM VE POMPA ADET MANTIĞI ---
+  // --- SEÇİM VE DINAMIK POMPA ADET MANTIĞI ---
   const { idealPumpIndex, pompaAdeti, hesaplananDebi } = useMemo(() => {
     if (activeHourlyFlow === 0) return { idealPumpIndex: -1, pompaAdeti: 1, hesaplananDebi: 0 };
 
@@ -117,18 +125,8 @@ function FeedPumpDetail() {
     let adet = 1;
     let qHesap = activeHourlyFlow;
 
-    // 1. Adım: Tek pompa kurtarıyor mu bak
-    PUMP_DATABASE.forEach((pump, index) => {
-      const mss = getMssValue(pump, qHesap);
-      if (mss !== null && mss >= activeMinMss && mss < minValidMss) {
-        minValidMss = mss;
-        bestPumpIndex = index;
-      }
-    });
-
-    // 2. Adım: Tek pompa yetmediyse debiyi 2'ye bölüp çift pompaya geç
-    if (bestPumpIndex === -1) {
-      qHesap = activeHourlyFlow / 2;
+    while (bestPumpIndex === -1 && adet <= 20) {
+      qHesap = activeHourlyFlow / adet;
       minValidMss = Infinity;
 
       PUMP_DATABASE.forEach((pump, index) => {
@@ -136,9 +134,12 @@ function FeedPumpDetail() {
         if (mss !== null && mss >= activeMinMss && mss < minValidMss) {
           minValidMss = mss;
           bestPumpIndex = index;
-          adet = 2;
         }
       });
+
+      if (bestPumpIndex === -1) {
+        let _ = adet++;
+      }
     }
 
     return { idealPumpIndex: bestPumpIndex, pompaAdeti: adet, hesaplananDebi: qHesap };
@@ -161,64 +162,98 @@ function FeedPumpDetail() {
   }, [idealPumpIndex, pumpOffset, hesaplananDebi]);
 
   // Merkezi Store Senkronizasyon Helper'ı
-  const updateFeedPumpStore = (nextHourly, nextMss, nextOffset) => {
+  const updateFeedPumpStore = (nextHourly, nextMss, nextOffset, isManual = true) => {
     let pumpString = "---";
     const currentHourlyNum = parseFloat(nextHourly) || 0;
+    const parsedNextMss = parseFloat(nextMss) || 5.9;
 
-    if (currentHourlyNum > 0 && selectedPump) {
-      pumpString = `${pompaAdeti} Adet x ${selectedPump.name} (${hesaplananDebi.toFixed(2)} m³/h @ ${currentMss} MSS)`;
-    } else if (currentHourlyNum > 0 && !selectedPump) {
+    let simBestIndex = -1;
+    let simMinMss = Infinity;
+    let simAdet = 1;
+    let simQ = currentHourlyNum;
+
+    if (currentHourlyNum > 0) {
+      while (simBestIndex === -1 && simAdet <= 20) {
+        simQ = currentHourlyNum / simAdet;
+        simMinMss = Infinity;
+
+        PUMP_DATABASE.forEach((p, idx) => {
+          const m = getMssValue(p, simQ);
+          if (m !== null && m >= parsedNextMss && m < simMinMss) {
+            simMinMss = m;
+            simBestIndex = idx;
+          }
+        });
+
+        if (simBestIndex === -1) {
+          let _ = simAdet++;
+        }
+      }
+    }
+
+    let simFinalIndex = simBestIndex;
+    if (simBestIndex !== -1) {
+      simFinalIndex = simBestIndex + nextOffset;
+      if (simFinalIndex < 0) simFinalIndex = 0;
+      if (simFinalIndex >= PUMP_DATABASE.length) simFinalIndex = PUMP_DATABASE.length - 1;
+    }
+
+    const targetPump = simFinalIndex !== -1 ? PUMP_DATABASE[simFinalIndex] : null;
+    const targetMss = targetPump ? getMssValue(targetPump, simQ) : 0;
+
+    if (currentHourlyNum > 0 && targetPump) {
+      pumpString = `${simAdet} Adet x ${targetPump.name} (${simQ.toFixed(2)} m³/h @ ${targetMss} MSS)`;
+    } else if (currentHourlyNum > 0 && !targetPump) {
       pumpString = "Kapasite Aşımı";
     }
 
     updateSection("equipments", {
-      ...equipmentsCache, // Diğer alanları koruyoruz (modulesState, onAritma vb.)
+      ...equipmentsCache,
       feedPump: {
         ...storeFeedPump,
         manualHourlyFlow: nextHourly,
         manualMinMss: nextMss,
         pumpOffset: nextOffset,
-        pompaAdeti: selectedPump ? pompaAdeti : 0,
-        secilenPompaMetni: pumpString
+        pompaAdeti: targetPump ? simAdet : 0,
+        secilenPompaMetni: pumpString,
+        isManualUserControl: isManual,
+        // Kritik Adım: Bu hesaplamanın yapıldığı sıradaki ana sistem debisini store'a mühürlüyoruz
+        calculatedMainDebi: debi 
       }
     });
   };
 
   // --- AUTOMATIC RUNTIME RUN SYNC EFFECT ---
-  // Dışarıdan ana debi değiştiğinde veya bileşen ilk açıldığında store'u otomatik besler
   useEffect(() => {
-    // Eğer girdi elle değiştirilmediyse, ana debi değişimini takip et ve eşitle
-    if (!isInputsChanged && defaultHourlyFlowStr !== "0") {
-      updateFeedPumpStore(defaultHourlyFlowStr, defaultMinMssStr, pumpOffset);
-    } else if (!storeFeedPump.secilenPompaMetni) {
-      // Store'da ilk renderda hiç data initialize edilmemişse defaultları bas
-      updateFeedPumpStore(manualHourlyFlow, manualMinMss, pumpOffset);
+    if (defaultHourlyFlowStr === "0") return;
+
+    // Eğer ilk defa render oluyorsa veya başka sayfada debi değiştirilip bu sayfaya geri dönüldüyse
+    if (!storeFeedPump.secilenPompaMetni || isMainDebiChanged || !isInputsChanged) {
+      updateFeedPumpStore(defaultHourlyFlowStr, defaultMinMssStr, 0, false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debi, selectedPump, currentMss]);
+  }, [debi, defaultHourlyFlowStr, isMainDebiChanged]);
 
-  // Input değişim reaksiyonları
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     if (name === "manualHourlyFlow") {
-      updateFeedPumpStore(value, manualMinMss, pumpOffset);
+      updateFeedPumpStore(value, manualMinMss, pumpOffset, true);
     } else if (name === "manualMinMss") {
-      updateFeedPumpStore(manualHourlyFlow, value, pumpOffset);
+      updateFeedPumpStore(manualHourlyFlow, value, pumpOffset, true);
     }
   };
 
   const handleOffsetChange = (direction) => {
     const nextOffset = pumpOffset + direction;
-    updateFeedPumpStore(manualHourlyFlow, manualMinMss, nextOffset);
+    updateFeedPumpStore(manualHourlyFlow, manualMinMss, nextOffset, true);
   };
 
   const handleResetInputs = () => {
-    updateFeedPumpStore(defaultHourlyFlowStr, defaultMinMssStr, 0);
+    updateFeedPumpStore(defaultHourlyFlowStr, defaultMinMssStr, 0, false);
   };
 
   return (
     <div className="d-flex flex-column gap-3">
-      {/* Alt Başlık Bilgisi */}
       <div className="text-white-50 border-bottom pb-1 mb-1" style={{ fontSize: "11px", fontWeight: "600" }}>
         TERFİ POMPASI PARAMETRELERİ
       </div>
@@ -251,7 +286,6 @@ function FeedPumpDetail() {
           </div>
         </div>
 
-        {/* Orijinal Değerlere Dönme Butonu */}
         <div className="d-flex justify-content-end mb-2" style={{ height: "18px" }}>
           {isInputsChanged && (
             <span
@@ -265,7 +299,6 @@ function FeedPumpDetail() {
           )}
         </div>
 
-        {/* Pompa Sonuç Çubuğu */}
         <div
           className="d-flex align-items-center justify-content-between p-1 px-2"
           style={{
@@ -285,7 +318,7 @@ function FeedPumpDetail() {
                 <span className="badge bg-danger me-2" style={{ fontSize: "10px" }}>{pompaAdeti} ADET</span>
                 {selectedPump.name} 
                 <span className="text-info ms-1">
-                  ({hesaplananDebi.toFixed(2)} m³/h @ {currentMss} MSS {pompaAdeti === 2 && "per pump"})
+                  ({hesaplananDebi.toFixed(2)} m³/h @ {currentMss} MSS {pompaAdeti > 1 && "per pump"})
                 </span>
               </>
             ) : (
@@ -311,7 +344,7 @@ function FeedPumpDetail() {
                   type="button"
                   className="btn btn-warning p-0 d-flex align-items-center justify-content-center"
                   style={{ width: "20px", height: "20px" }}
-                  onClick={() => updateFeedPumpStore(manualHourlyFlow, manualMinMss, 0)}
+                  onClick={() => updateFeedPumpStore(manualHourlyFlow, manualMinMss, 0, true)}
                   title="Otomatik Seçime Geri Dön"
                 >
                   <i className="bi bi-arrow-counterclockwise text-dark" style={{ fontSize: "9px", fontWeight: "bold" }}></i>

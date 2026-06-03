@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from "react";
 import GeriDevirPompasiModal from "./modals/GeriDevirPompasiModal";
-import { useTeklifStore } from "../../../../utils/teklifStore"; // Store yolunu kontrol edin
+import { useTeklifStore } from "../../../../utils/teklifStore";
 
 const PUMP_DATABASE = [
     { id: 0, name: "City Pumps Security 10T", mssData: { 0: 15, 1.5: 14.5, 3: 14, 4.5: 13.2, 6: 12, 9: 11, 12: 9, 15: 6, 18: 3.5, 21: 1.5 } },
@@ -39,7 +39,7 @@ function IleriAritmaPumpSelections() {
 
     const [showInfoModal, setShowInfoModal] = useState(false);
 
-    // --- HOURLY FLOW HESAPLAMA MANTIĞI (CRITERIA_DATABASE ENTEGRASYONU) ---
+    // --- HOURLY FLOW HESAPLAMA MANTIĞI ---
     const { hourlyFlow: calculatedHourlyFlow, currentMultiplier } = useMemo(() => {
         if (ActuralHourlyFlow === 0) return { hourlyFlow: 0, currentMultiplier: 0 };
 
@@ -60,9 +60,25 @@ function IleriAritmaPumpSelections() {
 
     const defaultMinMssStr = "5.9";
 
-    const manualHourlyFlow = storePumpSelections.manualHourlyFlow !== undefined ? storePumpSelections.manualHourlyFlow : defaultHourlyFlowStr;
-    const manualMinMss = storePumpSelections.manualMinMss !== undefined ? storePumpSelections.manualMinMss : defaultMinMssStr;
-    const pumpOffset = storePumpSelections.pumpOffset || 0;
+    // MÜHÜR KONTROLÜ: Store'daki hesaplamaya esas olan eski "debi" ve "azot" değerlerini alıyoruz
+    const lastCalculatedDebi = storePumpSelections.calculatedDebi !== undefined ? storePumpSelections.calculatedDebi : null;
+    const lastCalculatedAzot = storePumpSelections.calculatedAzot !== undefined ? storePumpSelections.calculatedAzot : null;
+
+    // Kritik Karşılaştırma: Parametrelerden biri bile değiştiyse 'true' olur
+    const isParamsChanged = (lastCalculatedDebi !== null && lastCalculatedDebi !== debi) || 
+                            (lastCalculatedAzot !== null && lastCalculatedAzot !== girisToplamAzot);
+
+    // Eğer dış parametreler değiştiyse, store'daki veriyi bypass edip default değerleri yakalıyoruz
+    const manualHourlyFlow = (storePumpSelections.manualHourlyFlow !== undefined && !isParamsChanged) 
+        ? storePumpSelections.manualHourlyFlow 
+        : defaultHourlyFlowStr;
+
+    const manualMinMss = (storePumpSelections.manualMinMss !== undefined && !isParamsChanged) 
+        ? storePumpSelections.manualMinMss 
+        : defaultMinMssStr;
+
+    const pumpOffset = !isParamsChanged ? (storePumpSelections.pumpOffset || 0) : 0;
+    const isInputsChanged = !isParamsChanged ? (storePumpSelections.isManualUserControl || false) : false;
 
     const activeHourlyFlow = useMemo(() => {
         const val = parseFloat(manualHourlyFlow);
@@ -74,11 +90,7 @@ function IleriAritmaPumpSelections() {
         return isNaN(val) ? 5.9 : val;
     }, [manualMinMss]);
 
-    const isInputsChanged = useMemo(() => {
-        return manualHourlyFlow !== defaultHourlyFlowStr || manualMinMss !== defaultMinMssStr;
-    }, [manualHourlyFlow, manualMinMss, defaultHourlyFlowStr]);
-
-    // Doğrusal İnterpolasyon ile Hassas MSS Hesaplama Fonksiyonu
+    // Doğrusal İnterpolasyon Fonksiyonu
     const getMssValue = (pump, qSaat) => {
         if (!pump || !pump.mssData) return null;
 
@@ -158,14 +170,52 @@ function IleriAritmaPumpSelections() {
         return { selectedPump: pump, currentMss: mss, finalPumpIndex: finalIndex };
     }, [idealPumpIndex, pumpOffset, hesaplananDebi]);
 
-    // Olay Güdümlü Merkezi Store Senkronizasyonu
-    const updateIleriPumpStore = (nextHourly, nextMss, nextOffset) => {
+    // Merkezi Store Senkronizasyon Helper'ı
+    const updateIleriPumpStore = (nextHourly, nextMss, nextOffset, isManual = true) => {
         let pumpString = "---";
         const hourlyFlowNum = parseFloat(nextHourly) || 0;
+        const parsedNextMss = parseFloat(nextMss) || 5.9;
 
-        if (hourlyFlowNum > 0 && selectedPump) {
-            pumpString = `${pompaAdeti} Adet x ${selectedPump.name} (${hesaplananDebi.toFixed(2)} m³/h @ ${currentMss} MSS)`;
-        } else if (hourlyFlowNum > 0 && !selectedPump) {
+        // Simüle edilmiş seçim mantığı (Store metni için kararlı hesaplama)
+        let simBestIndex = -1;
+        let simMinMss = Infinity;
+        let simAdet = 1;
+        let simQ = hourlyFlowNum;
+
+        PUMP_DATABASE.forEach((p, idx) => {
+            const m = getMssValue(p, simQ);
+            if (m !== null && m >= parsedNextMss && m < simMinMss) {
+                simMinMss = m;
+                simBestIndex = idx;
+            }
+        });
+
+        if (simBestIndex === -1 && hourlyFlowNum > 0) {
+            simQ = hourlyFlowNum / 2;
+            simMinMss = Infinity;
+            PUMP_DATABASE.forEach((p, idx) => {
+                const m = getMssValue(p, simQ);
+                if (m !== null && m >= parsedNextMss && m < simMinMss) {
+                    simMinMss = m;
+                    simBestIndex = idx;
+                    simAdet = 2;
+                }
+            });
+        }
+
+        let simFinalIndex = simBestIndex;
+        if (simBestIndex !== -1) {
+            simFinalIndex = simBestIndex + nextOffset;
+            if (simFinalIndex < 0) simFinalIndex = 0;
+            if (simFinalIndex >= PUMP_DATABASE.length) simFinalIndex = PUMP_DATABASE.length - 1;
+        }
+
+        const targetPump = simFinalIndex !== -1 ? PUMP_DATABASE[simFinalIndex] : null;
+        const targetMss = targetPump ? getMssValue(targetPump, simQ) : 0;
+
+        if (hourlyFlowNum > 0 && targetPump) {
+            pumpString = `${simAdet} Adet x ${targetPump.name} (${simQ.toFixed(2)} m³/h @ ${targetMss} MSS)`;
+        } else if (hourlyFlowNum > 0 && !targetPump) {
             pumpString = "Kapasite Aşımı";
         }
 
@@ -177,59 +227,45 @@ function IleriAritmaPumpSelections() {
                     manualHourlyFlow: nextHourly,
                     manualMinMss: nextMss,
                     pumpOffset: nextOffset,
-                    pompaAdeti: selectedPump ? pompaAdeti : 0,
-                    hesaplananDebi: hesaplananDebi,
-                    geridevirPompasi: pumpString
+                    pompaAdeti: targetPump ? simAdet : 0,
+                    hesaplananDebi: simQ,
+                    geridevirPompasi: pumpString,
+                    isManualUserControl: isManual,
+                    // Parametre mühürlerini buraya ekliyoruz:
+                    calculatedDebi: debi,
+                    calculatedAzot: girisToplamAzot
                 }
             }
         });
     };
 
-    // --- AUTOMATIC INITIAL & RUNTIME SYNC EFFECT ---
-    // Primitif bağımlılıklar ile tamamen loopsız ve kesin mühürleme sağlandı
+    // --- AUTOMATIC RUNTIME SYNC EFFECT ---
     useEffect(() => {
-        if (calculatedHourlyFlow > 0) {
-            const generatedString = selectedPump 
-                ? `${pompaAdeti} Adet x ${selectedPump.name} (${hesaplananDebi.toFixed(2)} m³/h @ ${currentMss} MSS)` 
-                : "Kapasite Aşımı";
+        if (defaultHourlyFlowStr === "0") return;
 
-            if (
-                !storePumpSelections.geridevirPompasi ||
-                storePumpSelections.geridevirPompasi !== generatedString ||
-                storePumpSelections.manualHourlyFlow !== manualHourlyFlow ||
-                storePumpSelections.manualMinMss !== manualMinMss ||
-                storePumpSelections.pumpOffset !== pumpOffset
-            ) {
-                updateIleriPumpStore(manualHourlyFlow, manualMinMss, pumpOffset);
-            }
+        // Sayfa ilk defa render oluyorsa veya diğer sayfalarda parametrelerden biri değiştiyse tetiklenir
+        if (!storePumpSelections.geridevirPompasi || isParamsChanged || !isInputsChanged) {
+            updateIleriPumpStore(defaultHourlyFlowStr, defaultMinMssStr, 0, false);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [
-        calculatedHourlyFlow,
-        selectedPump?.name, // Nesne referansı yerine string isim takibi
-        currentMss,
-        pompaAdeti,
-        manualHourlyFlow,
-        manualMinMss,
-        pumpOffset
-    ]);
+    }, [debi, girisToplamAzot, defaultHourlyFlowStr, isParamsChanged]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
         if (name === "manualHourlyFlow") {
-            updateIleriPumpStore(value, manualMinMss, pumpOffset);
+            updateIleriPumpStore(value, manualMinMss, pumpOffset, true);
         } else if (name === "manualMinMss") {
-            updateIleriPumpStore(manualHourlyFlow, value, pumpOffset);
+            updateIleriPumpStore(manualHourlyFlow, value, pumpOffset, true);
         }
     };
 
     const handleOffsetChange = (direction) => {
         const nextOffset = pumpOffset + direction;
-        updateIleriPumpStore(manualHourlyFlow, manualMinMss, nextOffset);
+        updateIleriPumpStore(manualHourlyFlow, manualMinMss, nextOffset, true);
     };
 
     const handleResetInputs = () => {
-        updateIleriPumpStore(defaultHourlyFlowStr, defaultMinMssStr, 0);
+        updateIleriPumpStore(defaultHourlyFlowStr, defaultMinMssStr, 0, false);
     };
 
     return (
@@ -329,7 +365,7 @@ function IleriAritmaPumpSelections() {
                                     type="button"
                                     className="btn btn-warning p-0 d-flex align-items-center justify-content-center"
                                     style={{ width: "20px", height: "20px" }}
-                                    onClick={() => updateIleriPumpStore(manualHourlyFlow, manualMinMss, 0)}
+                                    onClick={() => updateIleriPumpStore(manualHourlyFlow, manualMinMss, 0, true)}
                                     title="Otomatik Seçime Geri Dön"
                                 >
                                     <i className="bi bi-arrow-counterclockwise text-dark" style={{ fontSize: "9px", fontWeight: "bold" }}></i>
