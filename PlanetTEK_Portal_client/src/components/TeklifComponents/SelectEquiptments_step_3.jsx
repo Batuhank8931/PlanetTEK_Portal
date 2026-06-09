@@ -16,7 +16,7 @@ function SelectEquiptments() {
 
   const debi = parseFloat(formData.planetDiskDetails?.debi) || 0;
   const hourlyFlow = debi ? debi / CALC_HOURS : 0;
-  
+
   const equipmentsCache = formData.equipments || {};
 
   // 2. MODÜLLERİN INITIAL STATE YÖNETİMİ
@@ -61,11 +61,11 @@ function SelectEquiptments() {
     // Hedef modülün checked durumunu güncelle
     let updatedModules = {
       ...modules,
-      [moduleId]: { 
-        ...modules[moduleId], 
+      [moduleId]: {
+        ...modules[moduleId],
         checked: isTargetChecked,
         // Eğer açılıyorsa otomatik visited sayılabilir, kapanıyorsa false'a çekilebilir
-        visited: isTargetChecked ? modules[moduleId].visited : false 
+        visited: isTargetChecked ? modules[moduleId].visited : false
       },
     };
 
@@ -83,7 +83,7 @@ function SelectEquiptments() {
           visited: true, // Aktif hale geldiği için ziyaret edilmiş sayıyoruz
         };
       }
-    } 
+    }
     // EĞER hiç aktif sekme yoksa ve yeni bir sekme açılıyorsa, onu direkt aktif sekme yapalım
     else if (!activeTabId && isTargetChecked) {
       updatedModules[moduleId].isActiveTab = true;
@@ -107,19 +107,20 @@ function SelectEquiptments() {
         boxShadow: "0 10px 15px -3px rgba(0,0,0,0.3)",
       }}
     >
-      {/* BAŞLIK & HİDROLİK YÜK PANELİ */}
-      <div className="d-flex align-items-center justify-content-between border-bottom pb-2" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
-        <span className="fw-bold text-uppercase" style={{ fontSize: "12px", letterSpacing: "0.8px", color: "#10b981" }}>
-          <i className="bi bi-cpu-fill me-2"></i>3. Ekipman Seçim Modülleri
-        </span>
-        <div className="p-1 px-3 rounded text-white-50 d-flex gap-3 align-items-center" style={{ backgroundColor: "#1e293b", fontSize: "11px", border: "1px dashed #334155" }}>
-          <span><i className="bi bi-info-circle me-1.5 text-info"></i>Mevcut Hidrolik Yük:</span>
-          <span className="text-white fw-bold">
-            {debi} m³/gün <span className="text-white-50 fw-normal">({hourlyFlow.toFixed(2)} m³/h)</span>
-          </span>
-        </div>
-      </div>
 
+      {/* Adım Başlığı */}
+      <div className="d-flex align-items-center">
+        <span className="fw-bold text-uppercase pe-2" style={{ fontSize: "11px", letterSpacing: "0.7px", color: "#00874e" }}>
+          Ekipman Seçim Modülleri
+        </span>
+        <div className="flex-grow-1 border-bottom" style={{ borderColor: "rgba(255,255,255,0.1)" }}></div>
+      </div>
+      <div className="p-1 px-3 rounded text-white-50 d-flex gap-3 align-items-center" style={{ backgroundColor: "#1e293b", fontSize: "11px", border: "1px dashed #334155" }}>
+        <span><i className="bi bi-info-circle me-1.5 text-info"></i>Mevcut Hidrolik Yük:</span>
+        <span className="text-white fw-bold">
+          {debi} m³/gün <span className="text-white-50 fw-normal">({hourlyFlow.toFixed(2)} m³/h)</span>
+        </span>
+      </div>
       {/* ZORUNLULUK KONTROL UYARI BANNERI */}
       {hasUnvisitedActiveModule && (
         <div className="alert alert-warning d-flex align-items-center gap-2 m-0 p-2" style={{ fontSize: "11px", backgroundColor: "rgba(245, 158, 11, 0.1)", border: "1px solid rgba(245, 158, 11, 0.2)", color: "#f59e0b" }}>
@@ -127,6 +128,7 @@ function SelectEquiptments() {
           <span><strong>Zorunlu Seçim:</strong> Projeye dahil ettiğiniz tüm ekipmanların detay ayarlarına tıklayarak seçimleri kontrol etmeniz gerekmektedir.</span>
         </div>
       )}
+
 
       {/* ANA DÜZEN */}
       <div className="row g-3" style={{ minHeight: "250px" }}>
@@ -142,9 +144,9 @@ function SelectEquiptments() {
               const isSelected = mod.isActiveTab;
               const needAttention = mod.checked && !mod.visited;
 
-              let textColor = "#ef4444"; 
+              let textColor = "#ef4444";
               if (mod.checked) {
-                textColor = needAttention ? "#f59e0b" : "#10b981"; 
+                textColor = needAttention ? "#f59e0b" : "#10b981";
               }
 
               return (

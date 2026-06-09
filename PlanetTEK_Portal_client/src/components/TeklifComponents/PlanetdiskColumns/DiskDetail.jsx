@@ -1,18 +1,17 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect } from "react";
 import YerlesimDetail from "./DiskColumnDetailes/YerlesimDetail";
-import { useTeklifStore } from "../../../utils/teklifStore"; // Store yolunu projenize göre kontrol edin
+import { useTeklifStore } from "../../../utils/teklifStore";
 
 function DiskDetail() {
     // 1. ZUSTAND STORE ENTEGRASYONU
     const formData = useTeklifStore((state) => state.formData);
     const updateSection = useTeklifStore((state) => state.updateSection);
 
-    // İhtiyacımız olan tüm verileri merkezi "planetDiskDetails" düğümünden güvenli bir şekilde çekiyoruz
     const diskDetails = formData.planetDiskDetails || {};
     const aritmaParametreleri = diskDetails.tasarim?.aritmaParametreleri || {};
     const kademeParametreleri = diskDetails.tasarim?.kademeParametreleri || {};
 
-    const Q = Number(diskDetails.debi) || 0; // Debi bilgisini doğrudan bu adımdan okuyoruz
+    const Q = Number(diskDetails.debi) || 0;
     const girisBoi = Number(aritmaParametreleri.girisBoi) || 0;
     const cikisBoi = Number(aritmaParametreleri.cikisBoi) || 0;
     const giderimVerimi = parseFloat(String(aritmaParametreleri.giderimVerimi || 0).replace(',', '.'));
@@ -20,9 +19,6 @@ function DiskDetail() {
 
     const kademelerListesi = kademeParametreleri.kademeler || [];
 
-    // 2. TEMİZ VE SAF MATEMATİKSEL SAF SAF SAF HESAPLAMA (useMemo)
-    // useEffect ile tekrar store'a yazıp döngü yaratmak yerine, 
-    // ekranda render olmaya hazır "finalMetrekare" dizisini burada hesaplıyoruz.
     const finalMetrekare = useMemo(() => {
         let sonuclar = [];
 
@@ -40,8 +36,6 @@ function DiskDetail() {
                 });
             }
         } else {
-            let kumulatifToplam = 0;
-
             kademelerListesi.forEach((kademe, index) => {
                 let kademeSonucu = 0;
 
@@ -77,14 +71,12 @@ function DiskDetail() {
                 }
             });
 
-            // Döngü sonrası son bir hesaplama
             const sonKademeIndex = kademelerListesi.length - 1;
             const sonKademeBoi = kademelerListesi[sonKademeIndex].boi;
             const toplamHidrolikYük = (Number(sonKademeBoi) * Q) / 1000;
 
             if (!isNaN(genelEmperik) && genelEmperik !== 0) {
                 const döngüSonrasıSonuc = (toplamHidrolikYük * 1000) / genelEmperik;
-                kumulatifToplam += döngüSonrasıSonuc;
 
                 sonuclar.push({
                     alan: döngüSonrasıSonuc.toFixed(2),
@@ -98,26 +90,36 @@ function DiskDetail() {
         return sonuclar;
     }, [kademelerListesi, girisBoi, cikisBoi, Q, giderimVerimi, genelEmperik]);
 
+    // FIX: Optimized useEffect preventing deep update loops
+    useEffect(() => {
+        if (!finalMetrekare || finalMetrekare.length === 0) return;
+
+        // Check if the value in store is already identical to prevent redundant updates
+        const currentFinalMetrekare = diskDetails.tasarim?.finalMetrekare;
+        if (JSON.stringify(currentFinalMetrekare) === JSON.stringify(finalMetrekare)) return;
+
+        updateSection("planetDiskDetails", {
+            tasarim: {
+                ...diskDetails.tasarim,
+                finalMetrekare: finalMetrekare 
+            }
+        });
+    // Removed diskDetails.tasarim from dependencies
+    }, [finalMetrekare, updateSection]); 
+
     return (
         <div className="card border-0 text-white h-100" style={{ backgroundColor: "#1a1c1d", borderRadius: "12px", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)" }}>
             <div className="card-body p-4 d-flex flex-column gap-3">
-
-                {/* 1. BAŞLIK BÖLÜMÜ */}
                 <div className="d-flex align-items-center">
                     <span className="fw-bold text-uppercase pe-2" style={{ fontSize: "11px", letterSpacing: "0.7px", color: "#00874e" }}>
-                        4. PlanetDISK Yerleşim
+                        PlanetDISK Yerleşim
                     </span>
                     <div className="flex-grow-1 border-bottom" style={{ borderColor: "rgba(255,255,255,0.1)" }}></div>
                 </div>
 
-                {/* 2. YERLEŞİM DETAY PANELİ */}
-                {/* NOT: YerlesimDetail alt komponentinin içinde de props yerine store kullanabilirsiniz */}
                 <div className="p-2 rounded mb-3" style={{ backgroundColor: "#1e293b", border: "1px solid #334155", color: "#fff" }}>
-                    <YerlesimDetail
-                        finalMetrekare={finalMetrekare}
-                    />
+                    <YerlesimDetail />
                 </div>
-
             </div>
         </div>
     );

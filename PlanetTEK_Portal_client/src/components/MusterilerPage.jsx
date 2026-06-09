@@ -140,7 +140,6 @@ function MusterilerPage() {
           <h5 className="mb-1 fw-semibold tracking-tight" style={{ color: "#1a1c1d" }}>
             <i className="bi bi-building me-2" style={{ color: "#00874e" }}></i><span style={{ color: "#ffffff" }}>Müşteri Portföyü </span>
           </h5>
-          <p className="mb-0" style={{ fontSize: "12px", color: '#6b8aaa' }}>Müşteri listesi, iletişim ve teklif takibi</p>
         </div>
 
       </div>

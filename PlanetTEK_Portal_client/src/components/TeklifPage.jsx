@@ -5,8 +5,7 @@ import { useTeklifStore } from "../utils/teklifStore"; // Store yolunu kontrol e
 import SelectCustomer from "./TeklifComponents/SelectCustomer_step_1";
 import SelectPlanetDisk from "./TeklifComponents/SelectPlanetDisk_step_2";
 import SelectEquiptments from "./TeklifComponents/SelectEquiptments_step_3";
-import SelectCapex from "./TeklifComponents/SelectCapex_step_4";
-import SelectOpex from "./TeklifComponents/SelectOpex_step_5";
+import SelectTables from "./TeklifComponents/SelectTables_step_4";
 import SelectFinal from "./TeklifComponents/SelectFinal";
 import SelectionsModal from "./TeklifComponents/SelectionsModal";
 
@@ -16,7 +15,7 @@ function TeklifPage() {
 
   // 2. Adım takibini tamamen bu ana komponentin lokal state'ine bırakıyoruz
   const [currentStep, setCurrentStep] = useState(1);
-  
+
   // Modal görünürlük state'i
   const [showModal, setShowModal] = useState(false);
 
@@ -25,9 +24,8 @@ function TeklifPage() {
     { id: 1, label: "Müşteri Seçimi", icon: "bi-building" },
     { id: 2, label: "Planet Disk", icon: "bi-disc" },
     { id: 3, label: "Ekipmanlar", icon: "bi-tools" },
-    { id: 4, label: "CAPEX", icon: "bi-cash-coin" },
-    { id: 5, label: "OPEX", icon: "bi-sliders" },
-    { id: 6, label: "Özet & Onay", icon: "bi-check2-circle" }
+    { id: 4, label: "Tablolar", icon: "bi-cash-coin" },
+    { id: 5, label: "Özet & Onay", icon: "bi-check2-circle" }
   ];
 
   // Adım değiştirme fonksiyonları (Lokal state'i günceller)
@@ -50,9 +48,8 @@ function TeklifPage() {
       case 1: return <SelectCustomer />;
       case 2: return <SelectPlanetDisk />;
       case 3: return <SelectEquiptments />;
-      case 4: return <SelectCapex />;
-      case 5: return <SelectOpex />;
-      case 6: return <SelectFinal onSubmit={handleSubmit} />;
+      case 4: return <SelectTables />;
+      case 5: return <SelectFinal onSubmit={handleSubmit} />;
       default: return <div>Hatalı Adım</div>;
     }
   };
@@ -73,7 +70,6 @@ function TeklifPage() {
           <h5 className="mb-1 fw-semibold tracking-tight" style={{ color: "#ffffff" }}>
             <i className="bi bi-file-earmark-plus me-2" style={{ color: "#00874e" }}></i> Yeni Teklif Oluştur
           </h5>
-          <p className="mb-0" style={{ fontSize: "12px", color: '#6b8aaa' }}>Adım adım teklif parametrelerini belirleyin</p>
         </div>
       </div>
 
@@ -173,9 +169,9 @@ function TeklifPage() {
               className="btn btn-sm text-white py-2 px-2.5 d-flex align-items-center justify-content-center border-0 shadow-sm"
               onClick={() => setShowModal(true)}
               title="Anlık JSON Çıktısı"
-              style={{ 
-                backgroundColor: "#475569", 
-                borderRadius: "6px", 
+              style={{
+                backgroundColor: "#475569",
+                borderRadius: "6px",
                 fontSize: "14px"
               }}
             >

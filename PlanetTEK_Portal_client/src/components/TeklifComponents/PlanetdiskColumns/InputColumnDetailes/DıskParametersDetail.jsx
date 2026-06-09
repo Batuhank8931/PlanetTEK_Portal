@@ -58,7 +58,7 @@ function DiskParameters() {
         <div className="card-body p-0 px-4">
             <div className="d-flex align-items-center mb-3">
                 <span className="fw-bold text-uppercase pe-2" style={{ fontSize: "11px", letterSpacing: "0.7px", color: "#00874e" }}>
-                    2. PlanetDISK Seçimi ve Parametreleri
+                    PlanetDISK Seçimi ve Parametreleri
                 </span>
                 <div className="flex-grow-1 border-bottom" style={{ borderColor: "rgba(255,255,255,0.1)" }}></div>
             </div>

@@ -235,7 +235,7 @@ function InputParameters() {
             {/* JSX kodlarınız (Mevcut HTML/CSS tasarımınız tamamen korunmuştur) */}
             <div className="d-flex align-items-center">
                 <span className="fw-bold text-uppercase pe-2" style={{ fontSize: "11px", letterSpacing: "0.7px", color: "#00874e" }}>
-                    1. Arıtma Parametreleri
+                    Arıtma Parametreleri
                 </span>
                 <div className="flex-grow-1 border-bottom" style={{ borderColor: "rgba(255,255,255,0.1)" }}></div>
             </div>

@@ -47,11 +47,12 @@ const PUMP_DATABASE = [
 function FeedPumpDetail() {
   const CALC_HOURS = 24;
 
-  // 1. ZUSTAND STORE ENTEGRASYONU
   const formData = useTeklifStore((state) => state.formData);
   const updateSection = useTeklifStore((state) => state.updateSection);
 
-  // Sayfadaki güncel ana debi
+  // Arıtmadaki ilk sıra ünite adeti
+  const ilkSiraAdet = parseInt(formData.planetDiskDetails?.tasarim?.yerlesimSiralanisi?.[0]?.adet) || 0;
+
   const debi = parseFloat(formData.planetDiskDetails?.debi) || 0;
   const defaultHourlyFlowStr = debi ? (debi / CALC_HOURS).toFixed(2) : "0";
   const defaultMinMssStr = "5.9";
@@ -59,10 +60,7 @@ function FeedPumpDetail() {
   const equipmentsCache = formData.equipments || {};
   const storeFeedPump = equipmentsCache.feedPump || {};
 
-  // Kritik Değişiklik 1: Store'da daha önce kaydedilmiş olan "hesaplamaya esas ana debi" yi alıyoruz
   const lastCalculatedMainDebi = storeFeedPump.calculatedMainDebi !== undefined ? storeFeedPump.calculatedMainDebi : null;
-
-  // Kritik Değişiklik 2: Eğer ana debi değişmişse, store dolu olsa bile onu görmezden gelip varsayılan değerleri basıyoruz
   const isMainDebiChanged = lastCalculatedMainDebi !== null && lastCalculatedMainDebi !== debi;
 
   const manualHourlyFlow = (storeFeedPump.manualHourlyFlow !== undefined && !isMainDebiChanged) 
@@ -75,6 +73,9 @@ function FeedPumpDetail() {
 
   const pumpOffset = !isMainDebiChanged ? (storeFeedPump.pumpOffset || 0) : 0;
   const isInputsChanged = !isMainDebiChanged ? (storeFeedPump.isManualUserControl || false) : false;
+  
+  // Dağıtım yapısı seçili mi bilgisini store'dan güvenli alalım
+  const hasDistributionStructure = !isMainDebiChanged ? (storeFeedPump.hasDistributionStructure || false) : false;
 
   const activeHourlyFlow = useMemo(() => {
     const val = parseFloat(manualHourlyFlow);
@@ -86,10 +87,8 @@ function FeedPumpDetail() {
     return isNaN(val) ? 5.9 : val;
   }, [manualMinMss]);
 
-  // Doğrusal İnterpolasyon Fonksiyonu
   const getMssValue = (pump, qSaat) => {
     if (!pump || !pump.mssData) return null;
-
     const steps = Object.keys(pump.mssData).map(Number).sort((a, b) => a - b);
     if (steps.length === 0) return null;
 
@@ -106,17 +105,14 @@ function FeedPumpDetail() {
       if (qSaat >= currentStep && qSaat <= nextStep) {
         const mssCurrent = pump.mssData[currentStep];
         const mssNext = pump.mssData[nextStep];
-
         const ratio = (qSaat - currentStep) / (nextStep - currentStep);
         const interpolatedMss = mssCurrent + ratio * (mssNext - mssCurrent);
-
         return Number(interpolatedMss.toFixed(2));
       }
     }
     return null;
   };
 
-  // --- SEÇİM VE DINAMIK POMPA ADET MANTIĞI ---
   const { idealPumpIndex, pompaAdeti, hesaplananDebi } = useMemo(() => {
     if (activeHourlyFlow === 0) return { idealPumpIndex: -1, pompaAdeti: 1, hesaplananDebi: 0 };
 
@@ -138,15 +134,14 @@ function FeedPumpDetail() {
       });
 
       if (bestPumpIndex === -1) {
-        let _ = adet++;
+        adet++;
       }
     }
 
     return { idealPumpIndex: bestPumpIndex, pompaAdeti: adet, hesaplananDebi: qHesap };
   }, [activeHourlyFlow, activeMinMss]);
 
-  // Manuel Değiştirme (Offset) Mekanizması
-  const { selectedPump, currentMss, finalPumpIndex } = useMemo(() => {
+  const { selectedPump, currentMss } = useMemo(() => {
     let finalIndex = idealPumpIndex;
 
     if (idealPumpIndex !== -1) {
@@ -161,8 +156,11 @@ function FeedPumpDetail() {
     return { selectedPump: pump, currentMss: mss, finalPumpIndex: finalIndex };
   }, [idealPumpIndex, pumpOffset, hesaplananDebi]);
 
-  // Merkezi Store Senkronizasyon Helper'ı
-  const updateFeedPumpStore = (nextHourly, nextMss, nextOffset, isManual = true) => {
+  // ŞART KONTROLÜ: Pompa 1 adet ve ilk sıra ünite sayısı 2'den büyükse checkbox aktif edilebilir olmalı.
+  const isDistributionEligible = pompaAdeti === 1 && ilkSiraAdet > 2;
+
+  // Yenilenmiş Store Güncelleme Fonksiyonu (hasDistribution parametresini de yönetir)
+  const updateFeedPumpStore = (nextHourly, nextMss, nextOffset, isManual = true, hasDistribution = hasDistributionStructure) => {
     let pumpString = "---";
     const currentHourlyNum = parseFloat(nextHourly) || 0;
     const parsedNextMss = parseFloat(nextMss) || 5.9;
@@ -186,7 +184,7 @@ function FeedPumpDetail() {
         });
 
         if (simBestIndex === -1) {
-          let _ = simAdet++;
+          simAdet++;
         }
       }
     }
@@ -207,6 +205,9 @@ function FeedPumpDetail() {
       pumpString = "Kapasite Aşımı";
     }
 
+    // Eğer şart bozulduysa checkbox'ı otomatik kapat
+    const finalDistributionState = (simAdet === 1 && ilkSiraAdet > 2) ? hasDistribution : false;
+
     updateSection("equipments", {
       ...equipmentsCache,
       feedPump: {
@@ -217,22 +218,22 @@ function FeedPumpDetail() {
         pompaAdeti: targetPump ? simAdet : 0,
         secilenPompaMetni: pumpString,
         isManualUserControl: isManual,
-        // Kritik Adım: Bu hesaplamanın yapıldığı sıradaki ana sistem debisini store'a mühürlüyoruz
-        calculatedMainDebi: debi 
+        calculatedMainDebi: debi,
+        hasDistributionStructure: finalDistributionState,
+        distributionGirisAdet: finalDistributionState ? simAdet : 0,
+        distributionCikisAdet: finalDistributionState ? ilkSiraAdet : 0
       }
     });
   };
 
-  // --- AUTOMATIC RUNTIME RUN SYNC EFFECT ---
   useEffect(() => {
     if (defaultHourlyFlowStr === "0") return;
 
-    // Eğer ilk defa render oluyorsa veya başka sayfada debi değiştirilip bu sayfaya geri dönüldüyse
     if (!storeFeedPump.secilenPompaMetni || isMainDebiChanged || !isInputsChanged) {
-      updateFeedPumpStore(defaultHourlyFlowStr, defaultMinMssStr, 0, false);
+      updateFeedPumpStore(defaultHourlyFlowStr, defaultMinMssStr, 0, false, false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [debi, defaultHourlyFlowStr, isMainDebiChanged]);
+  }, [debi, defaultHourlyFlowStr, isMainDebiChanged, ilkSiraAdet]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -243,13 +244,18 @@ function FeedPumpDetail() {
     }
   };
 
-  const handleOffsetChange = (direction) => {
-    const nextOffset = pumpOffset + direction;
+  const handleDropdownPumpChange = (targetPumpId) => {
+    if (idealPumpIndex === -1) return;
+    const selectedIdx = PUMP_DATABASE.findIndex(p => p.id === parseInt(targetPumpId));
+    if (selectedIdx === -1) return;
+
+    const nextOffset = selectedIdx - idealPumpIndex;
     updateFeedPumpStore(manualHourlyFlow, manualMinMss, nextOffset, true);
   };
 
-  const handleResetInputs = () => {
-    updateFeedPumpStore(defaultHourlyFlowStr, defaultMinMssStr, 0, false);
+  // Checkbox Değişim Fonksiyonu
+  const handleDistributionCheckboxChange = (e) => {
+    updateFeedPumpStore(manualHourlyFlow, manualMinMss, pumpOffset, true, e.target.checked);
   };
 
   return (
@@ -286,84 +292,100 @@ function FeedPumpDetail() {
           </div>
         </div>
 
-        <div className="d-flex justify-content-end mb-2" style={{ height: "18px" }}>
-          {isInputsChanged && (
-            <span
-              onClick={handleResetInputs}
-              className="text-warning d-flex align-items-center gap-1"
-              style={{ cursor: "pointer", fontSize: "10px", fontWeight: "500" }}
-              title="Orijinal hesaplanan değerlere geri dön"
-            >
-              <i className="bi bi-arrow-counterclockwise"></i> Orijinal Değerlere Dön
-            </span>
-          )}
-        </div>
-
-        <div
-          className="d-flex align-items-center justify-content-between p-1 px-2"
-          style={{
-            backgroundColor: "#0f172a",
-            borderBottom: pumpOffset !== 0 ? "2px solid #f59e0b" : "2px solid #10b981",
-            borderRadius: "4px",
-            height: "36px"
-          }}
-        >
-          <div
-            className="fw-bold text-warning text-truncate pe-2"
-            style={{ fontSize: "11px" }}
-            title={selectedPump ? `${pompaAdeti} Adet x ${selectedPump.name} (${hesaplananDebi.toFixed(2)} m³/h @ ${currentMss} MSS)` : ""}
-          >
-            {selectedPump ? (
-              <>
-                <span className="badge bg-danger me-2" style={{ fontSize: "10px" }}>{pompaAdeti} ADET</span>
-                {selectedPump.name} 
-                <span className="text-info ms-1">
-                  ({hesaplananDebi.toFixed(2)} m³/h @ {currentMss} MSS {pompaAdeti > 1 && "per pump"})
-                </span>
-              </>
-            ) : (
-              <span className="text-muted">{activeHourlyFlow === 0 ? "---" : "Kapasite Aşımı"}</span>
-            )}
-          </div>
-
+        {/* POMPA DROPDOWN VE BİLGİ ALANI */}
+        <div className="d-flex flex-column gap-1 mt-3">
           {selectedPump && (
-            <div className="d-flex gap-1 flex-shrink-0">
-              <button
-                type="button"
-                className="btn btn-dark p-0 d-flex align-items-center justify-content-center"
-                style={{ width: "20px", height: "20px", backgroundColor: "#1e293b", border: "1px solid #334155" }}
-                disabled={finalPumpIndex <= 0}
-                onClick={() => handleOffsetChange(-1)}
-                title="Bir Küçük Pompayı Seç"
-              >
-                <i className="bi bi-chevron-down text-white" style={{ fontSize: "9px" }}></i>
-              </button>
-
-              {pumpOffset !== 0 && (
-                <button
-                  type="button"
-                  className="btn btn-warning p-0 d-flex align-items-center justify-content-center"
-                  style={{ width: "20px", height: "20px" }}
-                  onClick={() => updateFeedPumpStore(manualHourlyFlow, manualMinMss, 0, true)}
-                  title="Otomatik Seçime Geri Dön"
-                >
-                  <i className="bi bi-arrow-counterclockwise text-dark" style={{ fontSize: "9px", fontWeight: "bold" }}></i>
-                </button>
-              )}
-
-              <button
-                type="button"
-                className="btn btn-dark p-0 d-flex align-items-center justify-content-center"
-                style={{ width: "20px", height: "20px", backgroundColor: "#1e293b", border: "1px solid #334155" }}
-                disabled={finalPumpIndex >= PUMP_DATABASE.length - 1}
-                onClick={() => handleOffsetChange(1)}
-                title="Bir Büyük Pompayı Seç"
-              >
-                <i className="bi bi-chevron-up text-white" style={{ fontSize: "9px" }}></i>
-              </button>
+            <div className="d-flex align-items-center gap-2 mb-1">
+              <span className="badge bg-danger fw-bold" style={{ fontSize: "10px", padding: "4px 8px" }}>
+                {pompaAdeti} ADET
+              </span>
+              <span className="text-info fw-semibold" style={{ fontSize: "11px" }}>
+                ({hesaplananDebi.toFixed(2)} m³/h @ {currentMss} MSS {pompaAdeti > 1 && "pompa başına"})
+              </span>
             </div>
           )}
+
+          <div className="d-flex gap-1 align-items-center">
+            <select
+              className="form-select form-select-sm text-warning fw-bold flex-grow-1"
+              style={{
+                backgroundColor: "rgba(245, 158, 11, 0.12)",
+                border: pumpOffset !== 0 ? "1px solid #f59e0b" : "1px solid #10b981",
+                borderRadius: "6px",
+                fontSize: "12px",
+                height: "36px"
+              }}
+              value={selectedPump ? selectedPump.id : ""}
+              disabled={activeHourlyFlow === 0 || idealPumpIndex === -1}
+              onChange={(e) => handleDropdownPumpChange(e.target.value)}
+            >
+              {idealPumpIndex === -1 && activeHourlyFlow > 0 ? (
+                <option value="">Kapasite Aşımı</option>
+              ) : activeHourlyFlow === 0 ? (
+                <option value="">---</option>
+              ) : (
+                PUMP_DATABASE.map((pump) => (
+                  <option key={pump.id} value={pump.id} style={{ backgroundColor: "#1e293b", color: "#fff" }}>
+                    {pump.name}
+                  </option>
+                ))
+              )}
+            </select>
+
+            {pumpOffset !== 0 && (
+              <button
+                type="button"
+                className="btn btn-warning p-0 d-flex align-items-center justify-content-center flex-shrink-0"
+                style={{ width: "36px", height: "36px", borderRadius: "6px" }}
+                onClick={() => updateFeedPumpStore(manualHourlyFlow, manualMinMss, 0, true)}
+                title="Otomatik Hesaplanan Pompaya Geri Dön"
+              >
+                <i className="bi bi-arrow-counterclockwise text-dark" style={{ fontSize: "14px", fontWeight: "bold" }}></i>
+              </button>
+            )}
+          </div>
         </div>
+
+        {/* --- DEBİ DAĞITIM YAPISI CHECKBOX ALANI --- */}
+        {isDistributionEligible && (
+          <div 
+            className="mt-3 p-2 rounded border border-secondary border-opacity-25 transition-all"
+            style={{ 
+              backgroundColor: hasDistributionStructure ? "rgba(16, 185, 129, 0.05)" : "rgba(255,255,255,0.02)",
+              transition: "all 0.3s ease"
+            }}
+          >
+            <div className="form-check form-switch d-flex align-items-center justify-content-between ps-0">
+              <label 
+                className="form-check-label text-light fw-semibold cursor-pointer" 
+                htmlFor="distributionStructureCheck"
+                style={{ fontSize: "12px", cursor: "pointer" }}
+              >
+                <i className="bi bi-diagram-3-fill me-2 text-info"></i>
+                Debi Dağıtım Yapısı İlave Edilsin
+              </label>
+              <input
+                className="form-check-input ms-0 cursor-pointer"
+                type="checkbox"
+                role="switch"
+                id="distributionStructureCheck"
+                style={{ width: "2.5em", height: "1.25em", cursor: "pointer" }}
+                checked={hasDistributionStructure}
+                onChange={handleDistributionCheckboxChange}
+              />
+            </div>
+            
+            {/* Seçildiğinde Altta Çıkan Akıllı Bilgilendirme Rozetleri */}
+            {hasDistributionStructure && (
+              <div className="d-flex gap-2 mt-2 pt-2 border-top border-secondary border-opacity-10 style-fade-in" style={{ fontSize: "10px" }}>
+                <span className="text-white-50">Yapı Konfigürasyonu:</span>
+                <span className="badge bg-secondary">Giriş: {pompaAdeti} (Pompa)</span>
+                <span className="badge bg-success">Çıkış: {ilkSiraAdet} (Ünite)</span>
+              </div>
+            )}
+          </div>
+        )}
+        
       </div>
     </div>
   );

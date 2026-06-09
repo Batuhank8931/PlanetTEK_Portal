@@ -28,8 +28,8 @@ function IleriAritmaDozajSelections() {
 
   // 2. SAF MATEMATİKSEL HESAPLAMA (useMemo)
   const hesaplananDegerler = useMemo(() => {
-    const girisP = parseFloat(inputSelections.girisToplamFosfor) || 0; // mg/L
-    const cikisP = parseFloat(inputSelections.cikisToplamFosfor) || 0; // mg/L
+    const girisP = parseFloat(inputSelections.girisToplamFosfor) || 10; // mg/L
+    const cikisP = parseFloat(inputSelections.cikisToplamFosfor) || 3; // mg/L
     const katsayi = parseFloat(inputSelections.gerekliFeKatsayisi) || 2.7;
 
     // Giderilecek Fosfor yükü kontrolü

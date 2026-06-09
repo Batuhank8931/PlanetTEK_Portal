@@ -103,12 +103,12 @@ function SelectCustomer() {
     console.log("Güncel Form Verisi:", formData); */
     
     return (
-        <div className="card border-0 text-white h-100 p-3 gap-3" style={{ backgroundColor: "#1a1c1d", borderRadius: "5px", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)" }}>
+        <div className="card border-0 text-white h-100 p-4 gap-3" style={{ backgroundColor: "#1a1c1d", borderRadius: "5px", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)" }}>
 
             {/* Adım Başlığı */}
             <div className="d-flex align-items-center">
                 <span className="fw-bold text-uppercase pe-2" style={{ fontSize: "11px", letterSpacing: "0.7px", color: "#00874e" }}>
-                    1. Müşteri Genel Bilgileri
+                    Müşteri Genel Bilgileri
                 </span>
                 <div className="flex-grow-1 border-bottom" style={{ borderColor: "rgba(255,255,255,0.1)" }}></div>
             </div>

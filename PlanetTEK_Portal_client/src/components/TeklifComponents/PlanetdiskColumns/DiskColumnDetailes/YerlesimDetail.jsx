@@ -1,20 +1,18 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useMemo, useEffect } from "react";
 import GiderimDetail from "./GiderimDetail";
-import { useTeklifStore } from "../../../../utils/teklifStore"; // Store yolunu kontrol edin
+import { useTeklifStore } from "../../../../utils/teklifStore";
 
-function YerlesimDetail({ finalMetrekare }) {
-    // 1. ZUSTAND STORE BAĞLANTISI
-    const formData = useTeklifStore((state) => state.formData);
+function YerlesimDetail() {
+    // 1. ZUSTAND STORE SEÇİCİLERİ
     const updateSection = useTeklifStore((state) => state.updateSection);
+    const diskDetails = useTeklifStore((state) => state.formData?.planetDiskDetails || {});
+    const finalMetrekare = useTeklifStore((state) => state.formData?.planetDiskDetails?.tasarim?.finalMetrekare || []);
+    const kayitliYerlesimSiralanisi = useTeklifStore((state) => state.formData?.planetDiskDetails?.tasarim?.yerlesimSiralanisi);
+    const kaydedilmisTasarim = useTeklifStore((state) => state.formData?.planetDiskDetails?.tasarim || {});
 
-    // İhtiyacımız olan tüm parametreleri güvenli köklerden topluyoruz
-    const diskDetails = formData.planetDiskDetails || {};
     const diskParametreleri = diskDetails.tasarim?.diskParametreleri || {};
     const lamellaData = diskDetails.tasarim?.lamella || {};
     const Q = Number(diskDetails.debi) || 0;
-
-    // Önceki adımlardan veya geçmiş seçimlerden kalan store verileri (varsa)
-    const kaydedilmisSecimler = diskDetails.tasarim?.yerlesimSecimleri || {};
 
     const diskcapi = diskParametreleri.secilenDiskTipi === "MX" ? 2.05 : 1.35;
     const hacim = diskParametreleri.secilenDiskTipi === "MX" ? 4.5 : 2.00;
@@ -23,15 +21,36 @@ function YerlesimDetail({ finalMetrekare }) {
 
     const tekDiskAlani = 2 * (Math.PI * Math.pow(diskcapi, 2) / 4);
 
-    // 2. LOKAL STATELERİ STORE İLE BAŞLATIYORUZ (HAFIZA BURADA DEVREYE GİRİYOR)
-    const [secilenUniteler, setSecilenUniteler] = useState(kaydedilmisSecimler.secilenUniteler || {});
-    const [secilenSiralar, setSecilenSiralar] = useState(kaydedilmisSecimler.secilenSiralar || {});
-    const [yerlesimDuzenleri, setYerlesimDuzenleri] = useState(kaydedilmisSecimler.yerlesimDuzenleri || {});
-    
+    // 2. LOCAL STATELER
+    const [secilenUniteler, setSecilenUniteler] = useState(kaydedilmisTasarim.secilenUniteler || {});
+    const [secilenSiralar, setSecilenSiralar] = useState(kaydedilmisTasarim.secilenSiralar || {});
+    const [yerlesimDuzenleri, setYerlesimDuzenleri] = useState(kaydedilmisTasarim.yerlesimDuzenleri || {});
+
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedKademeData, setSelectedKademeData] = useState(null);
 
-    // Kademelerin temel hesapları
+    // CRITICAL FIX 1: Üst adımdan finalMetrekare değiştiğinde, local stateleri ezerek senkronize ediyoruz.
+    // Böylece eski metrekareye ait kilitli kalan seçimler (Uniteler, Sıralar ve Drag-Drop düzenleri) temizleniyor.
+    useEffect(() => {
+        if (!finalMetrekare || finalMetrekare.length === 0) return;
+
+        finalMetrekare.forEach((kademeObj, index) => {
+            const alanSayi = Number(kademeObj.alan) || 0;
+            const toplamGerekliDisk = Math.ceil(alanSayi / tekDiskAlani);
+            const minUniteSayisi = Math.ceil(toplamGerekliDisk / maxDiskAdedi);
+
+            setSecilenUniteler(minUniteSayisi);
+            setSecilenSiralar({
+                "0": 2,
+                "1": 2
+            });
+
+        });
+
+    }, [finalMetrekare, tekDiskAlani, maxDiskAdedi]); // Sadece finalMetrekare ve temel parametreler değiştiğinde tetiklenir
+
+
+    // 3. KADEME HESAPLARI (Dinamik & Fallback Güvenlikli)
     const kademeHesaplari = useMemo(() => {
         if (!finalMetrekare || finalMetrekare.length === 0) return [];
 
@@ -47,9 +66,13 @@ function YerlesimDetail({ finalMetrekare }) {
                 alternatifUniteler.push(i);
             }
 
-            // Eğer store'dan gelen veri varsa onu kullan, yoksa alternatifi ilk elemanı seç
-            const mevcutSecim = secilenUniteler[index] !== undefined ? secilenUniteler[index] : (alternatifUniteler[0] || minUniteSayisi);
-            const siraSayisi = secilenSiralar[index] !== undefined ? secilenSiralar[index] : 2;
+            const mevcutSecim = secilenUniteler[index] !== undefined
+                ? Number(secilenUniteler[index])
+                : minUniteSayisi;
+
+            const siraSayisi = secilenSiralar[index] !== undefined
+                ? Number(secilenSiralar[index])
+                : 1;
 
             const milBasinaDisk = Math.ceil(toplamGerekliDisk / mevcutSecim);
             const ozelDuzen = yerlesimDuzenleri[index];
@@ -81,7 +104,8 @@ function YerlesimDetail({ finalMetrekare }) {
         });
     }, [finalMetrekare, tekDiskAlani, minDiskAdedi, maxDiskAdedi, secilenUniteler, secilenSiralar, yerlesimDuzenleri]);
 
-    // 3. RUNTIME SIRALAMA HESAPLAMASI
+
+    // 4. RUNTIME SIRALAMA HESAPLAMASI
     const tumSiralar = useMemo(() => {
         const siralar = [];
         let genelSiraNo = 1;
@@ -94,7 +118,7 @@ function YerlesimDetail({ finalMetrekare }) {
                     isLamella: false,
                     genelSiraNo: genelSiraNo++,
                     kademeNo: kademe.index,
-                    parentKademeIndex: kademe.realIndex, // drag-drop eşleşmesi için kritik
+                    parentKademeIndex: kademe.realIndex,
                     siraTipi: sIdx,
                     adet: siraAdet,
                     milBasinaDisk: kademe.milBasinaDisk,
@@ -124,47 +148,43 @@ function YerlesimDetail({ finalMetrekare }) {
         return siralar;
     }, [kademeHesaplari, hacim, Q, lamellaData]);
 
-    // 4. MERKEZİ STORE GÜNCELLEME HELPER FONKSİYONU
-    // Yapılan seçimleri (Uniteler, Sıralar ve Düzeler) tek elden store'a kaydeder.
-    const syncWithStore = (currentUniteler, currentSiralar, currentDuzenleri, currentSiralanis) => {
+
+    // CRITICAL FIX 2: Store senkronizasyonunda `kaydedilmisTasarim` bağımlılığını kaldırıyoruz veya kontrolü safe hale getiriyoruz.
+    // Local statelerdeki güncellemeleri de tek bir hamlede store'a yazıyoruz ki `finalMetrekare` değişince veriler kaybolmasın.
+    useEffect(() => {
+        if (!tumSiralar || tumSiralar.length === 0) return;
+
+        // Derin kontrolü pure olarak `tumSiralar` ve store'daki kayıtlı dizi arasında yapıyoruz
+        if (JSON.stringify(kayitliYerlesimSiralanisi) === JSON.stringify(tumSiralar)) return;
+
         updateSection("planetDiskDetails", {
             tasarim: {
-                ...diskDetails.tasarim,
-                yerlesimSiralanisi: currentSiralanis || tumSiralar,
-                yerlesimSecimleri: {
-                    secilenUniteler: currentUniteler || secilenUniteler,
-                    secilenSiralar: currentSiralar || secilenSiralar,
-                    yerlesimDuzenleri: currentDuzenleri || yerlesimDuzenleri
-                }
+                ...useTeklifStore.getState().formData?.planetDiskDetails?.tasarim, // En güncel store state'ini referans döngüsüne girmeden anlık çekiyoruz
+                yerlesimSiralanisi: tumSiralar
             }
         });
-    };
+    }, [tumSiralar, kayitliYerlesimSiralanisi, updateSection]); // `kaydedilmisTasarim` bağımlılığını sildik! Döngü kırıldı.
 
+
+    // 7. EVENT HANDLERS
     const handleUniteChange = (kademeIndex, adet) => {
         const yeniAdet = parseInt(adet, 10);
-        
-        const yeniUniteler = { ...secilenUniteler, [kademeIndex]: yeniAdet };
-        const yeniDuzenleri = { ...yerlesimDuzenleri };
-        delete yeniDuzenleri[kademeIndex]; // Ünite değiştiği için drag drop özel dağılımı sıfırlansın
-
-        setSecilenUniteler(yeniUniteler);
-        setYerlesimDuzenleri(yeniDuzenleri);
-
-        // State'lerin güncel halini doğrudan basıyoruz (asenkron gecikmeyi önlemek için)
-        setTimeout(() => syncWithStore(yeniUniteler, secilenSiralar, yeniDuzenleri, null), 0);
+        setSecilenUniteler(prev => ({ ...prev, [kademeIndex]: yeniAdet }));
+        setYerlesimDuzenleri(prev => {
+            const kopya = { ...prev };
+            delete kopya[kademeIndex];
+            return kopya;
+        });
     };
 
     const handleSiraChange = (kademeIndex, siraAdedi) => {
         const yeniSira = parseInt(siraAdedi, 10);
-        
-        const yeniSiralar = { ...secilenSiralar, [kademeIndex]: yeniSira };
-        const yeniDuzenleri = { ...yerlesimDuzenleri };
-        delete yeniDuzenleri[kademeIndex]; // Sıra sayısı değiştiği için drag drop özel dağılımı sıfırlansın
-
-        setSecilenSiralar(yeniSiralar);
-        setYerlesimDuzenleri(yeniDuzenleri);
-
-        setTimeout(() => syncWithStore(secilenUniteler, yeniSiralar, yeniDuzenleri, null), 0);
+        setSecilenSiralar(prev => ({ ...prev, [kademeIndex]: yeniSira }));
+        setYerlesimDuzenleri(prev => {
+            const kopya = { ...prev };
+            delete kopya[kademeIndex];
+            return kopya;
+        });
     };
 
     const openDetailModal = (kademeVerisi, kademeSiraNo) => {
@@ -172,7 +192,7 @@ function YerlesimDetail({ finalMetrekare }) {
         setIsModalOpen(true);
     };
 
-    // --- HTML5 DRAG AND DROP FONKSİYONLARI ---
+    // 8. HTML5 DRAG AND DROP HANDLERS
     const handleDragStart = (e, kaynakKademeIndex, kaynakSiraTipi) => {
         if (kaynakKademeIndex === undefined) return;
         e.dataTransfer.setData("kaynakKademeIndex", kaynakKademeIndex);
@@ -190,8 +210,8 @@ function YerlesimDetail({ finalMetrekare }) {
         const kaynakKademeIndex = parseInt(e.dataTransfer.getData("kaynakKademeIndex"), 10);
         const kaynakSiraTipi = parseInt(e.dataTransfer.getData("kaynakSiraTipi"), 10);
 
-        if (kaynakKademeIndex !== hedefKademeIndex) return; 
-        if (kaynakSiraTipi === hedefSiraTipi) return; 
+        if (kaynakKademeIndex !== hedefKademeIndex) return;
+        if (kaynakSiraTipi === hedefSiraTipi) return;
 
         const ilgiliKademe = kademeHesaplari.find(k => k.realIndex === hedefKademeIndex);
         if (!ilgiliKademe) return;
@@ -203,24 +223,12 @@ function YerlesimDetail({ finalMetrekare }) {
             yeniDagilim[hedefSiraTipi] += 1;
         }
 
-        const yeniDuzenleri = { ...yerlesimDuzenleri, [hedefKademeIndex]: yeniDagilim };
-        setYerlesimDuzenleri(yeniDuzenleri);
-
-        // Drag and drop sonrası tumSiralar listesini anlık simüle edip store'a gönderelim
-        const guncelSiralar = tumSiralar.map(s => {
-            if (!s.isLamella && s.parentKademeIndex === hedefKademeIndex) {
-                if (s.siraTipi === kaynakSiraTipi) return { ...s, adet: s.adet - 1 };
-                if (s.siraTipi === hedefSiraTipi) return { ...s, adet: s.adet + 1 };
-            }
-            return s;
-        });
-
-        setTimeout(() => syncWithStore(secilenUniteler, secilenSiralar, yeniDuzenleri, guncelSiralar), 0);
+        setYerlesimDuzenleri(prev => ({ ...prev, [hedefKademeIndex]: yeniDagilim }));
     };
 
     return (
         <div className="p-1 rounded" style={{ backgroundColor: "#1e293b", display: "flex", flexDirection: "column" }}>
-            {/* 1. DROPDOWN ALANLARI */}
+            {/* DROPDOWN ALANLARI */}
             <div className="row g-1">
                 {kademeHesaplari.map((kademe) => (
                     <div key={`dropdown-${kademe.index}`} className="col-12 col-md-4">
@@ -236,7 +244,6 @@ function YerlesimDetail({ finalMetrekare }) {
                                     onClick={() => openDetailModal(kademe.rawKademeVerisi, kademe.index)}
                                     className="btn btn-sm p-0 px-1"
                                     style={{ backgroundColor: "#334155", color: "#94a3b8", fontSize: "10px", border: "1px solid #475569" }}
-                                    title="Kademe Hesaplama Detayı"
                                 >
                                     ℹ️
                                 </button>
@@ -265,9 +272,9 @@ function YerlesimDetail({ finalMetrekare }) {
                                         className="form-select form-select-sm bg-dark text-white border-0"
                                         style={{ fontSize: "11px", fontWeight: "bold", color: "#60a5fa", paddingLeft: "6px", height: "26px" }}
                                     >
-                                        <option value="1">1</option>
-                                        <option value="2">2</option>
-                                        <option value="3">3</option>
+                                        <option value={1}>1</option>
+                                        <option value={2}>2</option>
+                                        <option value={3}>3</option>
                                     </select>
                                 </div>
 
@@ -285,7 +292,7 @@ function YerlesimDetail({ finalMetrekare }) {
                 ))}
             </div>
 
-            {/* 2. SÜRÜKLENEBİLİR SIRALAR ŞEMASI */}
+            {/* SÜRÜKLENEBİLİR SIRALAR ŞEMASI */}
             <div className="p-1 my-2 rounded bg-dark" style={{ border: "1px solid rgba(255,255,255,0.05)", display: "flex", flexDirection: "row", alignItems: "stretch", justifyContent: "space-around", gap: "8px", overflowX: "auto", width: "100%" }}>
                 {tumSiralar.map((sira, idx) => (
                     <React.Fragment key={idx}>
@@ -346,7 +353,7 @@ function YerlesimDetail({ finalMetrekare }) {
                                                     <div style={{ position: "absolute", right: "7.5px", top: "4px", width: "5px", height: "5px", borderRadius: "50%", background: "radial-gradient(circle, #4b5563 0%, #1f2937 80%)", border: "0.5px solid rgba(255,255,255,0.15)", boxShadow: "0 0.5px 1px rgba(0,0,0,0.4)" }} />
                                                 </div>
                                                 <div style={{ height: "1px", backgroundColor: "#334155", width: "100%" }} />
-                                                <div style={{ height: "22px", background: "linear-gradient(90deg, #22c55e 0%, #16a34a 25%, #15803d 75%, #166534 100%)", borderBottomLeftRadius: "3px", borderBottomRightRadius: "3px", boxShadow: "inset 0 -1.5px 2.5px rgba(0,0,0,0.3)", fontFamily: "monospace", lineHeight: "1.1", padding: "2px 0", display: "flex", flexDirection: "column", alignItems: "center", justifycontent: "center" }}>
+                                                <div style={{ height: "22px", background: "linear-gradient(90deg, #22c55e 0%, #16a34a 25%, #15803d 75%, #166534 100%)", borderBottomLeftRadius: "3px", borderBottomRightRadius: "3px", boxShadow: "inset 0 -1.5px 2.5px rgba(0,0,0,0.3)", fontFamily: "monospace", lineHeight: "1.1", padding: "2px 0", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
                                                     <span style={{ fontSize: "10px", fontWeight: "800", letterSpacing: "0.5px", textShadow: "1px 1px 2px rgba(0,0,0,0.6)" }}>
                                                         {sira.milBasinaDisk}
                                                     </span>
@@ -373,7 +380,7 @@ function YerlesimDetail({ finalMetrekare }) {
                 ))}
             </div>
 
-            {/* 3. MODAL GÖSTERİMİ */}
+            {/* MODAL GÖSTERİMİ */}
             {isModalOpen && (
                 <GiderimDetail
                     isOpen={isModalOpen}

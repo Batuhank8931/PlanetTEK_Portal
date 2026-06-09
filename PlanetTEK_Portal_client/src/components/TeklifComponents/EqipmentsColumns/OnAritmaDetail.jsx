@@ -15,7 +15,7 @@ function OnAritmaDetail() {
   // Store hiyerarşisini doğrudan equipments altından okuyoruz
   const equipmentsCache = formData.equipments || {};
   
-  // onAritma artık doğrudan equipments objesinin altında (modulesState yanında)
+  // onAritma artık doğrudan equipments objesinin altında
   const storeOnAritma = equipmentsCache.onAritma || {};
 
   // Store'daki mevcut değerler (Yoksa default değerler)
@@ -26,7 +26,7 @@ function OnAritmaDetail() {
   // 2. YARDIMCI HESAPLAMA FONKSİYONLARI
   const getIdealIzgaraIndex = (debi) => {
     if (!debi) return 0;
-    return debi < 50 ? 0 : 1; // <50 Manuel, >=50 Mekanik
+    return debi < 50 ? 0 : 1; // <50 Manuel (0), >=50 Mekanik (1)
   };
 
   const getYagTutucuBoyut = (debi) => {
@@ -41,11 +41,10 @@ function OnAritmaDetail() {
   };
 
   // 3. EFFECT: İLK RENDER VE DEBİ DEĞİŞİMİNDE DEFAULT DATA ATAMA
-  // Bu effect sadece bileşen yüklendiğinde ve `günlükDebi` değiştiğinde çalışır.
   useEffect(() => {
     const idealIndex = getIdealIzgaraIndex(günlükDebi);
     
-    // Offset'i de hesaba katarak default indeksi buluyoruz
+    // Offset'i de hesaba katarak store'da kayıtlı olan veya default indeksi buluyoruz
     let finalIndex = idealIndex + izgaraOffset;
     if (finalIndex < 0) finalIndex = 0;
     if (finalIndex >= IZGARA_OPTIONS.length) finalIndex = IZGARA_OPTIONS.length - 1;
@@ -60,7 +59,7 @@ function OnAritmaDetail() {
       storeOnAritma.yagTutucuBoyut !== defaultYagTutucu
     ) {
       updateSection("equipments", {
-        ...equipmentsCache, // Mevcut diğer tüm alanları (modulesState, ileriAritma vs.) koru
+        ...equipmentsCache,
         onAritma: {
           ...storeOnAritma,
           izgaraOffset: izgaraOffset,
@@ -72,28 +71,26 @@ function OnAritmaDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [günlükDebi]); 
 
-  // 4. MANUEL BUTON TIKLAMA REAKSİYONU
-  const handleOffsetChange = (direction) => {
-    const nextOffset = izgaraOffset + direction;
+  // 4. DROPDOWN SEÇİM REAKSİYONU (YENİ EKLEDİĞİMİZ KISIM)
+  const handleDropdownChange = (newTipi) => {
     const idealIndex = getIdealIzgaraIndex(günlükDebi);
-    
-    let targetIndex = idealIndex + nextOffset;
-    if (targetIndex < 0 || targetIndex >= IZGARA_OPTIONS.length) return; // Sınır dışı ise engelle
+    const selectedIndex = IZGARA_OPTIONS.indexOf(newTipi);
+
+    if (selectedIndex === -1) return;
+
+    // Seçilen elemanın ideal indekse göre farkını hesaplayıp offset olarak kaydediyoruz
+    const newOffset = selectedIndex - idealIndex;
 
     updateSection("equipments", {
-      ...equipmentsCache, // Mevcut verileri koru
+      ...equipmentsCache,
       onAritma: {
         ...storeOnAritma,
-        izgaraOffset: nextOffset,
-        izgaraTipi: IZGARA_OPTIONS[targetIndex],
-        yagTutucuBoyut: currentYagTutucuBoyut // Mevcut yağ tutucuyu koru
+        izgaraOffset: newOffset,
+        izgaraTipi: newTipi,
+        yagTutucuBoyut: currentYagTutucuBoyut
       }
     });
   };
-
-  // UI butonlarının disable durumları için anlık index kontrolü
-  const idealIndex = getIdealIzgaraIndex(günlükDebi);
-  const finalIzgaraIndex = idealIndex + izgaraOffset;
 
   return (
     <div className="d-flex flex-column gap-3">
@@ -105,52 +102,34 @@ function OnAritmaDetail() {
         {/* 1. Ön Arıtma Izgarası Seçimi */}
         <div className="col-6">
           <label className="text-white-50 d-block text-center mb-1" style={{ fontSize: "10px" }}>
-            1. Ön Arıtma Izgarası
+            Ön Arıtma Izgarası
           </label>
-          <div
-            className="d-flex align-items-center justify-content-between p-1 px-2"
-            style={{
-              backgroundColor: "#0f172a",
-              borderBottom: izgaraOffset !== 0 ? "2px solid #f59e0b" : "2px solid #10b981",
-              borderRadius: "4px",
-              height: "36px"
+          
+          <select
+            className="form-select form-select-sm text-white fw-bold text-center"
+            style={{ 
+              backgroundColor: "rgba(245, 158, 11, 0.15)", 
+              // Eğer sistemin önerdiğinden farklıysa (offset !== 0) turuncu border, ideal ise yeşil border
+              border: izgaraOffset !== 0 ? "1px solid #f59e0b" : "1px solid #10b981", 
+              borderRadius: "6px", 
+              fontSize: "12px", 
+              height: "36px" // Diğer kutuyla simetrik olsun diye 36px yaptım
             }}
+            value={currentIzgaraTipi}
+            onChange={(e) => handleDropdownChange(e.target.value)}
           >
-            <div className="fw-bold text-white text-truncate pe-1" style={{ fontSize: "11px" }} title={currentIzgaraTipi}>
-              {currentIzgaraTipi}
-            </div>
-
-            {/* Manuel Değiştirme Butonları */}
-            <div className="d-flex gap-1 flex-shrink-0">
-              <button
-                type="button"
-                className="btn btn-dark p-0 d-flex align-items-center justify-content-center"
-                style={{ width: "20px", height: "20px", backgroundColor: "#1e293b", border: "1px solid #334155" }}
-                disabled={finalIzgaraIndex <= 0}
-                onClick={() => handleOffsetChange(-1)}
-                title="Bir Alt Seçenek"
-              >
-                <i className="bi bi-chevron-down text-white" style={{ fontSize: "9px" }}></i>
-              </button>
-
-              <button
-                type="button"
-                className="btn btn-dark p-0 d-flex align-items-center justify-content-center"
-                style={{ width: "20px", height: "20px", backgroundColor: "#1e293b", border: "1px solid #334155" }}
-                disabled={finalIzgaraIndex >= IZGARA_OPTIONS.length - 1}
-                onClick={() => handleOffsetChange(1)}
-                title="Bir Üst Seçenek"
-              >
-                <i className="bi bi-chevron-up text-white" style={{ fontSize: "9px" }}></i>
-              </button>
-            </div>
-          </div>
+            {IZGARA_OPTIONS.map((option, idx) => (
+              <option key={idx} value={option} style={{ backgroundColor: "#1e293b" }}>
+                {option}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* 2. Yağ Tutucu Boyutu Gösterimi */}
         <div className="col-6">
           <label className="text-white-50 d-block text-center mb-1" style={{ fontSize: "10px" }}>
-            2. Yağ Tutucu Boyutu
+            Yağ Tutucu Plakaları x 3
           </label>
           <div
             className="p-2 text-white text-center fw-bold text-truncate"

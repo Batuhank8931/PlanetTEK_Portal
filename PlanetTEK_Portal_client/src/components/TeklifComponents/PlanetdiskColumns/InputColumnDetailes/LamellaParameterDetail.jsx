@@ -90,7 +90,7 @@ function LamellaParameters() {
         {/* Başlık */}
         <div className="d-flex align-items-center mb-3">
           <span className="fw-bold text-uppercase pe-2" style={{ fontSize: "11px", letterSpacing: "0.7px", color: "#00874e" }}>
-            3. Lamella Çöktürme Seçimi
+            Lamella Çöktürme Seçimi
           </span>
           <div className="flex-grow-1 border-bottom" style={{ borderColor: "rgba(255,255,255,0.1)" }}></div>
         </div>
