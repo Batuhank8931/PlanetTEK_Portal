@@ -1,23 +1,30 @@
 import React from "react";
 
 function GiderimDetail({ isOpen, onClose, kademeData, genelVeri }) {
+
     if (!isOpen || !kademeData) return null;
 
-    // Gelen verileri güvenli bir şekilde sayıya dönüştürüyoruz
+    // Nitrifikasyon kontrolü (Daha önce eklediğimiz isNitrifikasyon flag'i)
+    const isNitrifikasyon = !!kademeData.isNitrifikasyon || kademeData.kademeNo === "Nitrifikasyon";
+
+    // Ortak Parametreler
     const Q = Number(genelVeri?.debi) || 0;
     const alan = Number(kademeData.alan) || 0;
-    const girisBoi = Number(kademeData.girisBoi) || 0;
-    const cikisBoi = Number(kademeData.cikisBoi) || 0;
     const emperik = Number(kademeData.emperik) || 1; // 0'a bölme hatasını engellemek için default 1
 
-    // İlk kademe mi yoksa sonraki kademeler mi olduğunu anlamak ve formülü ona göre göstermek için:
-    // Giderim verimi ana veriden veya matematiksel oranla hesaplanabilir:
+    // 1. DURUM: NİTRİFİKASYON HESAPLARI
+    const girisAmonyum = Number(genelVeri?.tasarim?.aritmaParametreleri?.girisAmonyum) || 0;
+    const cikisAmonyum = Number(genelVeri?.tasarim?.aritmaParametreleri?.cikisAmonyum) || 0;
+    const amonyumYuk = ((girisAmonyum - cikisAmonyum) * Q) / 1000;
+
+    // 2. DURUM: BOİ HESAPLARI
+    const girisBoi = Number(kademeData.girisBoi) || 0;
+    const cikisBoi = Number(kademeData.cikisBoi) || 0;
+    const hidrolikYuk = (girisBoi * Q) / 1000;
+
     const giderimVerimi = genelVeri?.tasarim?.aritmaParametreleri?.giderimVerimi
         ? parseFloat(String(genelVeri?.tasarim?.aritmaParametreleri?.giderimVerimi).replace(',', '.'))
         : girisBoi > 0 ? (((girisBoi - cikisBoi) / girisBoi) * 100) : 0;
-
-    // Toplam Kirlilik Yükü Hesabı: (BOİ * Debi) / 1000 (kg/gün)
-    const hidrolikYuk = (girisBoi * Q) / 1000;
 
     return (
         <div
@@ -32,7 +39,7 @@ function GiderimDetail({ isOpen, onClose, kademeData, genelVeri }) {
                 className="card text-white border-0"
                 style={{
                     backgroundColor: "#1e293b",
-                    border: "1px solid #334155",
+                    border: isNitrifikasyon ? "1px solid #3b82f6" : "1px solid #334155",
                     borderRadius: "12px",
                     width: "92%",
                     maxWidth: "440px",
@@ -41,8 +48,11 @@ function GiderimDetail({ isOpen, onClose, kademeData, genelVeri }) {
             >
                 {/* Modal Başlık Kısmı */}
                 <div className="card-header border-0 d-flex justify-content-between align-items-center pt-3 px-3 pb-0 bg-transparent">
-                    <span className="fw-bold text-uppercase" style={{ fontSize: "11px", letterSpacing: "0.5px", color: "#38bdf8" }}>
-                        {kademeData.kademeNo}. Kademe Giderim Detayı
+                    <span 
+                        className="fw-bold text-uppercase" 
+                        style={{ fontSize: "11px", letterSpacing: "0.5px", color: isNitrifikasyon ? "#60a5fa" : "#38bdf8" }}
+                    >
+                        {isNitrifikasyon ? "Nitrifikasyon" : `${kademeData.kademeNo}. Kademe`} Giderim Detayı
                     </span>
                     <button
                         type="button"
@@ -63,14 +73,31 @@ function GiderimDetail({ isOpen, onClose, kademeData, genelVeri }) {
                             <span className="text-white-50">Tasarım Debisi (Q):</span>
                             <span className="fw-bold text-info">{Q.toLocaleString('tr-TR')} m³/gün</span>
                         </div>
-                        <div className="d-flex justify-content-between mb-1">
-                            <span className="text-white-50">Giriş BOİ ({kademeData.kademeNo === 1 ? "Ham" : `K-${kademeData.kademeNo - 1} Çıkış`}):</span>
-                            <span className="fw-bold text-danger">{girisBoi} mg/L</span>
-                        </div>
-                        <div className="d-flex justify-content-between mb-1">
-                            <span className="text-white-50">Hedef Çıkış BOİ:</span>
-                            <span className="fw-bold text-warning">{cikisBoi} mg/L</span>
-                        </div>
+
+                        {isNitrifikasyon ? (
+                            <>
+                                <div className="d-flex justify-content-between mb-1">
+                                    <span className="text-white-50">Giriş Amonyumu ($NH_4-N$):</span>
+                                    <span className="fw-bold text-danger">{girisAmonyum} mg/L</span>
+                                </div>
+                                <div className="d-flex justify-content-between mb-1">
+                                    <span className="text-white-50">Hedef Çıkış Amonyumu:</span>
+                                    <span className="fw-bold text-warning">{cikisAmonyum} mg/L</span>
+                                </div>
+                            </>
+                        ) : (
+                            <>
+                                <div className="d-flex justify-content-between mb-1">
+                                    <span className="text-white-50">Giriş BOİ ({kademeData.kademeNo === 1 ? "Ham" : `K-${Number(kademeData.kademeNo) - 1} Çıkış`}):</span>
+                                    <span className="fw-bold text-danger">{girisBoi} mg/L</span>
+                                </div>
+                                <div className="d-flex justify-content-between mb-1">
+                                    <span className="text-white-50">Hedef Çıkış BOİ:</span>
+                                    <span className="fw-bold text-warning">{cikisBoi} mg/L</span>
+                                </div>
+                            </>
+                        )}
+
                         <div className="d-flex justify-content-between">
                             <span className="text-white-50">Emperik Katsayı (As):</span>
                             <span className="fw-bold text-success">{emperik} g/m²·gün</span>
@@ -78,42 +105,75 @@ function GiderimDetail({ isOpen, onClose, kademeData, genelVeri }) {
                     </div>
 
                     {/* 2. Formüller ve İşlemler */}
-                    <div className="p-2 rounded bg-dark bg-opacity-40 border-start border-info border-3" style={{ fontSize: "11px" }}>
-                        {/* Adım 1 */}
-                        <div className="mb-3">
-                            <div className="fw-bold text-white-50 mb-1">1. Giriş Kirlilik Yükü Hesabı:</div>
-                            <div className="font-monospace text-warning text-opacity-75 mb-1" style={{ fontSize: "10px" }}>
-                                Yük = (Giriş BOİ × Q) / 1000
-                            </div>
-                            <div className="text-white">
-                                ({girisBoi} × {Q}) / 1000 = <strong className="text-info">{isNaN(hidrolikYuk) ? "0.00" : hidrolikYuk.toFixed(2)} kg/gün</strong>
-                            </div>
-                        </div>
+                    <div 
+                        className="p-2 rounded bg-dark bg-opacity-40 border-start border-3" 
+                        style={{ fontSize: "11px", borderColor: isNitrifikasyon ? "#3b82f6" : "#38bdf8" }}
+                    >
+                        {isNitrifikasyon ? (
+                            // --- NİTRİFİKASYON BÖLÜMÜ ---
+                            <>
+                                {/* Adım 1 */}
+                                <div className="mb-3">
+                                    <div className="fw-bold text-white-50 mb-1">1. Giderilecek Amonyum Yükü Hesabı:</div>
+                                    <div className="font-monospace text-warning text-opacity-75 mb-1" style={{ fontSize: "10px" }}>
+                                        Yük = [(Giriş Amonyum - Çıkış Amonyum) × Q] / 1000
+                                    </div>
+                                    <div className="text-white">
+                                        [({girisAmonyum} - {cikisAmonyum}) × {Q}] / 1000 = <strong className="text-info">{isNaN(amonyumYuk) ? "0.00" : amonyumYuk.toFixed(2)} kg/gün</strong>
+                                    </div>
+                                </div>
 
-                        {/* Adım 2 */}
-                        <div>
-                            <div className="fw-bold text-white-50 mb-1">2. Gerekli Yüzey Alanı Hesabı:</div>
-                            {kademeData.kademeNo === 1 ? (
-                                <>
+                                {/* Adım 2 */}
+                                <div>
+                                    <div className="fw-bold text-white-50 mb-1">2. Gerekli Nitrifikasyon Yüzey Alanı Hesabı:</div>
                                     <div className="font-monospace text-warning text-opacity-75 mb-1" style={{ fontSize: "10px" }}>
-                                        Alan = [Yük × (Verim / 100) × 1000] / As
+                                        Alan = (Amonyum Yükü × 1000) / As
                                     </div>
                                     <div className="text-white-50 budget-calc-step" style={{ wordBreak: "break-all", fontSize: "10px" }}>
-                                        Verim: %{isNaN(giderimVerimi) ? "0.0" : giderimVerimi.toFixed(1)} <br />
-                                        [ {isNaN(hidrolikYuk) ? "0" : hidrolikYuk.toFixed(2)} × ({isNaN(giderimVerimi) ? "0" : giderimVerimi.toFixed(1)} / 100) × 1000 ] / {emperik}
+                                        ( {isNaN(amonyumYuk) ? "0" : amonyumYuk.toFixed(2)} × 1000 ) / {emperik}
                                     </div>
-                                </>
-                            ) : (
-                                <>
+                                </div>
+                            </>
+                        ) : (
+                            // --- STANDART BOİ BÖLÜMÜ ---
+                            <>
+                                {/* Adım 1 */}
+                                <div className="mb-3">
+                                    <div className="fw-bold text-white-50 mb-1">1. Giriş Kirlilik Yükü Hesabı:</div>
                                     <div className="font-monospace text-warning text-opacity-75 mb-1" style={{ fontSize: "10px" }}>
-                                        Alan = [(Giriş Yükü - Çıkış Yükü) × 1000] / As
+                                        Yük = (Giriş BOİ × Q) / 1000
                                     </div>
-                                    <div className="text-white-50 budget-calc-step" style={{ wordBreak: "break-all", fontSize: "10px" }}>
-                                        [ (({girisBoi} × {Q}/1000) - ({cikisBoi} × {Q}/1000)) × 1000 ] / {emperik}
+                                    <div className="text-white">
+                                        ({girisBoi} × {Q}) / 1000 = <strong className="text-info">{isNaN(hidrolikYuk) ? "0.00" : hidrolikYuk.toFixed(2)} kg/gün</strong>
                                     </div>
-                                </>
-                            )}
-                        </div>
+                                </div>
+
+                                {/* Adım 2 */}
+                                <div>
+                                    <div className="fw-bold text-white-50 mb-1">2. Gerekli Yüzey Alanı Hesabı:</div>
+                                    {kademeData.kademeNo === 1 || kademeData.kademeNo === "1. Kademe" ? (
+                                        <>
+                                            <div className="font-monospace text-warning text-opacity-75 mb-1" style={{ fontSize: "10px" }}>
+                                                Alan = [Yük × (Verim / 100) × 1000] / As
+                                            </div>
+                                            <div className="text-white-50 budget-calc-step" style={{ wordBreak: "break-all", fontSize: "10px" }}>
+                                                Verim: %{isNaN(giderimVerimi) ? "0.0" : giderimVerimi.toFixed(1)} <br />
+                                                [ {isNaN(hidrolikYuk) ? "0" : hidrolikYuk.toFixed(2)} × ({isNaN(giderimVerimi) ? "0" : giderimVerimi.toFixed(1)} / 100) × 1000 ] / {emperik}
+                                            </div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <div className="font-monospace text-warning text-opacity-75 mb-1" style={{ fontSize: "10px" }}>
+                                                Alan = [(Giriş Yükü - Çıkış Yükü) × 1000] / As
+                                            </div>
+                                            <div className="text-white-50 budget-calc-step" style={{ wordBreak: "break-all", fontSize: "10px" }}>
+                                                [ (({girisBoi} × {Q}/1000) - ({cikisBoi} × {Q}/1000)) × 1000 ] / {emperik}
+                                            </div>
+                                        </>
+                                    )}
+                                </div>
+                            </>
+                        )}
                     </div>
 
                     {/* 3. Sonuç Skor Tabelası */}

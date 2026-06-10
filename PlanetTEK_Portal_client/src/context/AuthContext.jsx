@@ -21,6 +21,7 @@ export function AuthProvider({ children }) {
 
     try {
       const response = await API.login(body);
+      console.log(response);
       setToken(response.data.token);
       const user_role = response.data.user.role;
       const user_id = response.data.user.id

@@ -1,4 +1,4 @@
-import React, { useMemo } from "react";
+import React, { useMemo, useEffect } from "react";
 import { useTeklifStore } from "../../../../utils/teklifStore"; // Store yolunu kontrol edin
 
 const LAMELLA_MODELS = [
@@ -27,7 +27,7 @@ function LamellaParameters() {
   const LamellabeklemeSuresiMin = parseFloat(displayBeklemeSuresi) || 0;
   const lamellaKatsayisi = parseFloat(displayLamellaKatsayisi) || 0;
 
-  // 3. Hesaplamaları useMemo ile senkronize yürütüyoruz (useEffect İPTAL)
+  // 3. Hesaplamaları useMemo ile senkronize yürütüyoruz
   const { gerekliAlan, gerekliHacim, adet, secilenModel } = useMemo(() => {
     const alan = debiSaat * lamellaKatsayisi;
     const hacim = debiSaat * (LamellabeklemeSuresiMin / 60);
@@ -44,11 +44,39 @@ function LamellaParameters() {
     return { gerekliAlan: alan, gerekliHacim: hacim, adet: modelAdet, secilenModel: model };
   }, [debiSaat, lamellaKatsayisi, LamellabeklemeSuresiMin, currentLamellaData.secilenLamellaModeli]);
 
-  // 4. Input Değişim Yönetimi (Sadece kullanıcı dokunduğunda anlık hesaplananlar ile store'u doldurur)
+  // 🔥 YENİ: Debi veya diğer parametreler değiştiğinde Store'u otomatik senkronize eden efekt
+  useEffect(() => {
+    const currentAdetInStore = currentLamellaData.lamellaAdet;
+    const currentAlanInStore = currentLamellaData.gerekliLamellaAlani;
+    const currentHacimInStore = currentLamellaData.gerekliLamellaHacmi;
+
+    const formattedAlan = gerekliAlan.toFixed(2);
+    const formattedHacim = gerekliHacim.toFixed(2);
+
+    // Eğer hesaplanan değerler store'dakilerden farklıysa store'u güncelle (Sonsuz döngüyü engeller)
+    if (
+      currentAdetInStore !== adet ||
+      currentAlanInStore !== formattedAlan ||
+      currentHacimInStore !== formattedHacim
+    ) {
+      updateSection("planetDiskDetails", {
+        tasarim: {
+          ...formData.planetDiskDetails?.tasarim,
+          lamella: {
+            ...currentLamellaData,
+            gerekliLamellaAlani: formattedAlan,
+            gerekliLamellaHacmi: formattedHacim,
+            lamellaAdet: adet
+          }
+        }
+      });
+    }
+  }, [adet, gerekliAlan, gerekliHacim, updateSection, currentLamellaData, formData.planetDiskDetails]);
+
+  // 4. Input Değişim Yönetimi (Kullanıcı etkileşimi)
   const handleLocalChange = (e) => {
     const { name, value } = e.target;
 
-    // O anki değişen inputa göre geçici bir obje simüle edip yeni adetleri anlık öngörüyoruz
     const nextLamellaState = {
       LamellabeklemeSuresiMin: displayBeklemeSuresi,
       lamellaKatsayisi: displayLamellaKatsayisi,
@@ -68,7 +96,6 @@ function LamellaParameters() {
       nextAdet = Math.ceil(Math.max(nextAlan / targetModel.alan, nextHacim / targetModel.hacim)) || 1;
     }
 
-    // "planetDiskDetails" düğümü altındaki derin yapıyı bozmadan update atıyoruz
     updateSection("planetDiskDetails", {
       tasarim: {
         ...formData.planetDiskDetails?.tasarim,

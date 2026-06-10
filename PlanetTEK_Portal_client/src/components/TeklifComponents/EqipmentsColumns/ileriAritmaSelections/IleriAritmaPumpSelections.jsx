@@ -33,7 +33,7 @@ function IleriAritmaPumpSelections() {
 
     const equipmentsCache = formData.equipments || {};
     const storeIleriAritma = equipmentsCache.ileriAritma || {};
-    
+
     const girisToplamAzot = storeIleriAritma.IleriAritmaInputSelections?.girisToplamAzot ?? 0;
     const storePumpSelections = storeIleriAritma.IleriAritmaPumpSelections || {};
 
@@ -60,21 +60,19 @@ function IleriAritmaPumpSelections() {
 
     const defaultMinMssStr = "5.9";
 
-    // MÜHÜR KONTROLÜ: Store'daki hesaplamaya esas olan eski "debi" ve "azot" değerlerini alıyoruz
+    // MÜHÜR KONTROLÜ
     const lastCalculatedDebi = storePumpSelections.calculatedDebi !== undefined ? storePumpSelections.calculatedDebi : null;
     const lastCalculatedAzot = storePumpSelections.calculatedAzot !== undefined ? storePumpSelections.calculatedAzot : null;
 
-    // Kritik Karşılaştırma: Parametrelerden biri bile değiştiyse 'true' olur
-    const isParamsChanged = (lastCalculatedDebi !== null && lastCalculatedDebi !== debi) || 
-                            (lastCalculatedAzot !== null && lastCalculatedAzot !== girisToplamAzot);
+    const isParamsChanged = (lastCalculatedDebi !== null && lastCalculatedDebi !== debi) ||
+        (lastCalculatedAzot !== null && lastCalculatedAzot !== girisToplamAzot);
 
-    // Eğer dış parametreler değiştiyse, store'daki veriyi bypass edip default değerleri yakalıyoruz
-    const manualHourlyFlow = (storePumpSelections.manualHourlyFlow !== undefined && !isParamsChanged) 
-        ? storePumpSelections.manualHourlyFlow 
+    const manualHourlyFlow = (storePumpSelections.manualHourlyFlow !== undefined && !isParamsChanged)
+        ? storePumpSelections.manualHourlyFlow
         : defaultHourlyFlowStr;
 
-    const manualMinMss = (storePumpSelections.manualMinMss !== undefined && !isParamsChanged) 
-        ? storePumpSelections.manualMinMss 
+    const manualMinMss = (storePumpSelections.manualMinMss !== undefined && !isParamsChanged)
+        ? storePumpSelections.manualMinMss
         : defaultMinMssStr;
 
     const pumpOffset = !isParamsChanged ? (storePumpSelections.pumpOffset || 0) : 0;
@@ -155,7 +153,7 @@ function IleriAritmaPumpSelections() {
     }, [activeHourlyFlow, activeMinMss]);
 
     // Manuel Değiştirme (Offset) Mekanizması
-    const { selectedPump, currentMss, finalPumpIndex } = useMemo(() => {
+    const { selectedPump, currentMss } = useMemo(() => {
         let finalIndex = idealPumpIndex;
 
         if (idealPumpIndex !== -1) {
@@ -176,7 +174,6 @@ function IleriAritmaPumpSelections() {
         const hourlyFlowNum = parseFloat(nextHourly) || 0;
         const parsedNextMss = parseFloat(nextMss) || 5.9;
 
-        // Simüle edilmiş seçim mantığı (Store metni için kararlı hesaplama)
         let simBestIndex = -1;
         let simMinMss = Infinity;
         let simAdet = 1;
@@ -222,7 +219,7 @@ function IleriAritmaPumpSelections() {
         updateSection("equipments", {
             ...equipmentsCache,
             ileriAritma: {
-                ...storeIleriAritma, 
+                ...storeIleriAritma,
                 IleriAritmaPumpSelections: {
                     manualHourlyFlow: nextHourly,
                     manualMinMss: nextMss,
@@ -231,7 +228,6 @@ function IleriAritmaPumpSelections() {
                     hesaplananDebi: simQ,
                     geridevirPompasi: pumpString,
                     isManualUserControl: isManual,
-                    // Parametre mühürlerini buraya ekliyoruz:
                     calculatedDebi: debi,
                     calculatedAzot: girisToplamAzot
                 }
@@ -243,7 +239,6 @@ function IleriAritmaPumpSelections() {
     useEffect(() => {
         if (defaultHourlyFlowStr === "0") return;
 
-        // Sayfa ilk defa render oluyorsa veya diğer sayfalarda parametrelerden biri değiştiyse tetiklenir
         if (!storePumpSelections.geridevirPompasi || isParamsChanged || !isInputsChanged) {
             updateIleriPumpStore(defaultHourlyFlowStr, defaultMinMssStr, 0, false);
         }
@@ -259,8 +254,13 @@ function IleriAritmaPumpSelections() {
         }
     };
 
-    const handleOffsetChange = (direction) => {
-        const nextOffset = pumpOffset + direction;
+    // Dropdown'dan manuel pompa değişimi yakalandığında offset hesaplayan fonksiyon
+    const handleDropdownPumpChange = (targetPumpId) => {
+        if (idealPumpIndex === -1) return;
+        const selectedIdx = PUMP_DATABASE.findIndex(p => p.id === parseInt(targetPumpId));
+        if (selectedIdx === -1) return;
+
+        const nextOffset = selectedIdx - idealPumpIndex;
         updateIleriPumpStore(manualHourlyFlow, manualMinMss, nextOffset, true);
     };
 
@@ -318,71 +318,56 @@ function IleriAritmaPumpSelections() {
                 </div>
             </div>
 
-            {/* Sonuç Panel Çubuğu */}
-            <div className="col-12">
-                <div
-                    className="d-flex align-items-center justify-content-between p-1 px-2"
-                    style={{
-                        backgroundColor: "#0f172a",
-                        borderBottom: pumpOffset !== 0 ? "2px solid #f59e0b" : "2px solid #10b981",
-                        borderRadius: "4px",
-                        height: "36px"
-                    }}
-                >
-                    <div
-                        className="fw-bold text-warning text-truncate pe-2"
-                        style={{ fontSize: "11px" }}
-                        title={selectedPump ? `${pompaAdeti} Adet x ${selectedPump.name} (${hesaplananDebi.toFixed(2)} m³/h @ ${currentMss} MSS)` : ""}
-                    >
-                        {selectedPump ? (
-                            <>
-                                <span className="badge bg-danger me-2" style={{ fontSize: "10px" }}>{pompaAdeti} ADET</span>
-                                {selectedPump.name} 
-                                <span className="text-info ms-1">
-                                    ({hesaplananDebi.toFixed(2)} m³/h @ {currentMss} MSS {pompaAdeti === 2 && "per pump"})
-                                </span>
-                            </>
-                        ) : (
-                            <span className="text-muted">{activeHourlyFlow === 0 ? "---" : "Kapasite Aşımı"}</span>
-                        )}
+            {/* POMPA DROPDOWN VE BİLGİ ALANI */}
+            <div className="d-flex flex-column gap-1 mt-2">
+                {selectedPump && (
+                    <div className="d-flex align-items-center gap-2 mb-1">
+                        <span className="badge bg-danger fw-bold" style={{ fontSize: "10px", padding: "4px 8px" }}>
+                            {pompaAdeti} ADET
+                        </span>
+                        <span className="text-info fw-semibold" style={{ fontSize: "11px" }}>
+                            ({hesaplananDebi.toFixed(2)} m³/h @ {currentMss} MSS {pompaAdeti === 2 && "pompa başına"})
+                        </span>
                     </div>
+                )}
 
-                    {selectedPump && (
-                        <div className="d-flex gap-1 flex-shrink-0">
-                            <button
-                                type="button"
-                                className="btn btn-dark p-0 d-flex align-items-center justify-content-center"
-                                style={{ width: "20px", height: "20px", backgroundColor: "#1e293b", border: "1px solid #334155" }}
-                                disabled={finalPumpIndex <= 0}
-                                onClick={() => handleOffsetChange(-1)}
-                                title="Bir Küçük Pompayı Seç"
-                            >
-                                <i className="bi bi-chevron-down text-white" style={{ fontSize: "9px" }}></i>
-                            </button>
+                <div className="d-flex gap-1 align-items-center">
+                    <select
+                        className="form-select form-select-sm text-warning fw-bold flex-grow-1"
+                        style={{
+                            backgroundColor: "rgba(245, 158, 11, 0.12)",
+                            border: pumpOffset !== 0 ? "1px solid #f59e0b" : "1px solid #10b981",
+                            borderRadius: "6px",
+                            fontSize: "12px",
+                            height: "36px"
+                        }}
+                        value={selectedPump ? selectedPump.id : ""}
+                        disabled={activeHourlyFlow === 0 || idealPumpIndex === -1}
+                        onChange={(e) => handleDropdownPumpChange(e.target.value)}
+                    >
+                        {idealPumpIndex === -1 && activeHourlyFlow > 0 ? (
+                            <option value="">Kapasite Aşımı</option>
+                        ) : activeHourlyFlow === 0 ? (
+                            <option value="">---</option>
+                        ) : (
+                            PUMP_DATABASE.map((pump) => (
+                                <option key={pump.id} value={pump.id} style={{ backgroundColor: "#1e293b", color: "#fff" }}>
+                                    {pump.name}
+                                </option>
+                            ))
+                        )}
+                    </select>
 
-                            {pumpOffset !== 0 && (
-                                <button
-                                    type="button"
-                                    className="btn btn-warning p-0 d-flex align-items-center justify-content-center"
-                                    style={{ width: "20px", height: "20px" }}
-                                    onClick={() => updateIleriPumpStore(manualHourlyFlow, manualMinMss, 0, true)}
-                                    title="Otomatik Seçime Geri Dön"
-                                >
-                                    <i className="bi bi-arrow-counterclockwise text-dark" style={{ fontSize: "9px", fontWeight: "bold" }}></i>
-                                </button>
-                            )}
-
-                            <button
-                                type="button"
-                                className="btn btn-dark p-0 d-flex align-items-center justify-content-center"
-                                style={{ width: "20px", height: "20px", backgroundColor: "#1e293b", border: "1px solid #334155" }}
-                                disabled={finalPumpIndex >= PUMP_DATABASE.length - 1}
-                                onClick={() => handleOffsetChange(1)}
-                                title="Bir Büyük Pompayı Seç"
-                            >
-                                <i className="bi bi-chevron-up text-white" style={{ fontSize: "9px" }}></i>
-                            </button>
-                        </div>
+                    {pumpOffset !== 0 && (
+                        <button
+                            type="button"
+                            className="btn btn-warning p-0 d-flex align-items-center justify-content-center flex-shrink-0"
+                            style={{ width: "36px", height: "36px", borderRadius: "6px" }}
+                            onClick={() => updateIleriPumpStore(manualHourlyFlow, manualMinMss, 0, true)}
+                            title="Otomatik Hesaplanan Pompaya Geri Dön"
+                        >
+                            <i className="bi bi-arrow-counterclockwise text-dark" style={{ fontSize: "14px", fontWeight: "bold" }}></i>
+                        </button>
                     )}
                 </div>
             </div>

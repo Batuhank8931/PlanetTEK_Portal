@@ -11,17 +11,25 @@ function DiskDetail() {
     const aritmaParametreleri = diskDetails.tasarim?.aritmaParametreleri || {};
     const kademeParametreleri = diskDetails.tasarim?.kademeParametreleri || {};
 
+    // Mevcut Değişkenler
     const Q = Number(diskDetails.debi) || 0;
     const girisBoi = Number(aritmaParametreleri.girisBoi) || 0;
     const cikisBoi = Number(aritmaParametreleri.cikisBoi) || 0;
     const giderimVerimi = parseFloat(String(aritmaParametreleri.giderimVerimi || 0).replace(',', '.'));
     const genelEmperik = parseFloat(String(aritmaParametreleri.emperik || 0).replace(',', '.'));
 
+    // --- YENİ: NİTRİFİKASYON PARAMETRELERİ ---
+    const nitrifikasyonDurumu = aritmaParametreleri.nitrifikasyon; // "nitrifikasyonVar" vb.
+    const girisAmonyum = Number(aritmaParametreleri.girisAmonyum) || 0;
+    const cikisAmonyum = Number(aritmaParametreleri.cikisAmonyum) || 0;
+    const nitrifikasyonEmperik = parseFloat(String(aritmaParametreleri.nitrifikasyonEmperik || 0).replace(',', '.'));
+
     const kademelerListesi = kademeParametreleri.kademeler || [];
 
     const finalMetrekare = useMemo(() => {
         let sonuclar = [];
 
+        // --- 1. ADIM: BOİ TABANLI HESAPLAMALAR (Mevcut Akış) ---
         if (kademelerListesi.length === 0) {
             const toplamHidrolikYük = (girisBoi * Q) / 1000;
 
@@ -29,6 +37,7 @@ function DiskDetail() {
                 const hesaplananDeger = Number((((toplamHidrolikYük * (1 - (giderimVerimi / 100))) * 1000) / genelEmperik).toFixed(2));
 
                 sonuclar.push({
+                    kademeAdi: "Genel Kademe",
                     alan: String(hesaplananDeger),
                     girisBoi: String(girisBoi),
                     cikisBoi: String(cikisBoi || ""),
@@ -47,6 +56,7 @@ function DiskDetail() {
                         kademeSonucu = ((toplamHidrolikYük * (1 - (giderimVerimi / 100))) * 1000) / emperikKatsayi;
 
                         sonuclar.push({
+                            kademeAdi: `${index + 1}. Kademe`,
                             alan: kademeSonucu.toFixed(2),
                             girisBoi: String(girisBoi),
                             cikisBoi: String(kademe.boi),
@@ -62,6 +72,7 @@ function DiskDetail() {
                         kademeSonucu = (toplamHidrolikYük * 1000) / emperikKatsayi;
 
                         sonuclar.push({
+                            kademeAdi: `${index + 1}. Kademe`,
                             alan: kademeSonucu.toFixed(2),
                             girisBoi: String(oncekiKademeBoi),
                             cikisBoi: String(kademe.boi),
@@ -71,6 +82,7 @@ function DiskDetail() {
                 }
             });
 
+            // Döngü sonrası son kademe hesaplaması
             const sonKademeIndex = kademelerListesi.length - 1;
             const sonKademeBoi = kademelerListesi[sonKademeIndex].boi;
             const toplamHidrolikYük = (Number(sonKademeBoi) * Q) / 1000;
@@ -79,6 +91,7 @@ function DiskDetail() {
                 const döngüSonrasıSonuc = (toplamHidrolikYük * 1000) / genelEmperik;
 
                 sonuclar.push({
+                    kademeAdi: "Son BOİ Kademesi",
                     alan: döngüSonrasıSonuc.toFixed(2),
                     girisBoi: String(sonKademeBoi),
                     cikisBoi: String(cikisBoi || ""),
@@ -87,14 +100,39 @@ function DiskDetail() {
             }
         }
 
+        // --- 2. ADIM: YENİ NİTRİFİKASYON HESABI (Eğer Varsa En Sona Ekle) ---
+        if (nitrifikasyonDurumu === "nitrifikasyonVar") {
+            // Nitrifikasyon Yükü = Giderilecek Toplam Amonyum Miktarı (kg/gün)
+            // Formül: ((Giriş Amonyum - Çıkış Amonyum) * Q) / 1000
+            const giderilenAmonyum = girisAmonyum - cikisAmonyum;
+
+            if (giderilenAmonyum > 0 && !isNaN(nitrifikasyonEmperik) && nitrifikasyonEmperik !== 0) {
+                const amonyumYükü = (giderilenAmonyum * Q) / 1000; // kg/gün
+                
+                // Gerekli Alan = (Amonyum Yükü * 1000) / Nitrifikasyon Empirik Katsayısı
+                const nitrifikasyonAlani = (amonyumYükü * 1000) / nitrifikasyonEmperik;
+
+                sonuclar.push({
+                    kademeAdi: "Nitrifikasyon",
+                    alan: nitrifikasyonAlani.toFixed(2),
+                    girisAmonyum: String(girisAmonyum),
+                    cikisAmonyum: String(cikisAmonyum),
+                    emperik: String(nitrifikasyonEmperik),
+                    isNitrifikasyon: true // İleride arayüzde ayırt etmek istersen diye flag
+                });
+            }
+        }
+
         return sonuclar;
-    }, [kademelerListesi, girisBoi, cikisBoi, Q, giderimVerimi, genelEmperik]);
+    }, [
+        kademelerListesi, girisBoi, cikisBoi, Q, giderimVerimi, genelEmperik,
+        nitrifikasyonDurumu, girisAmonyum, cikisAmonyum, nitrifikasyonEmperik
+    ]);
 
     // FIX: Optimized useEffect preventing deep update loops
     useEffect(() => {
         if (!finalMetrekare || finalMetrekare.length === 0) return;
 
-        // Check if the value in store is already identical to prevent redundant updates
         const currentFinalMetrekare = diskDetails.tasarim?.finalMetrekare;
         if (JSON.stringify(currentFinalMetrekare) === JSON.stringify(finalMetrekare)) return;
 
@@ -104,7 +142,6 @@ function DiskDetail() {
                 finalMetrekare: finalMetrekare 
             }
         });
-    // Removed diskDetails.tasarim from dependencies
     }, [finalMetrekare, updateSection]); 
 
     return (

@@ -8,8 +8,6 @@ function SelectionsModal({ show, onClose }) {
 
 	if (!show) return null;
 
-	console.log("--- TEMA / MERKEZİ STORE JSON AĞACI ---", formData);
-
 	return (
 		<>
 			{/* Modal Arka Plan Karartısı */}

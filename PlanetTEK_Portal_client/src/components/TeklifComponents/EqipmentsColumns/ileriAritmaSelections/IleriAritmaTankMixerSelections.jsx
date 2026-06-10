@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo } from "react";
-import { useTeklifStore } from "../../../../utils/teklifStore"; // Store yolunu kontrol edin
+import { useTeklifStore } from "../../../../utils/teklifStore";
 
 function IleriAritmaTankMixerSelections() {
   // 1. ZUSTAND STORE BAĞLANTISI
@@ -14,12 +14,24 @@ function IleriAritmaTankMixerSelections() {
   const storeMixerSelections = storeIleriAritma.IleriAritmaTankMixerSelections || {};
 
   // Sabit Tasarım Kriterleri
-  const HRT_HOURS = 2; // Hidrolik bekletme süresi (2 saat)
   const POWER_DENSITY = 10; // 10 W/m³ güç yoğunluğu
   const MIXER_RPM = 400; // Standart anoksik karıştırıcı pervane devri
-
-  // Standart piyasa motor güçleri (kW)
   const commercialMotorPowers = [0.37, 0.55, 0.75, 1.1, 1.5, 2.2, 3.0, 4.0, 5.5, 7.5];
+
+  // --- MANUEL USER CONTROL & MÜHÜR MANTIĞI ---
+  const DEFAULT_HRT = "2";
+  const lastCalculatedDebi = storeMixerSelections.calculatedDebi !== undefined ? storeMixerSelections.calculatedDebi : null;
+  const isDebiChanged = lastCalculatedDebi !== null && lastCalculatedDebi !== debi;
+
+  // Eğer dışarıdan gelen ana debi değiştiyse default değere (2) dön, değişmediyse store'daki güncel input değerini oku
+  const manualHrtHours = (storeMixerSelections.manualHrtHours !== undefined && !isDebiChanged)
+    ? storeMixerSelections.manualHrtHours
+    : DEFAULT_HRT;
+
+  const activeHrtHours = useMemo(() => {
+    const val = parseFloat(manualHrtHours);
+    return isNaN(val) || val <= 0 ? 2 : val; // Güvenli fallback olarak 2 saat
+  }, [manualHrtHours]);
 
   // 2. SAF DİNAMİK MÜHENDİSLİK HESAPLAMALARI
   const hesaplananDegerler = useMemo(() => {
@@ -28,7 +40,7 @@ function IleriAritmaTankMixerSelections() {
     }
 
     // 1. Tank Hacmi (m³) = (Q * HRT) / 24
-    const tankHacmi = (debi * HRT_HOURS) / 24;
+    const tankHacmi = (debi * activeHrtHours) / 24;
 
     // 2. Ham Güç İhtiyacı (kW) = (Hacim * Power Density) / 1000
     const hamGucKw = (tankHacmi * POWER_DENSITY) / 1000;
@@ -40,7 +52,7 @@ function IleriAritmaTankMixerSelections() {
     const gucHp = secilenGucKw * 1.341;
 
     // Teklif çıktı metinleri
-    const tankMetni = `${tankHacmi.toFixed(1)} m³ Anoksik Tank Hacmi (${HRT_HOURS} Saat HRT)`;
+    const tankMetni = `${tankHacmi.toFixed(1)} m³ Anoksik Tank Hacmi (${activeHrtHours} Saat HRT)`;
     const mikserMetni = `1 Adet Dalgıç Mikser (${secilenGucKw.toFixed(2)} kW / ${gucHp.toFixed(2)} HP, ${MIXER_RPM} RPM)`;
 
     return {
@@ -51,33 +63,53 @@ function IleriAritmaTankMixerSelections() {
       tankMetni,
       mikserMetni,
     };
-  }, [debi]);
+  }, [debi, activeHrtHours]);
 
-  // 3. STORE SENKRONİZASYON EFFECT'İ (Kardeş elemanları spread ile korur)
+  // 3. STORE SENKRONİZASYON EFFECT'İ
   useEffect(() => {
     if (debi > 0) {
       if (
         storeMixerSelections.anoksikTankHacmi !== hesaplananDegerler.tankHacmi ||
-        storeMixerSelections.secilenMikserMetni !== hesaplananDegerler.mikserMetni
+        storeMixerSelections.secilenMikserMetni !== hesaplananDegerler.mikserMetni ||
+        isDebiChanged
       ) {
         updateSection("equipments", {
-          ...equipmentsCache, // Üst düğümleri koru
+          ...equipmentsCache,
           ileriAritma: {
-            ...storeIleriAritma, // Giriş, Pompa ve Dozaj seçimlerini koru!
+            ...storeIleriAritma,
             IleriAritmaTankMixerSelections: {
+              manualHrtHours: manualHrtHours,
               anoksikTankHacmi: hesaplananDegerler.tankHacmi,
               gerekliGucKw: hesaplananDegerler.secilenGucKw,
               gerekliGucHp: hesaplananDegerler.gucHp,
               mikserRpm: MIXER_RPM,
               secilenTankMetni: hesaplananDegerler.tankMetni,
               secilenMikserMetni: hesaplananDegerler.mikserMetni,
+              calculatedDebi: debi // Mühür bilgisi saklanıyor
             },
           },
         });
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hesaplananDegerler]);
+  }, [hesaplananDegerler, debi, isDebiChanged]);
+
+  // Input değişim kontrolörü
+  const handleHrtChange = (e) => {
+    const val = e.target.value;
+    
+    updateSection("equipments", {
+      ...equipmentsCache,
+      ileriAritma: {
+        ...storeIleriAritma,
+        IleriAritmaTankMixerSelections: {
+          ...storeMixerSelections,
+          manualHrtHours: val,
+          calculatedDebi: debi
+        }
+      }
+    });
+  };
 
   return (
     <div className="card-body d-flex flex-column gap-3 pt-3" style={{ position: "relative", color: "#fff", padding: 0 }}>
@@ -101,13 +133,29 @@ function IleriAritmaTankMixerSelections() {
           </div>
         </div>
 
-        {/* Bekletme Süresi Bilgisi */}
+        {/* DEĞİŞTİRİLEBİLİR HRT INPUT ALANI */}
         <div className="col-md-6">
           <div className="p-2 rounded d-flex justify-content-between align-items-center" style={{ backgroundColor: "#0f172a", border: "1px solid #334155" }}>
             <span className="text-white-50" style={{ fontSize: "10px" }}>Tasarım Bekletme Süresi (HRT):</span>
-            <span className="fw-bold text-white-50" style={{ fontSize: "11px" }}>
-              {HRT_HOURS} <span style={{ fontSize: "9px" }}>Saat</span>
-            </span>
+            <div className="d-flex align-items-center justify-content-end" style={{ width: "80px" }}>
+              <input
+                type="number"
+                name="manualHrtHours"
+                step="0.5"
+                min="0.1"
+                className="bg-transparent border-0 text-end text-warning fw-bold p-0 m-0 custom-hrt-input"
+                style={{ 
+                  fontSize: "11px", 
+                  outline: "none", 
+                  boxShadow: "none",
+                  width: "45px",
+                  color: "#f59e0b" // Değiştirilebilir olduğunu vurgulamak için soft turuncu/sarı ton
+                }}
+                value={manualHrtHours}
+                onChange={handleHrtChange}
+              />
+              <span className="text-white-50 ms-1" style={{ fontSize: "9px" }}>Saat</span>
+            </div>
           </div>
         </div>
 

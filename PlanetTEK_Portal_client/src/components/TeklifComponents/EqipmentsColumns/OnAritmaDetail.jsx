@@ -1,95 +1,123 @@
-import React, { useEffect } from "react";
+import React, { useEffect, useMemo } from "react";
 import { useTeklifStore } from "../../../utils/teklifStore";
 
-// Izgara Tipi Seçenekleri
-const IZGARA_OPTIONS = ["Manuel Izgara", "Otomatik Mekanik Izgara"];
+const IZGARA_OPTIONS = ["Otomatik Mekanik Izgara", "Manuel Izgara"];
+
+const YAG_TUTUCU_OPTIONS = [
+  "1000 x 1000 mm",
+  "1500 x 1000 mm",
+  "1500 x 1500 mm",
+  "1500 x 2000 mm",
+  "2000 x 2000 mm",
+  "2500 x 2000 mm",
+  "2500 x 2500 mm"
+];
+
+const YAG_TUTUCU_KAPASITE_MAP = {
+  100: "1000 x 1000 mm",
+  300: "1500 x 1000 mm",
+  400: "1500 x 1500 mm",
+  500: "1500 x 2000 mm",
+  600: "1500 x 2000 mm",
+  700: "2000 x 2000 mm",
+  900: "2500 x 2000 mm",
+  99999: "2500 x 2500 mm"
+};
 
 function OnAritmaDetail() {
-  // 1. ZUSTAND STORE BAĞLANTISI
   const formData = useTeklifStore((state) => state.formData);
   const updateSection = useTeklifStore((state) => state.updateSection);
 
-  // Bir önceki adımdan gelen debi
   const günlükDebi = parseFloat(formData.planetDiskDetails?.debi) || 0;
-
-  // Store hiyerarşisini doğrudan equipments altından okuyoruz
   const equipmentsCache = formData.equipments || {};
-  
-  // onAritma artık doğrudan equipments objesinin altında
   const storeOnAritma = equipmentsCache.onAritma || {};
 
-  // Store'daki mevcut değerler (Yoksa default değerler)
-  const izgaraOffset = storeOnAritma.izgaraOffset || 0;
-  const currentIzgaraTipi = storeOnAritma.izgaraTipi || IZGARA_OPTIONS[0];
-  const currentYagTutucuBoyut = storeOnAritma.yagTutucuBoyut || "Seçilmedi";
+  // --- ANA DEBİ DEĞİŞİM KONTROLÜ (Pompa Sayfasındakiyle Aynı Mantık) ---
+  const lastCalculatedMainDebi = storeOnAritma.calculatedMainDebi !== undefined ? storeOnAritma.calculatedMainDebi : null;
+  const isMainDebiChanged = lastCalculatedMainDebi !== null && lastCalculatedMainDebi !== günlükDebi;
 
-  // 2. YARDIMCI HESAPLAMA FONKSİYONLARI
-  const getIdealIzgaraIndex = (debi) => {
-    if (!debi) return 0;
-    return debi < 50 ? 0 : 1; // <50 Manuel (0), >=50 Mekanik (1)
-  };
+  // Eğer ana debi değiştiyse offsetleri sıfır kabul et, değişmediyse store'dan oku
+  const izgaraOffset = !isMainDebiChanged ? (storeOnAritma.izgaraOffset || 0) : 0;
+  const yagTutucuOffset = !isMainDebiChanged ? (storeOnAritma.yagTutucuOffset || 0) : 0;
+  const isInputsChanged = !isMainDebiChanged ? (storeOnAritma.isManualUserControl || false) : false;
 
-  const getYagTutucuBoyut = (debi) => {
-    if (!debi) return "Seçilmedi";
-    if (debi <= 10) return "1000 x 1000 mm";
-    if (debi <= 25) return "1500 x 1000 mm";
-    if (debi <= 50) return "1500 x 1500 mm";
-    if (debi <= 100) return "1500 x 2000 mm";
-    if (debi <= 150) return "2000 x 2000 mm";
-    if (debi <= 250) return "2500 x 2000 mm";
-    return "2500 x 2500 mm";
-  };
+  // İdeal indeks hesaplayıcılar (useMemo ile optimize edildi)
+  const idealIzgaraIndex = useMemo(() => {
+    if (!günlükDebi) return 0;
+    return günlükDebi < 50 ? 0 : 1;
+  }, [günlükDebi]);
 
-  // 3. EFFECT: İLK RENDER VE DEBİ DEĞİŞİMİNDE DEFAULT DATA ATAMA
-  useEffect(() => {
-    const idealIndex = getIdealIzgaraIndex(günlükDebi);
-    
-    // Offset'i de hesaba katarak store'da kayıtlı olan veya default indeksi buluyoruz
-    let finalIndex = idealIndex + izgaraOffset;
-    if (finalIndex < 0) finalIndex = 0;
-    if (finalIndex >= IZGARA_OPTIONS.length) finalIndex = IZGARA_OPTIONS.length - 1;
+  const idealYagTutucuIndex = useMemo(() => {
+    if (!günlükDebi) return 0;
+    const kapasiteler = Object.keys(YAG_TUTUCU_KAPASITE_MAP).map(Number).sort((a, b) => a - b);
+    const uygunKapasite = kapasiteler.find((k) => günlükDebi <= k) || 99999;
+    const boyutMetni = YAG_TUTUCU_KAPASITE_MAP[uygunKapasite];
+    return YAG_TUTUCU_OPTIONS.indexOf(boyutMetni);
+  }, [günlükDebi]);
 
-    const defaultIzgara = IZGARA_OPTIONS[finalIndex];
-    const defaultYagTutucu = getYagTutucuBoyut(günlükDebi);
+  // Offset değerlerine göre nihai seçilen opsiyonlar
+  const { currentIzgaraTipi, currentYagTutucuBoyut } = useMemo(() => {
+    let finalIzgaraIdx = idealIzgaraIndex + izgaraOffset;
+    if (finalIzgaraIdx < 0) finalIzgaraIdx = 0;
+    if (finalIzgaraIdx >= IZGARA_OPTIONS.length) finalIzgaraIdx = IZGARA_OPTIONS.length - 1;
 
-    // Eğer store'daki veriler hedef verilerle uyuşmuyorsa store'u güncelle
-    if (
-      !storeOnAritma.izgaraTipi || 
-      storeOnAritma.izgaraTipi !== defaultIzgara || 
-      storeOnAritma.yagTutucuBoyut !== defaultYagTutucu
-    ) {
-      updateSection("equipments", {
-        ...equipmentsCache,
-        onAritma: {
-          ...storeOnAritma,
-          izgaraOffset: izgaraOffset,
-          izgaraTipi: defaultIzgara,
-          yagTutucuBoyut: defaultYagTutucu
-        }
-      });
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [günlükDebi]); 
+    let finalYagIdx = idealYagTutucuIndex + yagTutucuOffset;
+    if (finalYagIdx < 0) finalYagIdx = 0;
+    if (finalYagIdx >= YAG_TUTUCU_OPTIONS.length) finalYagIdx = YAG_TUTUCU_OPTIONS.length - 1;
 
-  // 4. DROPDOWN SEÇİM REAKSİYONU (YENİ EKLEDİĞİMİZ KISIM)
-  const handleDropdownChange = (newTipi) => {
-    const idealIndex = getIdealIzgaraIndex(günlükDebi);
-    const selectedIndex = IZGARA_OPTIONS.indexOf(newTipi);
+    return {
+      currentIzgaraTipi: IZGARA_OPTIONS[finalIzgaraIdx],
+      currentYagTutucuBoyut: YAG_TUTUCU_OPTIONS[finalYagIdx]
+    };
+  }, [idealIzgaraIndex, idealYagTutucuIndex, izgaraOffset, yagTutucuOffset]);
 
-    if (selectedIndex === -1) return;
+  // Merkezi Store Güncelleme Fonksiyonu
+  const updateOnAritmaStore = (nextIzgaraOffset, nextYagOffset, isManual = true) => {
+    let finalIzgaraIdx = idealIzgaraIndex + nextIzgaraOffset;
+    if (finalIzgaraIdx < 0) finalIzgaraIdx = 0;
+    if (finalIzgaraIdx >= IZGARA_OPTIONS.length) finalIzgaraIdx = IZGARA_OPTIONS.length - 1;
 
-    // Seçilen elemanın ideal indekse göre farkını hesaplayıp offset olarak kaydediyoruz
-    const newOffset = selectedIndex - idealIndex;
+    let finalYagIdx = idealYagTutucuIndex + nextYagOffset;
+    if (finalYagIdx < 0) finalYagIdx = 0;
+    if (finalYagIdx >= YAG_TUTUCU_OPTIONS.length) finalYagIdx = YAG_TUTUCU_OPTIONS.length - 1;
 
     updateSection("equipments", {
       ...equipmentsCache,
       onAritma: {
         ...storeOnAritma,
-        izgaraOffset: newOffset,
-        izgaraTipi: newTipi,
-        yagTutucuBoyut: currentYagTutucuBoyut
+        izgaraOffset: nextIzgaraOffset,
+        yagTutucuOffset: nextYagOffset,
+        izgaraTipi: IZGARA_OPTIONS[finalIzgaraIdx],
+        yagTutucuBoyut: YAG_TUTUCU_OPTIONS[finalYagIdx],
+        isManualUserControl: isManual,
+        calculatedMainDebi: günlükDebi
       }
     });
+  };
+
+  // Ana debi değiştiğinde veya ilk kurulumda tetiklenen useEffect
+  useEffect(() => {
+    if (günlükDebi === 0) return;
+
+    if (!storeOnAritma.izgaraTipi || isMainDebiChanged || !isInputsChanged) {
+      // Debi değiştiğinde offsetleri sıfırlayarak otomatik hesaplama moduna alıyoruz
+      updateOnAritmaStore(0, 0, false);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [günlükDebi, isMainDebiChanged]);
+
+  const handleIzgaraChange = (newTipi) => {
+    const selectedIndex = IZGARA_OPTIONS.indexOf(newTipi);
+    if (selectedIndex === -1) return;
+    const nextOffset = selectedIndex - idealIzgaraIndex;
+    updateOnAritmaStore(nextOffset, yagTutucuOffset, true);
+  };
+
+  const handleYagTutucuChange = (newBoyut) => {
+    const selectedIndex = YAG_TUTUCU_OPTIONS.indexOf(newBoyut);
+    if (selectedIndex === -1) return;
+    const nextOffset = selectedIndex - idealYagTutucuIndex;
+    updateOnAritmaStore(izgaraOffset, nextOffset, true);
   };
 
   return (
@@ -99,54 +127,87 @@ function OnAritmaDetail() {
       </div>
 
       <div className="row g-2">
-        {/* 1. Ön Arıtma Izgarası Seçimi */}
+        {/* Ön Arıtma Izgarası */}
         <div className="col-6">
-          <label className="text-white-50 d-block text-center mb-1" style={{ fontSize: "10px" }}>
-            Ön Arıtma Izgarası
-          </label>
-          
+          <div className="d-flex justify-content-between align-items-center mb-1 px-1">
+            <label className="text-white-50 block" style={{ fontSize: "10px" }}>
+              Ön Arıtma Izgarası
+            </label>
+          </div>
           <select
             className="form-select form-select-sm text-white fw-bold text-center"
-            style={{ 
-              backgroundColor: "rgba(245, 158, 11, 0.15)", 
-              // Eğer sistemin önerdiğinden farklıysa (offset !== 0) turuncu border, ideal ise yeşil border
-              border: izgaraOffset !== 0 ? "1px solid #f59e0b" : "1px solid #10b981", 
-              borderRadius: "6px", 
-              fontSize: "12px", 
-              height: "36px" // Diğer kutuyla simetrik olsun diye 36px yaptım
+            style={{
+              backgroundColor: "rgba(245, 158, 11, 0.15)",
+              border: izgaraOffset !== 0 ? "1px solid #f59e0b" : "1px solid #10b981",
+              borderRadius: "6px",
+              fontSize: "12px",
+              height: "36px"
             }}
             value={currentIzgaraTipi}
-            onChange={(e) => handleDropdownChange(e.target.value)}
+            disabled={günlükDebi === 0}
+            onChange={(e) => handleIzgaraChange(e.target.value)}
           >
-            {IZGARA_OPTIONS.map((option, idx) => (
-              <option key={idx} value={option} style={{ backgroundColor: "#1e293b" }}>
-                {option}
-              </option>
-            ))}
+            {günlükDebi === 0 ? (
+              <option value="">---</option>
+            ) : (
+              IZGARA_OPTIONS.map((option, idx) => (
+                <option key={idx} value={option} style={{ backgroundColor: "#1e293b" }}>
+                  {option}
+                </option>
+              ))
+            )}
           </select>
         </div>
 
-        {/* 2. Yağ Tutucu Boyutu Gösterimi */}
+        {/* Yağ Tutucu Dropdown */}
         <div className="col-6">
-          <label className="text-white-50 d-block text-center mb-1" style={{ fontSize: "10px" }}>
-            Yağ Tutucu Plakaları x 3
-          </label>
-          <div
-            className="p-2 text-white text-center fw-bold text-truncate"
-            style={{
-              backgroundColor: "#0f172a",
-              fontSize: "11px",
-              borderBottom: "2px solid #10b981",
-              borderRadius: "4px",
-              height: "36px",
-              lineHeight: "20px"
-            }}
-            title={currentYagTutucuBoyut}
-          >
-            {currentYagTutucuBoyut}
+          <div className="d-flex justify-content-between align-items-center mb-1 px-1">
+            <label className="text-white-50 block" style={{ fontSize: "10px" }}>
+              Yağ Tutucu Plakaları x 3
+            </label>
+            {yagTutucuOffset !== 0 && (
+              <span className="badge bg-warning text-dark" style={{ fontSize: '8px', padding: '2px 4px' }}>Manuel</span>
+            )}
           </div>
+          <select
+            className="form-select form-select-sm text-white fw-bold text-center"
+            style={{
+              backgroundColor: "rgba(245, 158, 11, 0.15)",
+              border: yagTutucuOffset !== 0 ? "1px solid #f59e0b" : "1px solid #10b981",
+              borderRadius: "6px",
+              fontSize: "11px",
+              height: "36px"
+            }}
+            value={currentYagTutucuBoyut}
+            disabled={günlükDebi === 0}
+            onChange={(e) => handleYagTutucuChange(e.target.value)}
+          >
+            {günlükDebi === 0 ? (
+              <option value="">---</option>
+            ) : (
+              YAG_TUTUCU_OPTIONS.map((option, idx) => (
+                <option key={idx} value={option} style={{ backgroundColor: "#1e293b" }}>
+                  {option}
+                </option>
+              ))
+            )}
+          </select>
         </div>
       </div>
+
+      {/* Eğer herhangi biri manuel değiştirildiyse geri dönme butonu (Pompa sayfasındaki gibi opsiyonel konfor) */}
+      {(izgaraOffset !== 0 || yagTutucuOffset !== 0) && (
+        <div className="d-flex justify-content-end mt-1">
+          <button
+            type="button"
+            className="btn btn-link btn-sm text-warning p-0 text-decoration-none"
+            style={{ fontSize: "11px" }}
+            onClick={() => updateOnAritmaStore(0, 0, false)}
+          >
+            <i className="bi bi-arrow-counterclockwise me-1"></i> Otomatik Hesaplamaya Dön
+          </button>
+        </div>
+      )}
     </div>
   );
 }
