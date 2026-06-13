@@ -45,7 +45,7 @@ function YerlesimDetail() {
 
     // LOCAL STATELER
     const [secilenUnite, setSecilenUnite] = useState(kaydedilmisTasarim.secilenUnite || 1);
-    const [secilenSira, setSecilenSira] = useState(kaydedilmisTasarim.secilenSira || 2);
+    const [secilenSira, setSecilenSira] = useState(kaydedilmisTasarim.secilenSira || 1);
     const [yerlesimDuzeni, setYerlesimDuzeni] = useState(kaydedilmisTasarim.yerlesimDuzeni || []);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedKademeData, setSelectedKademeData] = useState(null);
@@ -80,11 +80,11 @@ function YerlesimDetail() {
 
         const idealUniteSayisi = hesaplaIdealUniteAdedi({
             toplamGerekliDisk: globalSistemOzet.toplamGerekliDisk,
-            maxDiskAdedi, minDiskAdedi, Q, hacim, minimumBeklemeSuresi, varsayilanSira: 2
+            maxDiskAdedi, minDiskAdedi, Q, hacim, minimumBeklemeSuresi, varsayilanSira: 1
         });
 
         setSecilenUnite(idealUniteSayisi);
-        setSecilenSira(2);
+        setSecilenSira(1);
         setYerlesimDuzeni([]);
     }, [globalSistemOzet.toplamGerekliDisk, maxDiskAdedi, minDiskAdedi, Q, hacim, minimumBeklemeSuresi]);
 

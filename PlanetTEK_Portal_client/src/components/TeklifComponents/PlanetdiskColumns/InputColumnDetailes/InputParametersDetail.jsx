@@ -17,7 +17,7 @@ const DISK_SINIRLARI_MATRISI = {
 // 2. YENİ: DİNAMİK NİTRİFİKASYON MATRİSİ
 const NITRIFIKASYON_KATSAYILARI = [
     { min: 23.01, max: Infinity, katsayi: 1.7, etiket: "☀️ Sıcaklık > 23 °C", renk: "text-success" },
-    { min: 17,    max: 23,       katsayi: 1.4, etiket: "⛅ Sıcaklık 17 - 23 °C", renk: "text-info" }, // Eski kodundaki 22-23 arası bindirmeler temizlendi
+    { min: 17,    max: 23,       katsayi: 1.4, etiket: "⛅ Sıcaklık 17 - 23 °C", renk: "text-info" },
     { min: 13,    max: 16.99,    katsayi: 1.0, etiket: "🌤️ Sıcaklık 13 - 16 °C", renk: "text-warning" },
     { min: -Infinity, max: 12.99,katsayi: 0.6, etiket: "❄️ Sıcaklık < 13 °C", renk: "text-danger" }
 ];
@@ -96,6 +96,14 @@ function InputParameters() {
         const nihaiGirisBoi = nihaiDebi > 0 ? Math.round((toplamGramBoiGun / nihaiDebi)) : 0;
         return { nihaiDebi, nihaiGirisBoi };
     };
+
+    // JSX için anlık hesaplamalar (m3/gün cinsine çevrildi)
+    const kaynaklarListesi = currentParamData.kaynaklar || [];
+    const toplamLitreGun = kaynaklarListesi.reduce((acc, k) => acc + (Number(k.kisiSayisi || 0) * Number(k.hidrolikYuk || 0)), 0);
+    const toplamM3Gun = toplamLitreGun / 1000;
+    
+    const toplamOrganikYukGram = kaynaklarListesi.reduce((acc, k) => acc + (Number(k.kisiSayisi || 0) * Number(k.organikYuk || 0)), 0);
+    const hesaplananGirisBoi = toplamM3Gun > 0 ? Math.round((toplamOrganikYukGram / toplamM3Gun)) : 0;
 
     const handleChange = (e) => {
         const rawValue = e.target.value;
@@ -275,7 +283,6 @@ function InputParameters() {
 
     return (
         <div className="card-body p-4 d-flex flex-column gap-3" style={{ position: "relative" }}>
-            {/* ... (Üst taraftaki tüm HTML yapısı aynen korunuyor) ... */}
             <div className="d-flex align-items-center">
                 <span className="fw-bold text-uppercase pe-2" style={{ fontSize: "11px", letterSpacing: "0.7px", color: "#00874e" }}>
                     Arıtma Parametreleri
@@ -341,6 +348,22 @@ function InputParameters() {
                                     </div>
                                 </div>
                             ))}
+                        </div>
+
+                        {/* YENİ: M3/GÜN VE MG/L ÖZET PANELİ */}
+                        <div className="mt-2 p-2 rounded row g-0 border border-dashed" style={{ backgroundColor: "rgba(16, 185, 129, 0.05)", borderColor: "rgba(16, 185, 129, 0.2)" }}>
+                            <div className="col-6 border-end border-secondary border-opacity-25 d-flex flex-column align-items-center justify-content-center">
+                                <span className="text-white-50" style={{ fontSize: "9px" }}>TOPLAM HİDROLİK YÜK</span>
+                                <span className="text-white fw-bold mt-0.5" style={{ fontSize: "12px" }}>
+                                    {toplamM3Gun.toLocaleString("tr-TR", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} <small className="text-white-50 fw-normal" style={{ fontSize: "9px" }}>m³/gün</small>
+                                </span>
+                            </div>
+                            <div className="col-6 d-flex flex-column align-items-center justify-content-center">
+                                <span className="text-white-50" style={{ fontSize: "9px" }}>TOPLAM BOİ</span>
+                                <span className="text-emerald fw-bold mt-0.5" style={{ fontSize: "12px", color: "#10b981" }}>
+                                    {hesaplananGirisBoi} <small className="text-white-50 fw-normal" style={{ fontSize: "9px" }}>mg/l</small>
+                                </span>
+                            </div>
                         </div>
                     </div>
                 )}
@@ -424,8 +447,7 @@ function InputParameters() {
                     <div className="text-white-50" style={{ fontSize: "11px", lineHeight: "1.6" }}>
                         <p className="mb-2">Sıcaklık kademelerine göre uygulanan <b>gr/m²·gün</b> katsayı kriterleri:</p>
                         <ul className="list-unstyled d-flex flex-column gap-1 m-0 ps-1">
-                            {/* Kuralları matristen dönerek dinamik olarak basıyoruz */}
-                            {NITRIFIKASYON_KATSAYILARI.map((kural, idx) => (
+                            {DISK_SINIRLARI_MATRISI && NITRIFIKASYON_KATSAYILARI.map((kural, idx) => (
                                 <li key={idx}>
                                     <span className={`${kural.renk} fw-bold`}>{kural.etiket} :</span>{" "}
                                     <span className="text-white">{kural.katsayi} gr/m².gün</span>

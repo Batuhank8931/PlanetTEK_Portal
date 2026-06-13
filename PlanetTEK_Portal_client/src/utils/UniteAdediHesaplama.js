@@ -18,7 +18,7 @@ export function hesaplaIdealUniteAdedi({
     Q,
     hacim,
     minimumBeklemeSuresi = 1.28,
-    varsayilanSira = 2
+    varsayilanSira = 1
 }) {
     // 0. Koruma: Disk adedi girilmemişse veya 0 ise hesaplamaya gerek yok
     if (!toplamGerekliDisk || toplamGerekliDisk === 0) return 1;

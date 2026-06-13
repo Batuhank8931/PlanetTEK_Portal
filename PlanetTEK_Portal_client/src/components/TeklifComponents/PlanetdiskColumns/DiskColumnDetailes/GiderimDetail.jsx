@@ -77,7 +77,7 @@ function GiderimDetail({ isOpen, onClose, kademeData, genelVeri }) {
                         {isNitrifikasyon ? (
                             <>
                                 <div className="d-flex justify-content-between mb-1">
-                                    <span className="text-white-50">Giriş Amonyumu ($NH_4-N$):</span>
+                                    <span className="text-white-50">Giriş Amonyumu:</span>
                                     <span className="fw-bold text-danger">{girisAmonyum} mg/L</span>
                                 </div>
                                 <div className="d-flex justify-content-between mb-1">
@@ -88,7 +88,7 @@ function GiderimDetail({ isOpen, onClose, kademeData, genelVeri }) {
                         ) : (
                             <>
                                 <div className="d-flex justify-content-between mb-1">
-                                    <span className="text-white-50">Giriş BOİ ({kademeData.kademeNo === 1 ? "Ham" : `K-${Number(kademeData.kademeNo) - 1} Çıkış`}):</span>
+                                    <span className="text-white-50">Giriş BOİ:</span>
                                     <span className="fw-bold text-danger">{girisBoi} mg/L</span>
                                 </div>
                                 <div className="d-flex justify-content-between mb-1">
