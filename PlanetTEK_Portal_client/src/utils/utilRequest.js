@@ -13,8 +13,6 @@ const crudClient = axios.create({
 
 // 🔍 [İstek Öncesi Röntgeni]: crudClient ile giden her isteği yola çıkmadan yakala
 crudClient.interceptors.request.use((config) => {
-    console.log(`📡 [crudClient Request] Yola Çıkıyor: ${config.method.toUpperCase()} -> ${config.url}`);
-    console.log(`🍪 [crudClient Request] withCredentials Aktif mi?:`, config.withCredentials);
     return config;
 }, (error) => Promise.reject(error));
 
@@ -25,11 +23,9 @@ const API = {
     // 🔍 1. Kullanıcı Listeleme (GET api/user)
     getUser: async (userId = null) => {
         const url = userId ? `api/user?id=${userId}` : "api/user";
-        console.log(`🚀 [API.getUser] Tetiklendi. URL: ${url}`);
 
         try {
             const res = await crudClient.get(url);
-            console.log("✅ [API.getUser] BAŞARILI yanıt döndü:", res.status);
             return res;
         } catch (err) {
             console.error("❌ [API.getUser] HATA bloğuna düştü! Detay:", {
