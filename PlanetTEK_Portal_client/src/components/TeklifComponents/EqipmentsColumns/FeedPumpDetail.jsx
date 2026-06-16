@@ -63,17 +63,17 @@ function FeedPumpDetail() {
   const lastCalculatedMainDebi = storeFeedPump.calculatedMainDebi !== undefined ? storeFeedPump.calculatedMainDebi : null;
   const isMainDebiChanged = lastCalculatedMainDebi !== null && lastCalculatedMainDebi !== debi;
 
-  const manualHourlyFlow = (storeFeedPump.manualHourlyFlow !== undefined && !isMainDebiChanged) 
-    ? storeFeedPump.manualHourlyFlow 
+  const manualHourlyFlow = (storeFeedPump.manualHourlyFlow !== undefined && !isMainDebiChanged)
+    ? storeFeedPump.manualHourlyFlow
     : defaultHourlyFlowStr;
 
-  const manualMinMss = (storeFeedPump.manualMinMss !== undefined && !isMainDebiChanged) 
-    ? storeFeedPump.manualMinMss 
+  const manualMinMss = (storeFeedPump.manualMinMss !== undefined && !isMainDebiChanged)
+    ? storeFeedPump.manualMinMss
     : defaultMinMssStr;
 
   const pumpOffset = !isMainDebiChanged ? (storeFeedPump.pumpOffset || 0) : 0;
   const isInputsChanged = !isMainDebiChanged ? (storeFeedPump.isManualUserControl || false) : false;
-  
+
   // Dağıtım yapısı seçili mi bilgisini store'dan güvenli alalım
   const hasDistributionStructure = !isMainDebiChanged ? (storeFeedPump.hasDistributionStructure || false) : false;
 
@@ -200,7 +200,7 @@ function FeedPumpDetail() {
     const targetMss = targetPump ? getMssValue(targetPump, simQ) : 0;
 
     if (currentHourlyNum > 0 && targetPump) {
-      pumpString = `${simAdet} Adet x ${targetPump.name} (${simQ.toFixed(2)} m³/h @ ${targetMss} MSS)`;
+      pumpString = `${targetPump.name}`;
     } else if (currentHourlyNum > 0 && !targetPump) {
       pumpString = "Kapasite Aşımı";
     }
@@ -348,16 +348,16 @@ function FeedPumpDetail() {
 
         {/* --- DEBİ DAĞITIM YAPISI CHECKBOX ALANI --- */}
         {isDistributionEligible && (
-          <div 
+          <div
             className="mt-3 p-2 rounded border border-secondary border-opacity-25 transition-all"
-            style={{ 
+            style={{
               backgroundColor: hasDistributionStructure ? "rgba(16, 185, 129, 0.05)" : "rgba(255,255,255,0.02)",
               transition: "all 0.3s ease"
             }}
           >
             <div className="form-check form-switch d-flex align-items-center justify-content-between ps-0">
-              <label 
-                className="form-check-label text-light fw-semibold cursor-pointer" 
+              <label
+                className="form-check-label text-light fw-semibold cursor-pointer"
                 htmlFor="distributionStructureCheck"
                 style={{ fontSize: "12px", cursor: "pointer" }}
               >
@@ -374,7 +374,7 @@ function FeedPumpDetail() {
                 onChange={handleDistributionCheckboxChange}
               />
             </div>
-            
+
             {/* Seçildiğinde Altta Çıkan Akıllı Bilgilendirme Rozetleri */}
             {hasDistributionStructure && (
               <div className="d-flex gap-2 mt-2 pt-2 border-top border-secondary border-opacity-10 style-fade-in" style={{ fontSize: "10px" }}>
@@ -385,7 +385,7 @@ function FeedPumpDetail() {
             )}
           </div>
         )}
-        
+
       </div>
     </div>
   );

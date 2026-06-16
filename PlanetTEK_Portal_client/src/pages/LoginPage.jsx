@@ -20,7 +20,7 @@ function LoginPage() {
       }
     } catch (err) {
       console.error(err);
-      setError("An error occurred. Please try again.");
+      setError("Incorrect username or password!");
     }
 
     

@@ -6,7 +6,7 @@ const MOCK_CUSTOMERS_DB = [
     {
         id: 1,
         ticariUnvan: "Acme Endüstri A.Ş.",
-        teklifDili: "Türkçe",
+        teklifDili: "Yerli",
         ilgiliKisiler: ["Ahmet Yılmaz (Satın Alma Müdürü)", "Mehmet Kaya (Operasyon)"],
         indirimler: [
             { planetTekIndirim: 15, ekipmanIndirim: 10, indirimTarihi: "2026-04-12" },
@@ -16,7 +16,7 @@ const MOCK_CUSTOMERS_DB = [
     {
         id: 2,
         ticariUnvan: "Global Tech LLC",
-        teklifDili: "İngilizce",
+        teklifDili: "Yabancı",
         ilgiliKisiler: ["John Doe (CTO)", "Jane Smith (Procurement)"],
         indirimler: [
             { planetTekIndirim: 25, ekipmanIndirim: 5, indirimTarihi: "2026-05-01" }
@@ -25,7 +25,7 @@ const MOCK_CUSTOMERS_DB = [
     {
         id: 3,
         ticariUnvan: "Yıldız Holding",
-        teklifDili: "Türkçe",
+        teklifDili: "Yerli",
         ilgiliKisiler: ["Selin Yıldız"],
         indirimler: [] // Hiç indirim tanımı yok
     }
@@ -167,14 +167,13 @@ function SelectCustomer() {
                     </label>
                     <select
                         name="teklifDili"
-                        value={customerInfo.teklifDili || "Türkçe"}
+                        value={customerInfo.teklifDili || "Yerli"}
                         onChange={handleChange}
                         className="form-select form-select-sm text-white fw-bold border-0"
                         style={{ backgroundColor: "#1e293b", borderRadius: "6px", fontSize: "12px" }}
                     >
-                        <option value="Türkçe" style={{ backgroundColor: "#0f172a" }}>Türkçe</option>
-                        <option value="İngilizce" style={{ backgroundColor: "#0f172a" }}>İngilizce</option>
-                        <option value="Almanca" style={{ backgroundColor: "#0f172a" }}>Almanca</option>
+                        <option value="Yerli" style={{ backgroundColor: "#0f172a" }}>Yerli</option>
+                        <option value="Yabancı" style={{ backgroundColor: "#0f172a" }}>Yabancı</option>
                     </select>
                 </div>
             </div>

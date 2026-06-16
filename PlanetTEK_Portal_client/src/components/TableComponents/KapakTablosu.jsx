@@ -1,34 +1,75 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useTeklifStore } from "../../utils/teklifStore";
 
 function KapakTablosu() {
-  const [rows, setRows] = useState([
-    { id: 1, label: "Teklif Numarası", value: "YİD R0 01 01 2026 8 MX 1 70 25 0", isNumeric: false, unit: "", isUrgent: false },
-    { id: 2, label: "Giriş BOİ₅", value: "350", isNumeric: true, unit: "mg/l", isUrgent: false },
-    { id: 3, label: "Çıkış BOİ₅ (ikincil arıtma sonrası)", value: "40", isNumeric: true, unit: "mg/l", isUrgent: false },
-    { id: 4, label: "Çıkış BOİ₅ (üçüncül arıtma sonrası)", value: "20", isNumeric: true, unit: "mg/l", isUrgent: true }, // Default Kırmızı
-    { id: 5, label: "Atıksu Sıcaklığı", value: "19", isNumeric: true, unit: "°C", isUrgent: false },
-    { id: 6, label: "Projedeki Toplam Disk Yüzey Alanı (PlanetTEK Tarafından tasarlanmıştır.)", value: "0,00", isNumeric: true, unit: "m²", isUrgent: false },
-  ]);
+  const formData = useTeklifStore((state) => state.formData);
+  const updateSection = useTeklifStore((state) => state.updateSection);
 
-  const handleValueChange = (id, newValue) => {
-    setRows(rows.map(row => row.id === id ? { ...row, value: newValue } : row));
+  // 1. ADIM: Eğer store'da önceden kaydedilmiş veri varsa oradan başlat, yoksa default array'i kullan
+  const [rows, setRows] = useState(() => {
+    const savedData = formData?.tables?.kapaktablosu;
+    if (savedData && Array.isArray(savedData) && savedData.length > 0) {
+      return savedData;
+    }
+    return [
+      { id: 1, label: "Teklif Numarası", value: "YİD R0 01 01 2026 8 MX 1 70 25 0", isNumeric: false, unit: "", isUrgent: false },
+      { id: 2, label: "Giriş BOİ₅", value: "350", isNumeric: true, unit: "mg/l", isUrgent: false },
+      { id: 3, label: "Çıkış BOİ₅ (ikincil arıtma sonrası)", value: "40", isNumeric: true, unit: "mg/l", isUrgent: false },
+      { id: 4, label: "Çıkış BOİ₅ (üçüncül arıtma sonrası)", value: "20", isNumeric: true, unit: "mg/l", isUrgent: true },
+      { id: 5, label: "Atıksu Sıcaklığı", value: "19", isNumeric: true, unit: "°C", isUrgent: false },
+      { id: 6, label: "Projedeki Toplam Disk Yüzey Alanı (PlanetTEK Tarafından tasarlanmıştır.)", value: "0,00", isNumeric: true, unit: "m²", isUrgent: false },
+    ];
+  });
+
+  const [history, setHistory] = useState([]);
+
+  // 2. ADIM: rows her değiştiğinde anında Zustand store'u güncelle
+  useEffect(() => {
+    updateSection("tables", {
+      ...formData?.tables, // Mevcut diğer tabloları (capex, opex vb.) korumak için spread ediyoruz
+      kapaktablosu: rows
+    });
+  }, [rows]); // Sadece rows array'i değiştiğinde tetiklenir
+
+  // Geçmişi kaydetme fonksiyonu
+  const saveToHistory = (currentRows) => {
+    setHistory([...history, JSON.stringify(currentRows)]);
   };
 
-  const addNewRow = () => {
-    const newId = rows.length > 0 ? Math.max(...rows.map(r => r.id)) + 1 : 1;
-    setRows([
-      ...rows,
-      { id: newId, label: "Yeni Parametre Adı", value: "0", isNumeric: true, unit: "-", isUrgent: false }
-    ]);
+  // Geri al (Undo) fonksiyonu
+  const handleUndo = () => {
+    if (history.length === 0) return;
+    const previousState = JSON.parse(history[history.length - 1]);
+    setRows(previousState);
+    setHistory(history.slice(0, -1));
   };
 
+  // Hücre değişikliklerini yöneten merkezi fonksiyon
+  const handleCellChange = (id, field, newValue) => {
+    saveToHistory(rows);
+    setRows(rows.map(row => row.id === id ? { ...row, [field]: newValue } : row));
+  };
+
+  // Tıklanan satırın hemen altına yeni satır ekleyen fonksiyon
+  const insertAfterRow = (index) => {
+    saveToHistory(rows);
+    const newId = `new_${Date.now()}`;
+    const newRow = { id: newId, label: "Yeni Parametre Adı", value: "0", isNumeric: true, unit: "-", isUrgent: false };
+
+    const updatedRows = [...rows];
+    updatedRows.splice(index + 1, 0, newRow);
+    setRows(updatedRows);
+  };
+
+  // Satır silme fonksiyonu
   const deleteRow = (id) => {
+    saveToHistory(rows);
     setRows(rows.filter(row => row.id !== id));
   };
 
   return (
     <div className="d-flex flex-column gap-3 w-100">
-      
+
       {/* CSS Stil Enjeksiyonu */}
       <style>{`
         .table-row-custom {
@@ -54,73 +95,104 @@ function KapakTablosu() {
           outline: none;
           background-color: rgba(255, 255, 255, 0.05) !important;
         }
+        .opacity-hover:hover {
+          opacity: 1 !important;
+        }
       `}</style>
 
+      {/* ÜST KONTROL PANELİ (GERİ AL BUTONU) */}
+      <div className="d-flex justify-content-end align-items-center mb-1">
+        <button
+          onClick={handleUndo}
+          disabled={history.length === 0}
+          className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1"
+          style={{
+            backgroundColor: history.length === 0 ? "#334155" : "#1e3a8a",
+            fontSize: "11px",
+            borderRadius: "6px",
+            transition: "0.2s",
+            opacity: history.length === 0 ? 0.4 : 1,
+            cursor: history.length === 0 ? "not-allowed" : "pointer"
+          }}
+        >
+          <span style={{ fontSize: "12px" }}>↶</span> Son Değişikliği Geri Al ({history.length})
+        </button>
+      </div>
+
       {/* Blok Tablo Yapısı */}
-      <div 
-        className="d-flex flex-column rounded-3 overflow-hidden" 
+      <div
+        className="d-flex flex-column rounded-3 overflow-hidden"
         style={{ border: "1px solid #334155", maxHeight: "60vh", overflowY: "auto" }}
       >
-        {rows.map((row) => (
-          <div 
-            key={row.id} 
+        {rows.map((row, index) => (
+          <div
+            key={row.id}
             className={`d-flex align-items-stretch table-row-custom ${row.isUrgent ? 'bg-urgent' : 'bg-normal'}`}
           >
             {/* SOL KOLON: Parametre Adı */}
-            <div className="p-2.5 px-3 d-flex align-items-center" style={{ width: "60%" }}>
+            <div className="p-2.5 px-3 d-flex align-items-center" style={{ width: "55%" }}>
               <input
                 type="text"
                 className="form-control form-control-sm text-start text-white bg-transparent border-0 fw-medium p-1 custom-input rounded"
                 style={{ fontSize: "12px", boxShadow: "none", width: "100%" }}
                 value={row.label}
-                onChange={(e) => {
-                  setRows(rows.map(r => r.id === row.id ? { ...r, label: e.target.value } : r));
-                }}
+                onChange={(e) => handleCellChange(row.id, "label", e.target.value)}
               />
             </div>
 
             {/* ORTAK DİKEY ÇİZGİ */}
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
 
-            {/* SAĞ KOLON: Değerler, Birim ve Silme Butonu */}
-            <div className="p-2.5 px-3 d-flex align-items-center justify-content-end gap-2" style={{ width: "40%" }}>
+            {/* SAĞ KOLON: Değerler, Birim ve Aksiyon Butonları */}
+            <div className="p-2.5 px-3 d-flex align-items-center justify-content-end gap-2" style={{ width: "45%" }}>
               <input
                 type="text"
                 className="form-control form-control-sm text-end fw-bold text-white bg-transparent border-0 p-1 custom-input rounded"
-                style={{ fontSize: "12px", boxShadow: "none", width: "75%" }}
+                style={{ fontSize: "12px", boxShadow: "none", width: "65%" }}
                 value={row.value}
                 placeholder="0.00"
-                onChange={(e) => handleValueChange(row.id, e.target.value)}
+                onChange={(e) => handleCellChange(row.id, "value", e.target.value)}
               />
-              
+
               {/* Birim Alanı */}
-              <span className="text-white-50 text-start ps-1" style={{ fontSize: "11px", minWidth: "45px" }}>
-                {row.unit}
-              </span>
-              
-              {/* Silme Butonu */}
-              <button 
-                onClick={() => deleteRow(row.id)}
-                className="btn btn-sm p-0 border-0 text-danger opacity-50 hover-opacity-100 ms-1"
-                style={{ fontSize: "16px", lineHeight: "1", width: "15px" }}
-                title="Satırı Sil"
-              >
-                &times;
-              </button>
+              <input
+                type="text"
+                className="form-control form-control-sm text-start text-white-50 bg-transparent border-0 p-0 custom-input rounded ps-1"
+                style={{ fontSize: "11px", minWidth: "45px", width: "45px", boxShadow: "none" }}
+                value={row.unit}
+                placeholder="birim"
+                onChange={(e) => handleCellChange(row.id, "unit", e.target.value)}
+              />
+
+              {/* DİKEY AYRAÇ */}
+              <div style={{ width: "1px", height: "14px", backgroundColor: "#334155" }}></div>
+
+              {/* AKSİYON PANELİ */}
+              <div className="d-flex align-items-center gap-2 ms-1">
+                {/* Araya Satır Ekleme Butonu */}
+                <button
+                  onClick={() => insertAfterRow(index)}
+                  className="btn btn-sm p-0 border-0 text-success opacity-50 opacity-hover fw-bold"
+                  style={{ fontSize: "16px", lineHeight: "1", width: "15px" }}
+                  title="Altına Yeni Satır Ekle"
+                >
+                  +
+                </button>
+
+                {/* Satır Silme Butonu */}
+                <button
+                  onClick={() => deleteRow(row.id)}
+                  className="btn btn-sm p-0 border-0 text-danger opacity-50 opacity-hover"
+                  style={{ fontSize: "16px", lineHeight: "1", width: "15px" }}
+                  title="Satırı Sil"
+                >
+                  &times;
+                </button>
+              </div>
+
             </div>
           </div>
         ))}
-      </div>
-
-      {/* Satır Ekleme Butonu */}
-      <div className="d-flex justify-content-start">
-        <button 
-          onClick={addNewRow}
-          className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1"
-          style={{ backgroundColor: "#2e7d32", fontSize: "11px", borderRadius: "6px", transition: "0.2s" }}
-        >
-          <span style={{ fontSize: "14px" }}>+</span> Yeni Satır Ekle
-        </button>
       </div>
 
     </div>

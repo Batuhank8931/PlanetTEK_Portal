@@ -15,7 +15,7 @@ import OzetTablosu from "../TableComponents/OzetTablosu";
 import EkipmanTablosu from "../TableComponents/EkipmanTablosu";
 
 function SelectTables() {
-  const [activeTab, setActiveTab] = useState(3); // CAPEX varsayılan
+  const [activeTab, setActiveTab] = useState(1); // CAPEX varsayılan
 
   const tablesList = [
     { id: 1, name: "1. Kapak Tablosu", component: <KapakTablosu /> },

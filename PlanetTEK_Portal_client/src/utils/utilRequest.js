@@ -1,59 +1,60 @@
+// src/utils/utilRequest.js
 import axios from "axios";
+import { applyAutoAuthInterceptor } from "./autoAuth";
 
-// Runtime config yükleme
-let configCache = null;
-async function loadConfig() {
-    if (!configCache) {
-        try {
-            const res = await fetch("/config.json");
-            if (!res.ok) throw new Error(`Config fetch failed: ${res.status}`);
-            configCache = await res.json();
-        } catch (err) {
-            console.error("Config yüklenemedi:", err);
-            configCache = { API_HOST: "127.0.0.1", API_PORT: 5173 }; // fallback
-        }
+const crudClient = axios.create({
+    baseURL: import.meta.env.VITE_URL,
+    withCredentials: true,
+    headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json"
     }
-    return configCache;
-}
+});
 
-// Base URL ve Auth URL dinamik
-async function getUrls() {
-    const config = await loadConfig();
-    //const baseUrl = `http://${config.API_HOST}:${config.API_PORT}/api/`;
-    //const AuthUrl = `http://${config.API_HOST}:${config.API_PORT}/auth/`;
-    const baseUrl = "https://planettekportal.biz/api/";
-    const AuthUrl = "https://planettekportal.biz/auth/";
-    return { baseUrl, AuthUrl };
-}
+// 🔍 [İstek Öncesi Röntgeni]: crudClient ile giden her isteği yola çıkmadan yakala
+crudClient.interceptors.request.use((config) => {
+    console.log(`📡 [crudClient Request] Yola Çıkıyor: ${config.method.toUpperCase()} -> ${config.url}`);
+    console.log(`🍪 [crudClient Request] withCredentials Aktif mi?:`, config.withCredentials);
+    return config;
+}, (error) => Promise.reject(error));
 
+// 🛡️ Zırhı giydiriyoruz
+applyAutoAuthInterceptor(crudClient);
 
-
-// Headers
-async function headersLogin() {
-    return {
-        "Content-Type": "application/json",
-        Accept: "*/*",
-    };
-}
-
-async function headersAuth() {
-    const token = localStorage.getItem("authToken");
-    return {
-        "Content-Type": "application/json",
-        Accept: "*/*",
-        Authorization: `Bearer ${token}`,
-    };
-}
-
-// Axios wrapper
 const API = {
+    // 🔍 1. Kullanıcı Listeleme (GET api/user)
+    getUser: async (userId = null) => {
+        const url = userId ? `api/user?id=${userId}` : "api/user";
+        console.log(`🚀 [API.getUser] Tetiklendi. URL: ${url}`);
 
-    login: async (body) => {
-        const { AuthUrl } = await getUrls();
-        return axios.post(`${AuthUrl}login`, body, { headers: await headersLogin() });
+        try {
+            const res = await crudClient.get(url);
+            console.log("✅ [API.getUser] BAŞARILI yanıt döndü:", res.status);
+            return res;
+        } catch (err) {
+            console.error("❌ [API.getUser] HATA bloğuna düştü! Detay:", {
+                status: err.response?.status,
+                message: err.message,
+                responseData: err.response?.data
+            });
+            throw err;
+        }
     },
 
+    // 👥 2. Kullanıcı Ekleme (POST api/user)
+    addUser: async (userData) => {
+        return crudClient.post("api/user", userData);
+    },
 
+    // 🔄 3. Kullanıcı Güncelleme (PUT api/user/:id)
+    putUser: async (userId, updateData) => {
+        return crudClient.put(`api/user/${userId}`, updateData);
+    },
+
+    // ❌ 4. Kullanıcı Silme (DELETE api/user/:id)
+    deleteUser: async (userId) => {
+        return crudClient.delete(`api/user/${userId}`);
+    }
 };
 
 export default API;

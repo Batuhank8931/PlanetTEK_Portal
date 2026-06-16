@@ -4,6 +4,7 @@ import Izgara from "./FiyatlarComponents/Izgara";
 import Lamella from "./FiyatlarComponents/Lamella";
 import KapakGovde from "./FiyatlarComponents/KapakGovde";
 import DebiDagitim from "./FiyatlarComponents/DebiDagitim";
+import IscilikMaliyetleri from "./FiyatlarComponents/IscilikMaliyetleri";
 
 function FiyatlarPage() {
   const [activeTab, setActiveTab] = useState("anaUniteler");
@@ -44,6 +45,9 @@ function FiyatlarPage() {
         <button className={`btn btn-sm ${activeTab === "debiDagitim" ? "btn-info text-dark fw-bold" : "btn-outline-secondary text-white"}`} onClick={() => setActiveTab("debiDagitim")}>
           5. Debi Dağıtım (Çıkışlar)
         </button>
+        <button className={`btn btn-sm ${activeTab === "iscilik" ? "btn-info text-dark fw-bold" : "btn-outline-secondary text-white"}`} onClick={() => setActiveTab("iscilik")}>
+          6. İşçilik Maliyetleri
+        </button>
       </div>
 
       {/* SEKMEYE GÖRE İLGİLİ BİLEŞENİN ÇAĞRILMASI */}
@@ -53,6 +57,7 @@ function FiyatlarPage() {
         {activeTab === "lamellalar" && <Lamella />}
         {activeTab === "paslanmazKapak" && <KapakGovde />}
         {activeTab === "debiDagitim" && <DebiDagitim />}
+        {activeTab === "iscilik" && <IscilikMaliyetleri />}
       </div>
     </div>
   );

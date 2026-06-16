@@ -1,4 +1,5 @@
 import React, { useState } from "react";
+import ExcelGrid from "./ExcelGrid";
 
 function KapakGovde() {
   const [paslanmazData, setPaslanmazData] = useState([
@@ -16,24 +17,31 @@ function KapakGovde() {
     { id: "yd_mini", grup: "Yurt Dışı (YD)", ad: "MİNİ KAPAK", fiyat: 757 }
   ]);
 
-  const formatNumber = (num) => {
-    if (num === undefined || num === null || isNaN(num)) return "";
-    return new Intl.NumberFormat("tr-TR").format(num);
-  };
+  // --- Birinci Grid için Sütun Konfigürasyonu ---
+  const paslanmazHeaders = ["Malzeme / Bölüm", "Birim Fiyat (€)"];
+  const paslanmazFields = ["fiyat"];
 
-  const parseNumber = (str) => {
-    const cleanStr = str.replace(/\./g, "");
-    return cleanStr === "" ? 0 : Number(cleanStr);
-  };
+  // --- İkinci Grid için Dinamik İsim Dönüşümü ve Sütun Konfigürasyonu ---
+  const kapakGovdeHeaders = ["Grup & Opsiyon Adı", "Birim Fiyat (€)"];
+  const kapakGovdeFields = ["fiyat"];
 
-  const handleUpdatePaslanmaz = (id, rawStringValue) => {
-    const numericValue = parseNumber(rawStringValue);
-    setPaslanmazData(prev => prev.map(item => item.id === id ? { ...item, fiyat: numericValue } : item));
-  };
+  // ExcelGrid'in ilk sütunda 'ad' alanını göstermesi için map'liyoruz, 
+  // önüne şık bir grup etiketi ekleyerek okunabilirliği koruyoruz.
+  const mappedKapakGovdeData = kapakGovdeData.map(item => ({
+    ...item,
+    ad: `[${item.grup}] ${item.ad}`
+  }));
 
-  const handleUpdateKapakGovde = (id, rawStringValue) => {
-    const numericValue = parseNumber(rawStringValue);
-    setKapakGovdeData(prev => prev.map(item => item.id === id ? { ...item, fiyat: numericValue } : item));
+  // ExcelGrid'den gelen güncellemeyi orijinal state yapısına geri yazan fonksiyon
+  const handleKapakGovdeChange = (updatedMappedData) => {
+    setKapakGovdeData(updatedMappedData.map(item => {
+      // Baştaki grup etiketini kaldırıp orijinal temiz 'ad' alanını kurtaralım
+      const originalAd = item.ad.replace(/^\[.*?\]\s*/, "");
+      return {
+        ...item,
+        ad: originalAd
+      };
+    }));
   };
 
   const handleSave = () => {
@@ -41,62 +49,39 @@ function KapakGovde() {
     console.log("Kaydedilen Veriler:", { paslanmazData, kapakGovdeData });
   };
 
-  const cellInputStyle = {
-    backgroundColor: "#0f172a",
-    border: "1px solid #475569",
-    color: "#38bdf8",
-    fontSize: "12px",
-    padding: "3px 6px",
-    borderRadius: "4px",
-    width: "100%",
-    textAlign: "right",
-    fontWeight: "500"
-  };
-
   return (
     <div>
-      <div className="d-flex justify-content-end mb-3">
-        <button className="btn btn-success btn-sm px-4" onClick={handleSave} style={{ backgroundColor: "#10b981", border: "none" }}>
-          <i className="bi bi-save me-2"></i>Paslanmaz &amp; Kapak Güncelle
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <button className="btn btn-success btn-sm px-4" onClick={handleSave}>
+          <i className="bi bi-save me-2"></i>Kaydet
         </button>
       </div>
+
       <div className="row g-4">
+        {/* SOL TABLO: PASLANMAZ DEĞİŞİMİ */}
         <div className="col-12 col-md-6">
-          <div className="card shadow border-0" style={{ borderRadius: "8px", overflow: "hidden", backgroundColor: "#1e293b" }}>
-            <div className="p-3 bg-dark fw-bold text-muted border-bottom" style={{ borderColor: "#334155" }}>Paslanmaz Değişimi Modülü</div>
-            <table className="table table-dark mb-0">
-              <tbody>
-                {paslanmazData.map((p) => (
-                  <tr key={p.id} style={{ borderColor: "#334155" }}>
-                    <td className="px-4 py-2 text-white">{p.ad}</td>
-                    <td className="px-4" style={{ width: "160px" }}>
-                      <input type="text" style={cellInputStyle} value={formatNumber(p.fiyat)} onChange={(e) => handleUpdatePaslanmaz(p.id, e.target.value)} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="p-3 mb-2 rounded bg-dark fw-bold text-white border-bottom" style={{ borderColor: "#334155" }}>
+            Paslanmaz Değişimi
           </div>
+          <ExcelGrid
+            headers={paslanmazHeaders}
+            data={paslanmazData}
+            fields={paslanmazFields}
+            onDataChange={setPaslanmazData}
+          />
         </div>
 
+        {/* SAĞ TABLO: KAPAK & GÖVDE OPSİYONLARI */}
         <div className="col-12 col-md-6">
-          <div className="card shadow border-0" style={{ borderRadius: "8px", overflow: "hidden", backgroundColor: "#1e293b" }}>
-            <div className="p-3 bg-dark fw-bold text-muted border-bottom" style={{ borderColor: "#334155" }}>Kapak &amp; Gövde Opsiyonları</div>
-            <table className="table table-dark mb-0">
-              <tbody>
-                {kapakGovdeData.map((k) => (
-                  <tr key={k.id} style={{ borderColor: "#334155" }}>
-                    <td className="px-4 py-2 text-white">
-                      <span className="badge bg-secondary me-2">{k.grup}</span> {k.ad}
-                    </td>
-                    <td className="px-4" style={{ width: "160px" }}>
-                      <input type="text" style={cellInputStyle} value={formatNumber(k.fiyat)} onChange={(e) => handleUpdateKapakGovde(k.id, e.target.value)} />
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+          <div className="p-3 mb-2 rounded bg-dark fw-bold text-white border-bottom" style={{ borderColor: "#334155" }}>
+            Kapak &amp; Gövde Opsiyonları
           </div>
+          <ExcelGrid
+            headers={kapakGovdeHeaders}
+            data={mappedKapakGovdeData}
+            fields={kapakGovdeFields}
+            onDataChange={handleKapakGovdeChange}
+          />
         </div>
       </div>
     </div>

@@ -1,5 +1,4 @@
-//App.jsx
-
+// App.jsx
 import "./App.css";
 import MainPage from "./pages/MainPage";
 import LoginPage from "./pages/LoginPage";
@@ -7,9 +6,14 @@ import { AuthProvider, useAuth } from "./context/AuthContext";
 import "bootstrap/dist/css/bootstrap.min.css";
 
 function AppContent() {
-  const { token } = useAuth();
+  // 🚀 GÜNCELLEME: 'token' bağımlılığını tamamen çöpe atıyoruz.
+  // Sadece ve sadece merkezi 'user' nesnesinin varlığına güveniyoruz.
+  const { user } = useAuth();
 
-  return token ? <MainPage /> : <LoginPage />;
+  // Eğer hafızada veya context içinde doğrulanmış bir kullanıcı varsa içeri al, yoksa kapıda tut.
+  // Interceptor arkada token yenilerken 'user' nesnesi silinmediği için 
+  // uygulama artık asenkron istek anlarında donmayacak veya login'e fırlatmayacak!
+  return user ? <MainPage /> : <LoginPage />;
 }
 
 function App() {

@@ -20,7 +20,7 @@ const HOST = getLocalIP();
 
 app.listen(PORT, HOST, () => {
   console.log("===========================================");
-  console.log(`EvomatQ server is running!`);
+  console.log(`PlanetTEK server is running!`);
   console.log(`Local:   http://localhost:${PORT}`);
   console.log(`LAN:     http://${HOST}:${PORT}`);
   console.log("===========================================");

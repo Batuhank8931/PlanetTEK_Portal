@@ -24,7 +24,6 @@ const CRITERIA_DATABASE = [
 function IleriAritmaPumpSelections() {
     const CALC_HOURS = 24;
 
-    // 1. ZUSTAND STORE ENTEGRASYONU
     const formData = useTeklifStore((state) => state.formData);
     const updateSection = useTeklifStore((state) => state.updateSection);
 
@@ -39,7 +38,6 @@ function IleriAritmaPumpSelections() {
 
     const [showInfoModal, setShowInfoModal] = useState(false);
 
-    // --- HOURLY FLOW HESAPLAMA MANTIĞI ---
     const { hourlyFlow: calculatedHourlyFlow, currentMultiplier } = useMemo(() => {
         if (ActuralHourlyFlow === 0) return { hourlyFlow: 0, currentMultiplier: 0 };
 
@@ -60,7 +58,6 @@ function IleriAritmaPumpSelections() {
 
     const defaultMinMssStr = "5.9";
 
-    // MÜHÜR KONTROLÜ
     const lastCalculatedDebi = storePumpSelections.calculatedDebi !== undefined ? storePumpSelections.calculatedDebi : null;
     const lastCalculatedAzot = storePumpSelections.calculatedAzot !== undefined ? storePumpSelections.calculatedAzot : null;
 
@@ -88,7 +85,6 @@ function IleriAritmaPumpSelections() {
         return isNaN(val) ? 5.9 : val;
     }, [manualMinMss]);
 
-    // Doğrusal İnterpolasyon Fonksiyonu
     const getMssValue = (pump, qSaat) => {
         if (!pump || !pump.mssData) return null;
 
@@ -118,7 +114,7 @@ function IleriAritmaPumpSelections() {
         return null;
     };
 
-    // --- SEÇİM VE POMPA ADET MANTIĞI ---
+    // --- SEÇİM VE POMPA ADET MANTIĞI (DİNAMİK ARTAN ADET) ---
     const { idealPumpIndex, pompaAdeti, hesaplananDebi } = useMemo(() => {
         if (activeHourlyFlow === 0) return { idealPumpIndex: -1, pompaAdeti: 1, hesaplananDebi: 0 };
 
@@ -127,16 +123,9 @@ function IleriAritmaPumpSelections() {
         let adet = 1;
         let qHesap = activeHourlyFlow;
 
-        PUMP_DATABASE.forEach((pump, index) => {
-            const mss = getMssValue(pump, qHesap);
-            if (mss !== null && mss >= activeMinMss && mss < minValidMss) {
-                minValidMss = mss;
-                bestPumpIndex = index;
-            }
-        });
-
-        if (bestPumpIndex === -1) {
-            qHesap = activeHourlyFlow / 2;
+        // Uygun pompa bulunana kadar adet sayısını artıracak döngü (max 20 adet güvenlik sınırı)
+        while (bestPumpIndex === -1 && adet <= 20) {
+            qHesap = activeHourlyFlow / adet;
             minValidMss = Infinity;
 
             PUMP_DATABASE.forEach((pump, index) => {
@@ -144,15 +133,18 @@ function IleriAritmaPumpSelections() {
                 if (mss !== null && mss >= activeMinMss && mss < minValidMss) {
                     minValidMss = mss;
                     bestPumpIndex = index;
-                    adet = 2;
                 }
             });
+
+            if (bestPumpIndex !== -1) {
+                break; // Uygun pompa kombinasyonu bulundu, döngüden çık.
+            }
+            adet++;
         }
 
-        return { idealPumpIndex: bestPumpIndex, pompaAdeti: adet, hesaplananDebi: qHesap };
+        return { idealPumpIndex: bestPumpIndex, pompaAdeti: bestPumpIndex !== -1 ? adet : 1, hesaplananDebi: qHesap };
     }, [activeHourlyFlow, activeMinMss]);
 
-    // Manuel Değiştirme (Offset) Mekanizması
     const { selectedPump, currentMss } = useMemo(() => {
         let finalIndex = idealPumpIndex;
 
@@ -179,25 +171,24 @@ function IleriAritmaPumpSelections() {
         let simAdet = 1;
         let simQ = hourlyFlowNum;
 
-        PUMP_DATABASE.forEach((p, idx) => {
-            const m = getMssValue(p, simQ);
-            if (m !== null && m >= parsedNextMss && m < simMinMss) {
-                simMinMss = m;
-                simBestIndex = idx;
-            }
-        });
+        if (hourlyFlowNum > 0) {
+            while (simBestIndex === -1 && simAdet <= 20) {
+                simQ = hourlyFlowNum / simAdet;
+                simMinMss = Infinity;
 
-        if (simBestIndex === -1 && hourlyFlowNum > 0) {
-            simQ = hourlyFlowNum / 2;
-            simMinMss = Infinity;
-            PUMP_DATABASE.forEach((p, idx) => {
-                const m = getMssValue(p, simQ);
-                if (m !== null && m >= parsedNextMss && m < simMinMss) {
-                    simMinMss = m;
-                    simBestIndex = idx;
-                    simAdet = 2;
+                PUMP_DATABASE.forEach((p, idx) => {
+                    const m = getMssValue(p, simQ);
+                    if (m !== null && m >= parsedNextMss && m < simMinMss) {
+                        simMinMss = m;
+                        simBestIndex = idx;
+                    }
+                });
+
+                if (simBestIndex !== -1) {
+                    break;
                 }
-            });
+                simAdet++;
+            }
         }
 
         let simFinalIndex = simBestIndex;
@@ -211,7 +202,7 @@ function IleriAritmaPumpSelections() {
         const targetMss = targetPump ? getMssValue(targetPump, simQ) : 0;
 
         if (hourlyFlowNum > 0 && targetPump) {
-            pumpString = `${simAdet} Adet x ${targetPump.name} (${simQ.toFixed(2)} m³/h @ ${targetMss} MSS)`;
+            pumpString = `${targetPump.name}`;
         } else if (hourlyFlowNum > 0 && !targetPump) {
             pumpString = "Kapasite Aşımı";
         }
@@ -235,7 +226,6 @@ function IleriAritmaPumpSelections() {
         });
     };
 
-    // --- AUTOMATIC RUNTIME SYNC EFFECT ---
     useEffect(() => {
         if (defaultHourlyFlowStr === "0") return;
 
@@ -254,7 +244,6 @@ function IleriAritmaPumpSelections() {
         }
     };
 
-    // Dropdown'dan manuel pompa değişimi yakalandığında offset hesaplayan fonksiyon
     const handleDropdownPumpChange = (targetPumpId) => {
         if (idealPumpIndex === -1) return;
         const selectedIdx = PUMP_DATABASE.findIndex(p => p.id === parseInt(targetPumpId));
@@ -270,7 +259,6 @@ function IleriAritmaPumpSelections() {
 
     return (
         <div className="card-body d-flex flex-column gap-3 pt-3" style={{ position: "relative", color: "#fff", padding: 0 }}>
-            {/* Alt Başlık Bilgisi ve Info Butonu */}
             <div className="d-flex align-items-center justify-content-between">
                 <div className="d-flex align-items-center flex-grow-1">
                     <span className="fw-bold text-uppercase pe-2" style={{ fontSize: "11px", letterSpacing: "0.7px", color: "#00874e" }}>
@@ -290,7 +278,6 @@ function IleriAritmaPumpSelections() {
                 </button>
             </div>
 
-            {/* INPUT ALANLARI */}
             <div className="row g-2 mb-1">
                 <div className="col-6">
                     <label className="form-label mb-1 text-white-50" style={{ fontSize: "11px" }}>Geri Devir Debisi (m³/h)</label>
@@ -318,7 +305,6 @@ function IleriAritmaPumpSelections() {
                 </div>
             </div>
 
-            {/* POMPA DROPDOWN VE BİLGİ ALANI */}
             <div className="d-flex flex-column gap-1 mt-2">
                 {selectedPump && (
                     <div className="d-flex align-items-center gap-2 mb-1">
@@ -326,7 +312,7 @@ function IleriAritmaPumpSelections() {
                             {pompaAdeti} ADET
                         </span>
                         <span className="text-info fw-semibold" style={{ fontSize: "11px" }}>
-                            ({hesaplananDebi.toFixed(2)} m³/h @ {currentMss} MSS {pompaAdeti === 2 && "pompa başına"})
+                            ({hesaplananDebi.toFixed(2)} m³/h @ {currentMss} MSS {pompaAdeti > 1 && "pompa başına"})
                         </span>
                     </div>
                 )}
@@ -372,7 +358,6 @@ function IleriAritmaPumpSelections() {
                 </div>
             </div>
 
-            {/* Orijinal Değerlere Dönme Alanı */}
             <div className="d-flex justify-content-end" style={{ height: "18px" }}>
                 {isInputsChanged && (
                     <span
@@ -386,7 +371,6 @@ function IleriAritmaPumpSelections() {
                 )}
             </div>
 
-            {/* BİLGİLENDİRME MODALI */}
             {showInfoModal && (
                 <GeriDevirPompasiModal
                     onClose={() => setShowInfoModal(false)}

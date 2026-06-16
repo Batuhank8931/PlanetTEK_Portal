@@ -29,7 +29,7 @@ const PUMP_DATABASE = {
   ]
 };
 
-// Yardımcı Tekli Seçim Fonksiyonları (Artık adet hesaplamıyorlar, sadece modele bakıyorlar)
+// Yardımcı Tekli Seçim Fonksiyonları
 const findOptimalFiltreModel = (hatDebisi) => {
   return FILTRATION_DATABASE.find(item => item.maxDebi >= hatDebisi) || FILTRATION_DATABASE[FILTRATION_DATABASE.length - 1];
 };
@@ -68,19 +68,14 @@ function FiltrasyonDetail() {
     const toplamSaatlikDebi = anaGunlukDebi / activeCalismaSaati;
     const maxKapasite = FILTRATION_DATABASE[FILTRATION_DATABASE.length - 1].maxDebi; // 52.3
 
-    // 1. Sistem kaç paralel hattan oluşacak? (Top Yekün Artış)
     const sistemAdet = Math.ceil(toplamSaatlikDebi / maxKapasite);
-
-    // 2. Hat başına düşen debiler
     const hatSaatlikDebi = toplamSaatlikDebi / sistemAdet;
     const hatBackwashDebi = hatSaatlikDebi * 2;
 
-    // 3. Hat başına ekipman seçimleri
     const filtreSecim = findOptimalFiltreModel(hatSaatlikDebi);
     const beslemePompa = findOptimalPumpModel(hatSaatlikDebi, "besleme");
     const geriYikamaPompa = findOptimalPumpModel(hatBackwashDebi, "geriYikama");
 
-    // Dozaj hesaplamaları (Hat başına)
     const onKlorlamaDozaj = hatSaatlikDebi * 0.04;
     const onKlorlamaTank = Math.ceil((onKlorlamaDozaj * 24 * 3) / 50) * 50;
 
@@ -101,19 +96,19 @@ function FiltrasyonDetail() {
   useEffect(() => {
     if (anaGunlukDebi === 0) return;
 
-    // Sadece senden istenen tertemiz minimal JSON veri modeli
+    // İstediğin filtre modelleri "SecilenFiltreler" yapısı altında store'a ekleniyor
     const filtrasyonOzeti = {
       calismaSaati: activeCalismaSaati,
       sistemAdet: hesaplananDegerler.sistemAdet,
 
-      // Dozaj Ünitesi (Hat başına kapasite ve sabit 5 bar)
+      // Dozaj Ünitesi
       onKlorlama: {
         debiLH: parseFloat(hesaplananDegerler.onKlorlamaDozaj.toFixed(2)),
         basincBar: 5,
         tankLitre: hesaplananDegerler.onKlorlamaTank
       },
 
-      // Pompalar (Hat başına debi ve kw değerleri)
+      // Pompalar
       pompalar: {
         besleme: {
           debiM3h: parseFloat(hesaplananDegerler.hatSaatlikDebi.toFixed(2)),
@@ -125,7 +120,23 @@ function FiltrasyonDetail() {
         }
       },
 
-      // 3 Filtre için Ortak Gövde Tasarım Debisi
+      // İstenen Filtre Grubu Yapısı
+      SecilenFiltreler: {
+        seperatorFiltre: {
+          isim: "SEPERATÖR FİLTRE",
+          debiM3h: hesaplananDegerler.filtreModel
+        },
+        kumFiltre: {
+          isim: "KUM FİLTRE SİSTEMİ",
+          debiM3h: hesaplananDegerler.filtreModel
+        },
+        aktifKarbonFiltre: {
+          isim: "AKTİF KARBON FİLTRE SİSTEMİ",
+          debiM3h: hesaplananDegerler.filtreModel
+        }
+      },
+
+      // Geriye dönük uyumluluk bozulmasın diye eski tekil alan da korunuyor
       filtreler: {
         debiM3h: hesaplananDegerler.filtreModel
       }
@@ -165,8 +176,6 @@ function FiltrasyonDetail() {
       {/* ANA PARAMETRE GİRİŞ PANELİ */}
       <div className="p-3 rounded" style={{ backgroundColor: "#0f172a", border: "1px solid #1e293b" }}>
         <div className="row g-3 align-items-end">
-
-          {/* SOL TARAF: FORM GİRDİLERİ (Genişlik: 5/12) */}
           <div className="col-xl-5 col-md-6 col-12 border-end-md" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
             <div className="row g-2">
               <div className="col-6">
@@ -191,10 +200,8 @@ function FiltrasyonDetail() {
             </div>
           </div>
 
-          {/* SAĞ TARAF: YAN YANA DURACAK HESAPLANAN DEĞERLER (Genişlik: 7/12) */}
           <div className="col-xl-7 col-md-6 col-12">
             <div className="row g-2">
-              {/* 1. Toplam Tasarım Debisi */}
               <div className="col-4">
                 <label className="form-label mb-1 text-white-50" style={{ fontSize: "11px" }}>Toplam Tasarım Debisi</label>
                 <div className="form-control form-control-sm text-success fw-bold border-0 text-center d-flex align-items-center justify-content-center"
@@ -203,7 +210,6 @@ function FiltrasyonDetail() {
                 </div>
               </div>
 
-              {/* 2. Gerekli Sistem Adedi */}
               <div className="col-4">
                 <label className="form-label mb-1 text-warning" style={{ fontSize: "11px" }}>Gerekli Sistem Adedi</label>
                 <div className="form-control form-control-sm text-warning fw-bold border-0 text-center d-flex align-items-center justify-content-center"
@@ -212,7 +218,6 @@ function FiltrasyonDetail() {
                 </div>
               </div>
 
-              {/* 3. Hat Başına Tasarım Debisi */}
               <div className="col-4">
                 <label className="form-label mb-1 text-info" style={{ fontSize: "11px" }}>Hat Başına Tasarım Debisi</label>
                 <div className="form-control form-control-sm text-info fw-bold border-0 text-center d-flex align-items-center justify-content-center"
@@ -222,13 +227,12 @@ function FiltrasyonDetail() {
               </div>
             </div>
           </div>
-
         </div>
       </div>
 
       {/* --- EKİPMAN KRİTİK GÖRSEL PANELİ --- */}
       <div className="card-body d-flex flex-column gap-3" style={{ padding: 0 }}>
-
+        
         {/* 2: ÖN KLORLAMA VE SOLÜSYON TANKI */}
         <div className="d-flex flex-column gap-2">
           <div className="d-flex align-items-center">

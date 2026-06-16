@@ -32,9 +32,8 @@ function AnaUnite() {
   return (
     <div>
       <div className="d-flex justify-content-between align-items-center mb-3">
-        <span className="text-white fw-bold">Excel Modu: Hücreleri sürükleyerek seçebilir, Excel'den kopyalayıp yapıştırabilirsiniz (Ctrl+C / Ctrl+V).</span>
         <button className="btn btn-success btn-sm px-4" onClick={handleSave}>
-          <i className="bi bi-file-earmark-excel me-2"></i>Değişiklikleri Kaydet
+          <i className="bi bi-file-earmark-excel me-2"></i>Kaydet
         </button>
       </div>
       <ExcelGrid headers={headers} data={anaUniteler} fields={fields} onDataChange={setAnaUniteler} />

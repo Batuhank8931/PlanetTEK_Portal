@@ -1,67 +1,98 @@
 const jwt = require("jsonwebtoken");
-const fs = require("fs");
-const path = require("path");
+const bcrypt = require("bcrypt");
+const mysql = require("mysql2/promise");
 
-const appBase = process.pkg
-  ? path.dirname(process.execPath)   // EXE'nin bulunduğu klasör
-  : path.join(__dirname, "..");      // Normal çalışma
+// DB Pool Yapılandırması
+const pool = mysql.createPool({
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  waitForConnections: true,
+  connectionLimit: 10,
+});
 
-// Base path: exe ile aynı dizinde data klasörü
-
-const basePath = path.join(appBase, "data");
-
-
-const filePath = path.join(basePath, "users.json");
-
-const SECRET_KEY = "my_super_secret_key"; // ideally use process.env.TOKEN_KEY in production
+const SECRET_KEY = process.env.JWT_SECRET;
 
 const loginHandler = async (req, res) => {
   const { username, password } = req.body;
 
+  // CERT: Girdi Doğrulama
+  if (!username || !password) {
+    return res.status(400).json({ message: "Kullanıcı adı veya şifre eksik." });
+  }
+
   try {
-    // Read users.json
-    const data = fs.readFileSync(filePath, "utf8");
-    const parsed = JSON.parse(data);
-
-    // Safely access users array
-    const users = parsed.users || [];
-
-    // Find matching user by name (case-insensitive)
-    const user = users.find(
-      (u) => u.user_name.toLowerCase() === username.toLowerCase()
+    // CWE-89: Prepared Statement ile kullanıcı kontrolü
+    const [rows] = await pool.execute(
+      "SELECT id, isim, eposta, sifre_hash, rol, durum FROM users WHERE isim = ? LIMIT 1",
+      [username.trim()]
     );
 
-    if (!user) {
-      return res.status(401).json({ message: "Invalid username" });
+    // OWASP & CWE-204: Kullanıcı yoksa jenerik mesaj
+    if (rows.length === 0) {
+      return res.status(401).json({ message: "Kullanıcı adı veya şifre hatalı." });
     }
 
-    if (user.password !== password) {
-      return res.status(401).json({ message: "Invalid password" });
+    const user = rows[0];
+
+    // Kullanıcı Durum Kontrolü
+    if (user.durum !== "Aktif") {
+      return res.status(403).json({ message: "Hesabınız aktif değil veya askıya alınmış." });
     }
 
-    // Generate JWT token
-    const token = jwt.sign(
-      {
-        user_id: user.user_id,
-        username: user.user_name,
-        role: user.user_role,
-      },
+    // CWE-257: Güvenli Şifre Karşılaştırma
+    const match = await bcrypt.compare(password, user.sifre_hash);
+    if (!match) {
+      return res.status(401).json({ message: "Kullanıcı adı veya şifre hatalı." });
+    }
+
+    // 🌟 1. Access Token (1 Saat Geçerli)
+    const accessToken = jwt.sign(
+      { id: user.id, role: user.rol },
       SECRET_KEY,
-      { expiresIn: "90d" }
+      { expiresIn: "1h", algorithm: "HS256" } 
     );
 
-    // Send token and user info
-    return res.json({
-      token,
-      user: {
-        id: user.user_id,
-        username: user.user_name,
-        role: user.user_role,
-      },
+    // 🌟 2. Refresh Token (7 Gün Geçerli)
+    const refreshToken = jwt.sign(
+      { id: user.id },
+      SECRET_KEY,
+      { expiresIn: "7d", algorithm: "HS256" }
+    );
+
+    // 💾 DB GÜNCELLEME: Veritabanındaki 'token' kolonuna Refresh Token'ı gömüyoruz
+    await pool.execute(
+      "UPDATE users SET token = ?, sonGiris = NOW() WHERE id = ?", 
+      [refreshToken, user.id]
+    );
+
+    // 🍪 DEVELOPMENT UYUMLU COOKIE AYARLARI
+    // secure: false -> HTTP protokolünde (local IP'lerde) çerezin yazılmasını sağlar.
+    // sameSite: "lax" -> Tarayıcının yerel ağdaki isteklerde çerezi kabul etmesini sağlar.
+    
+    res.cookie("accessToken", accessToken, {
+      httpOnly: true, 
+      secure: false, // 🔓 Kilit kaldırıldı! Local http isteklerinde çalışır.
+      sameSite: "lax", // 🔓 Local IP transferine izin verildi.
+      maxAge: 60 * 60 * 1000, // 1 saat
     });
+
+    res.cookie("refreshToken", refreshToken, {
+      httpOnly: true,
+      secure: false, // 🔓 Kilit kaldırıldı!
+      sameSite: "lax", // 🔓
+      maxAge: 7 * 24 * 60 * 60 * 1000, // 7 gün
+    });
+
+    return res.json({
+      message: "Giriş başarılı.",
+      user: { id: user.id, name: user.isim, role: user.rol },
+    });
+
   } catch (error) {
-    console.error("Login Error:", error);
-    return res.status(500).json({ message: "Internal server error" });
+    console.error("Authentication Error:", error.message);
+    return res.status(500).json({ message: "Giriş işlemi sırasında teknik bir hata oluştu." });
   }
 };
 

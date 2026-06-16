@@ -12,7 +12,7 @@ function SistemSemasi({
 }) {
     return (
         <div className="p-1 my-2 rounded bg-dark" style={{ border: "1px solid rgba(255,255,255,0.05)", display: "flex", flexDirection: "row", alignItems: "stretch", justifyContent: "space-around", gap: "8px", overflowX: "auto", width: "100%" }}>
-            
+
             {/* CSS ANIMATION INJECT: Kırmızı yanıp sönme efekti için custom keyframe */}
             <style>{`
                 @keyframes red-input-glow {
@@ -73,7 +73,15 @@ function SistemSemasi({
 
                             {/* ADET VE HRT BİLGİSİ */}
                             <div className="fw-bold text-center w-100 mt-1" style={{ fontSize: "11px", color: sira.textColor, minHeight: "44px" }}>
-                                {sira.isLamella ? `${sira.adet} x ${sira.model}` : `${sira.adet} Adet`}
+                                {sira.isLamella ? (
+                                    <div>
+                                        <div>{sira.adet} adet</div>
+                                        <div className="text" style={{ fontSize: "10px" }}>{sira.model}</div>
+                                    </div>
+                                ) : (
+                                    `${sira.adet} Adet`
+                                )}
+
                                 {!sira.isLamella && (
                                     <div
                                         style={{
@@ -99,7 +107,7 @@ function SistemSemasi({
                                                 </div>
                                                 <div style={{ width: "0", height: "0", borderLeft: "20px solid transparent", borderRight: "20px solid transparent", borderTop: "11px solid #0f766e", position: "relative" }} />
                                             </div>
-                                            <span style={{ fontSize: "9px", color: "#2dd4bf", fontWeight: "bold", marginTop: "4px" }}>Lamella-{i + 1}</span>
+                                            <span style={{ fontSize: "9px", color: "#2dd4bf", fontWeight: "bold", marginTop: "4px" }}>{sira.model}</span>
                                         </div>
                                     ) : (
                                         // --- ÜNİTE (RBC) GÖRSELİ ---
