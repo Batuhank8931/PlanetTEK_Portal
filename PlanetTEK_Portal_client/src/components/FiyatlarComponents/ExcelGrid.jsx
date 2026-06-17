@@ -15,7 +15,6 @@ const ExcelGrid = ({ headers, data, fields, onDataChange }) => {
 
   const parseNumber = (str) => {
     if (!str) return 0;
-    // İçindeki noktaları temizle, excel'den virgüllü geldiyse noktaya çevir
     const cleanStr = str.toString().replace(/\./g, "").replace(",", ".").trim();
     const num = Number(cleanStr);
     return isNaN(num) ? 0 : num;
@@ -44,20 +43,20 @@ const ExcelGrid = ({ headers, data, fields, onDataChange }) => {
     return cells.some(cell => cell.row === row && cell.col === col);
   };
 
-  // --- Seçili Hücreleri Delete İle Temizleme ---
+  // --- Seçili Hücreleri Silme (Delete) ---
   useEffect(() => {
     const onKeyDown = (e) => {
       if (e.key !== "Delete") return;
-      if (!selection.start || editingCell.row !== null) return; // Hücre içi düzenlemedeyse silmesin
+      if (!selection.start || editingCell.row !== null) return;
 
       const cells = getSelectionCells();
       onDataChange(prev => {
         const updated = [...prev];
         cells.forEach(({ row, col }) => {
-          if (col === 0) return; // İsim/Kapasite kolonu silinmesin
-          const key = fields[col - 1];
+          if (col === 0) return; 
+          const key = fields[col - 1]; // Seçim alanında sanal kolon (col) kullanıldığı için -1 kalıyor
           if (key) {
-            updated[row] = { ...updated[row], [key]: 0 }; // Fiyatı sıfırla
+            updated[row] = { ...updated[row], [key]: 0 };
           }
         });
         return updated;
@@ -68,10 +67,9 @@ const ExcelGrid = ({ headers, data, fields, onDataChange }) => {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [selection, fields, editingCell, onDataChange]);
 
-  // --- Yerel Copy / Paste Event Manipülasyonu ---
+  // --- Kopyala / Yapıştır Eventleri ---
   useEffect(() => {
     const onCopy = (e) => {
-      // Eğer kullanıcı bir hücrenin içinde metin seçiyorsa kopyalamayı bozma
       if (document.activeElement.getAttribute("contenteditable") === "true") return;
 
       const cells = getSelectionCells();
@@ -82,7 +80,6 @@ const ExcelGrid = ({ headers, data, fields, onDataChange }) => {
 
       cells.forEach(({ row, col }) => {
         if (!rowGroups[row]) rowGroups[row] = [];
-        // İlk kolon metin, diğerleri sayı formatlı hali veya ham veri
         const val = col === 0 ? (data[row].name || data[row].kapasite || data[row].tipi || data[row].ad) : (data[row][fields[col - 1]] || 0);
         rowGroups[row].push({ col, val });
       });
@@ -98,7 +95,6 @@ const ExcelGrid = ({ headers, data, fields, onDataChange }) => {
     };
 
     const onPaste = (e) => {
-      // Hücre içine odaklanıp çift tıklanmışsa standart yapıştırmaya izin ver
       if (document.activeElement.getAttribute("contenteditable") === "true") return;
 
       const text = e.clipboardData.getData("text/plain");
@@ -114,11 +110,11 @@ const ExcelGrid = ({ headers, data, fields, onDataChange }) => {
 
         rows.forEach((rowVals, i) => {
           const rIndex = start.row + i;
-          if (rIndex >= updated.length) return; // Mevcut satır sayısını aşmasın
+          if (rIndex >= updated.length) return;
 
           rowVals.forEach((val, j) => {
             const cIndex = start.col + j;
-            if (cIndex === 0) return; // İlk kolona (İsim/Kapasite) yapıştırma yapılmasın
+            if (cIndex === 0) return;
 
             const key = fields[cIndex - 1];
             if (key) {
@@ -145,8 +141,11 @@ const ExcelGrid = ({ headers, data, fields, onDataChange }) => {
     };
   }, [selection, data, fields, onDataChange]);
 
+  // 🚀 Blur olduğunda doğrudan döngüdeki saf colIndex parametresini kullanıyoruz
   const handleCellBlur = (rowIndex, colIndex, textValue) => {
-    const columnKey = fields[colIndex - 1];
+    const columnKey = fields[colIndex]; 
+    if (!columnKey) return;
+
     onDataChange(prev => {
       const updated = [...prev];
       updated[rowIndex] = {
@@ -158,7 +157,6 @@ const ExcelGrid = ({ headers, data, fields, onDataChange }) => {
     setEditingCell({ row: null, col: null });
   };
 
-  // --- ŞIK KOYU TEMA STİLLERİ ---
   const gridTableStyle = {
     borderCollapse: "collapse",
     width: "100%",
@@ -197,12 +195,11 @@ const ExcelGrid = ({ headers, data, fields, onDataChange }) => {
         <tbody>
           {data.map((row, rowIndex) => (
             <tr key={rowIndex} style={{ borderBottom: "1px solid #334155" }}>
-              {/* Satır Numarası */}
               <td style={{ ...thStyle, backgroundColor: "#0f172a", fontWeight: "bold", color: "#64748b" }}>
                 {rowIndex + 1}
               </td>
 
-              {/* Sabit İsim Kolonu (Seçilebilir ama verisi paste ile ezilemez) */}
+              {/* Sabit İsim Hücresi */}
               <td
                 onMouseDown={() => {
                   setIsDragging(true);
@@ -226,9 +223,9 @@ const ExcelGrid = ({ headers, data, fields, onDataChange }) => {
 
               {/* Düzenlenebilir Fiyat Hücreleri */}
               {fields.map((field, colIndex) => {
-                const realColIndex = colIndex + 1; // İsim kolonundan ötürü 1 kaydırıyoruz
-                const isSelected = isCellSelected(rowIndex, realColIndex);
-                const isEditing = editingCell.row === rowIndex && editingCell.col === realColIndex;
+                const virtualColIndex = colIndex + 1; 
+                const isSelected = isCellSelected(rowIndex, virtualColIndex);
+                const isEditing = editingCell.row === rowIndex && editingCell.col === virtualColIndex;
 
                 return (
                   <td
@@ -236,24 +233,24 @@ const ExcelGrid = ({ headers, data, fields, onDataChange }) => {
                     contentEditable={isEditing}
                     suppressContentEditableWarning
                     onDoubleClick={(e) => {
-                      setEditingCell({ row: rowIndex, col: realColIndex });
-                      // Çift tıklandığında içindeki sayıyı ham metin yap ki nokta kriz yaratmasın
+                      setEditingCell({ row: rowIndex, col: virtualColIndex });
                       e.currentTarget.innerText = row[field] || "";
                     }}
-                    onBlur={(e) => handleCellBlur(rowIndex, realColIndex, e.currentTarget.innerText)}
+                    // 🚀 Saf colIndex'i paslayarak indeks taşmasını önlüyoruz
+                    onBlur={(e) => handleCellBlur(rowIndex, colIndex, e.currentTarget.innerText)}
                     onMouseDown={() => {
                       if (isEditing) return;
                       setIsDragging(true);
                       setSelection({
-                        start: { row: rowIndex, col: realColIndex },
-                        end: { row: rowIndex, col: realColIndex }
+                        start: { row: rowIndex, col: virtualColIndex },
+                        end: { row: rowIndex, col: virtualColIndex }
                       });
                     }}
                     onMouseEnter={() => {
                       if (!isDragging || isEditing) return;
                       setSelection(prev => ({
                         ...prev,
-                        end: { row: rowIndex, col: realColIndex }
+                        end: { row: rowIndex, col: virtualColIndex }
                       }));
                     }}
                     style={{

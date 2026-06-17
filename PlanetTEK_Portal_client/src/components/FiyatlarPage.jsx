@@ -1,13 +1,27 @@
 import React, { useState } from "react";
+import { motion, AnimatePresence } from "framer-motion"; // Animasyon için eklendi
 import AnaUnite from "./FiyatlarComponents/AnaUnite";
 import Izgara from "./FiyatlarComponents/Izgara";
 import Lamella from "./FiyatlarComponents/Lamella";
-import KapakGovde from "./FiyatlarComponents/KapakGovde";
 import DebiDagitim from "./FiyatlarComponents/DebiDagitim";
 import IscilikMaliyetleri from "./FiyatlarComponents/IscilikMaliyetleri";
+import Filtration from "./FiyatlarComponents/Filtration";
+import DalgicPompa from "./FiyatlarComponents/DalgicPompa";
 
 function FiyatlarPage() {
   const [activeTab, setActiveTab] = useState("anaUniteler");
+
+  // Sekme verilerini bir array haline getirerek kodu daha temiz hale getirdik
+  const tabs = [
+    { id: "anaUniteler", label: "Ana Üniteler & Panolar" },
+    { id: "izgaralar", label: "Kapasite & Izgaralar" },
+    { id: "lamellalar", label: "Lamella Grupları" },
+    { id: "debiDagitim", label: "Debi Dağıtım (Çıkışlar)" },
+    { id: "iscilik", label: "İşçilik Maliyetleri" },
+    { id: "dalgicpompa", label: "Dalgıç Pompa" },
+    { id: "filtration", label: "Filtrasyon" },
+
+  ];
 
   return (
     <div
@@ -28,36 +42,64 @@ function FiyatlarPage() {
         </div>
       </div>
 
-      {/* DİNAMİK GRUP SEKMELERİ (TABS) */}
-      <div className="d-flex flex-wrap gap-2 mb-4">
-        <button className={`btn btn-sm ${activeTab === "anaUniteler" ? "btn-info text-dark fw-bold" : "btn-outline-secondary text-white"}`} onClick={() => setActiveTab("anaUniteler")}>
-          1. Ana Üniteler &amp; Panolar
-        </button>
-        <button className={`btn btn-sm ${activeTab === "izgaralar" ? "btn-info text-dark fw-bold" : "btn-outline-secondary text-white"}`} onClick={() => setActiveTab("izgaralar")}>
-          2. Kapasite &amp; Izgaralar
-        </button>
-        <button className={`btn btn-sm ${activeTab === "lamellalar" ? "btn-info text-dark fw-bold" : "btn-outline-secondary text-white"}`} onClick={() => setActiveTab("lamellalar")}>
-          3. Lamella Grupları
-        </button>
-        <button className={`btn btn-sm ${activeTab === "paslanmazKapak" ? "btn-info text-dark fw-bold" : "btn-outline-secondary text-white"}`} onClick={() => setActiveTab("paslanmazKapak")}>
-          4. Paslanmaz &amp; Kapak-Gövde
-        </button>
-        <button className={`btn btn-sm ${activeTab === "debiDagitim" ? "btn-info text-dark fw-bold" : "btn-outline-secondary text-white"}`} onClick={() => setActiveTab("debiDagitim")}>
-          5. Debi Dağıtım (Çıkışlar)
-        </button>
-        <button className={`btn btn-sm ${activeTab === "iscilik" ? "btn-info text-dark fw-bold" : "btn-outline-secondary text-white"}`} onClick={() => setActiveTab("iscilik")}>
-          6. İşçilik Maliyetleri
-        </button>
+      {/* MODERN DİNAMİK GRUP SEKMELERİ */}
+      <div
+        className="d-flex flex-wrap p-1 mb-4 rounded-3"
+        style={{ backgroundColor: "#0f172a", border: "1px solid #334155", gap: "4px" }}
+      >
+        {tabs.map((tab) => {
+          const isActive = activeTab === tab.id;
+          return (
+            <button
+              key={tab.id}
+              className="btn btn-sm position-relative border-0 px-3 py-2 fw-medium transition-all"
+              style={{
+                color: isActive ? "#0f172a" : "#94a3b8",
+                zIndex: 1,
+                borderRadius: "6px",
+                backgroundColor: "transparent"
+              }}
+              onClick={() => setActiveTab(tab.id)}
+            >
+              {/* Aktif sekme arkasındaki kayan arka plan animasyonu */}
+              {isActive && (
+                <motion.div
+                  layoutId="activeTabBackground"
+                  className="position-absolute top-0 start-0 w-100 h-100"
+                  style={{
+                    backgroundColor: "#22d3ee", // btn-info rengine yakın modern bir cyan
+                    borderRadius: "6px",
+                    zIndex: -1,
+                  }}
+                  transition={{ type: "spring", stiffness: 380, damping: 30 }}
+                />
+              )}
+              {tab.label}
+            </button>
+          );
+        })}
       </div>
 
-      {/* SEKMEYE GÖRE İLGİLİ BİLEŞENİN ÇAĞRILMASI */}
-      <div className="tab-content">
-        {activeTab === "anaUniteler" && <AnaUnite />}
-        {activeTab === "izgaralar" && <Izgara />}
-        {activeTab === "lamellalar" && <Lamella />}
-        {activeTab === "paslanmazKapak" && <KapakGovde />}
-        {activeTab === "debiDagitim" && <DebiDagitim />}
-        {activeTab === "iscilik" && <IscilikMaliyetleri />}
+      {/* SEKMEYE GÖRE İÇERİK GEÇİŞ ANİMASYONU */}
+      <div className="tab-content overflow-hidden">
+        <AnimatePresence mode="wait">
+          <motion.div
+            key={activeTab} // Key değiştiğinde Framer Motion animasyonu tetikler
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -10 }}
+            transition={{ duration: 0.2, ease: "easeInOut" }}
+          >
+            {activeTab === "anaUniteler" && <AnaUnite />}
+            {activeTab === "izgaralar" && <Izgara />}
+            {activeTab === "lamellalar" && <Lamella />}
+            {activeTab === "debiDagitim" && <DebiDagitim />}
+            {activeTab === "iscilik" && <IscilikMaliyetleri />}
+            {activeTab === "dalgicpompa" && <DalgicPompa />}
+            {activeTab === "filtration" && <Filtration />}
+
+          </motion.div>
+        </AnimatePresence>
       </div>
     </div>
   );

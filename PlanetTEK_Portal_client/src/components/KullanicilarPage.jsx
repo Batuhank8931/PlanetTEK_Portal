@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import AddPutKullanici from "./KullaniciComponents/AddPutKullanici";
 import API from "../utils/utilRequest"; // 🚀 Doğru CRUD servis dosyamıza bağladık
+import { AnimatePresence } from "framer-motion";
 
 function KullanicilarPage() {
   // 💾 Verileri artık statik array yerine boş state olarak başlatıyoruz
@@ -351,12 +352,16 @@ function KullanicilarPage() {
       )}
 
       {/* DIŞARIYA ALINAN EKLEME/DÜZENLEME PENCERESİ */}
-      <AddPutKullanici
-        isOpen={isPanelOpen}
-        onClose={() => setIsPanelOpen(false)}
-        selectedUser={selectedUser}
-        onSave={handleSaveUser}
-      />
+      <AnimatePresence>
+        {isPanelOpen && (
+          <AddPutKullanici
+            isOpen={isPanelOpen}
+            onClose={() => setIsPanelOpen(false)}
+            selectedUser={selectedUser}
+            onSave={handleSaveUser}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { motion } from "framer-motion"; // 🚀 Framer Motion eklendi
 
 const EMPTY_FORM_STATE = {
     id: null,
@@ -7,25 +8,21 @@ const EMPTY_FORM_STATE = {
     rol: "Satış Temsilcisi",
     durum: "Aktif",
     departman: "Satış",
-    password: "" // 🔑 Şifre alanını state'e dahil ettik
+    password: "" 
 };
 
 function AddPutKullanici({ isOpen, onClose, selectedUser, onSave }) {
     const [formData, setFormData] = useState(EMPTY_FORM_STATE);
-    const [showPassword, setShowPassword] = useState(false); // Göz ikonu kontrolü
+    const [showPassword, setShowPassword] = useState(false); 
 
-    // Düzenleme veya Ekleme moduna geçişte formu doldur/temizle
     useEffect(() => {
         if (selectedUser) {
-            // Düzenleme modunda şifre alanını boş başlatıyoruz ki kazara eski hash görünmesin
             setFormData({ ...selectedUser, password: "" });
         } else {
             setFormData(EMPTY_FORM_STATE);
         }
-        setShowPassword(false); // Panel her açılıp kapandığında şifreyi gizle
+        setShowPassword(false); 
     }, [selectedUser, isOpen]);
-
-    if (!isOpen) return null;
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -37,7 +34,6 @@ function AddPutKullanici({ isOpen, onClose, selectedUser, onSave }) {
         onSave(formData);
     };
 
-    // Form inputları için ortak koyu mod stili
     const inputStyle = {
         padding: "0.55rem 0.75rem",
         backgroundColor: "#0f172a",
@@ -48,15 +44,23 @@ function AddPutKullanici({ isOpen, onClose, selectedUser, onSave }) {
 
     return (
         <>
-            {/* Backdrop Gölgeliği */}
-            <div
+            {/* 🚀 Backdrop Gölgeliği (Yumuşak Opaklık Geçişi) */}
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.25 }}
                 className="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-50"
-                style={{ zIndex: 1040, backdropFilter: "blur(4px)", transition: "all 0.3s ease" }}
+                style={{ zIndex: 1040, backdropFilter: "blur(4px)" }}
                 onClick={onClose}
             />
 
-            {/* Panel Gövdesi */}
-            <div
+            {/* 🚀 Panel Gövdesi (Sağdan Kayarak Giriş/Çıkış) */}
+            <motion.div
+                initial={{ x: "100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "100%" }}
+                transition={{ type: "spring", damping: 25, stiffness: 200 }}
                 className="position-fixed top-0 end-0 h-100 shadow overflow-y-auto text-white"
                 style={{
                     zIndex: 1050,
@@ -135,7 +139,6 @@ function AddPutKullanici({ isOpen, onClose, selectedUser, onSave }) {
                         </div>
                     </div>
 
-                    {/* 🔑 DİNMAK ŞİFRE ALANI (OWASP/CWE-257 GÜVENLİĞİ) */}
                     <div className="mb-3">
                         <label className="form-label mb-1 fw-medium" style={{ fontSize: "12px", color: "#cbd5e1" }}>
                             {formData?.id ? "Şifre Değiştir (Opsiyonel)" : "Giriş Şifresi *"}
@@ -145,7 +148,6 @@ function AddPutKullanici({ isOpen, onClose, selectedUser, onSave }) {
                                 <i className="bi bi-lock text-white-50" style={{ fontSize: "14px" }}></i>
                             </span>
                             <input
-                                // Yeni kullanıcı ekleniyorsa zorunlu, düzenleme yapılıyorsa isteğe bağlı!
                                 required={!formData?.id}
                                 type={showPassword ? "text" : "password"}
                                 name="password"
@@ -238,7 +240,7 @@ function AddPutKullanici({ isOpen, onClose, selectedUser, onSave }) {
                         </button>
                     </div>
                 </form>
-            </div>
+            </motion.div>
         </>
     );
 }

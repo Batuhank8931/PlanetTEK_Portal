@@ -99,9 +99,7 @@ function CalculationPage() {
           <h5 className="mb-1 fw-semibold tracking-tight" style={{ color: "#ffffff" }}>
             <i className="bi bi-sliders me-2" style={{ color: "#00874e" }}></i>Hesaplama Parametreleri ve Katsayı Ayarları
           </h5>
-          <p className="small mb-0" style={{ color: "#94a3b8" }}>
-            Maliyet hesaplama modülünün arka planda kullandığı dinamik sınır matrislerini ve kinetik çarpanları buradan revize edebilirsiniz.
-          </p>
+
         </div>
       </div>
 

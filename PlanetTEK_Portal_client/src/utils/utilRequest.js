@@ -20,6 +20,10 @@ crudClient.interceptors.request.use((config) => {
 applyAutoAuthInterceptor(crudClient);
 
 const API = {
+    // ==========================================
+    // 👥 KULLANICI CRUD İSTEKLERİ
+    // ==========================================
+
     // 🔍 1. Kullanıcı Listeleme (GET api/user)
     getUser: async (userId = null) => {
         const url = userId ? `api/user?id=${userId}` : "api/user";
@@ -50,6 +54,65 @@ const API = {
     // ❌ 4. Kullanıcı Silme (DELETE api/user/:id)
     deleteUser: async (userId) => {
         return crudClient.delete(`api/user/${userId}`);
+    },
+
+    // ==========================================
+    // 💰 FİYAT VE PARAMETRE (PRICE DATA) İSTEKLERİ
+    // ==========================================
+
+    // 🔍 Main Units Listesi Getir
+    getMainUnits: async () => {
+        return crudClient.get("api/price/main-units");
+    },
+
+    // 🔍 Screen Data Listesi Getir
+    getScreenData: async () => {
+        return crudClient.get("api/price/screen-data");
+    },
+
+    // 🔍 Lamella Data Listesi Getir
+    getLamellaData: async () => {
+        return crudClient.get("api/price/lamella-data");
+    },
+
+    // 🔍 Stainless Steel Data Listesi Getir
+    getStainlessSteelData: async () => {
+        return crudClient.get("api/price/stainless-steel");
+    },
+
+    // 🔍 Flow Distribution Listesi Getir
+    getFlowDistribution: async () => {
+        return crudClient.get("api/price/flow-distribution");
+    },
+
+    // 🔍 Unit Labor Costs Listesi Getir
+    getUnitLaborCosts: async () => {
+        return crudClient.get("api/price/unit-labor-costs");
+    },
+
+    // 🔍 Unit Labor Costs Listesi Getir
+    getSubmersibleCosts: async () => {
+        return crudClient.get("api/price/submersible-pumps-costs");
+    },
+
+    // 🔍 Unit Labor Costs Listesi Getir
+    getFiltrationCosts: async () => {
+        return crudClient.get("api/price/filtration-costs");
+    },
+
+    // 🔄 Dinamik Fiyat / Parametre Güncelleme (POST api/price/update)
+    updatePriceData: async (payload) => {
+        try {
+            const res = await crudClient.post("api/price/update", payload);
+            return res;
+        } catch (err) {
+            console.error("❌ [API.updatePriceData] Fiyat güncellenirken hata oluştu:", {
+                status: err.response?.status,
+                message: err.message,
+                responseData: err.response?.data
+            });
+            throw err;
+        }
     }
 };
 

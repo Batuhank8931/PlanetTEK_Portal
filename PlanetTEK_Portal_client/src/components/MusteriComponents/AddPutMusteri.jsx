@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { motion } from "framer-motion"; // 🚀 Animasyon için eklendi
 
 const EMPTY_FORM_STATE = {
     id: null,
@@ -17,7 +18,6 @@ const EMPTY_FORM_STATE = {
 function AddPutMusteri({ isOpen, onClose, selectedCustomer, onSave }) {
     const [formData, setFormData] = useState(EMPTY_FORM_STATE);
 
-    // Düzenleme veya Ekleme moduna geçişte formu doldur/temizle
     useEffect(() => {
         if (selectedCustomer) {
             setFormData({ ...selectedCustomer });
@@ -26,7 +26,8 @@ function AddPutMusteri({ isOpen, onClose, selectedCustomer, onSave }) {
         }
     }, [selectedCustomer, isOpen]);
 
-    if (!isOpen) return null;
+    // 🚩 NOT: if (!isOpen) return null; kaldırıldı. 
+    // Animasyonun "exit" (çıkış) kısmının çalışması için bu şartı Parent (AnimatePresence olan yer) yönetmeli.
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -58,7 +59,6 @@ function AddPutMusteri({ isOpen, onClose, selectedCustomer, onSave }) {
         onSave(formData);
     };
 
-    // Form inputları için ortak koyu mod stili
     const inputStyle = {
         padding: "0.55rem 0.75rem",
         backgroundColor: "#0f172a",
@@ -69,15 +69,23 @@ function AddPutMusteri({ isOpen, onClose, selectedCustomer, onSave }) {
 
     return (
         <>
-            {/* Backdrop Gölgeliği */}
-            <div
+            {/* 🚀 Backdrop (Karartı) Animasyonu */}
+            <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                transition={{ duration: 0.25 }}
                 className="position-fixed top-0 start-0 w-100 h-100 bg-dark bg-opacity-50"
-                style={{ zIndex: 1040, backdropFilter: "blur(4px)", transition: "all 0.3s ease" }}
+                style={{ zIndex: 1040, backdropFilter: "blur(4px)" }}
                 onClick={onClose}
             />
 
-            {/* Panel Gövdesi */}
-            <div
+            {/* 🚀 Panel (Sağdan Kayış) Animasyonu */}
+            <motion.div
+                initial={{ x: "100%" }}
+                animate={{ x: 0 }}
+                exit={{ x: "100%" }}
+                transition={{ type: "spring", damping: 25, stiffness: 200 }}
                 className="position-fixed top-0 end-0 h-100 shadow overflow-y-auto text-white"
                 style={{
                     zIndex: 1050,
@@ -85,12 +93,12 @@ function AddPutMusteri({ isOpen, onClose, selectedCustomer, onSave }) {
                     maxWidth: "500px",
                     fontSize: "13px",
                     fontFamily: "-apple-system, BlinkMacSystemFont, sans-serif",
-                    backgroundColor: "#1e293b", // Ana koyu arka plan
+                    backgroundColor: "#1e293b",
                     boxShadow: "-5px 0 25px rgba(0,0,0,0.3)"
                 }}
             >
                 {/* PANEL BAŞLIĞI */}
-                <div 
+                <div
                     className="p-3 border-bottom d-flex justify-content-between align-items-center sticky-top shadow-sm"
                     style={{ backgroundColor: "#0f172a", borderColor: "#334155" }}
                 >
@@ -103,7 +111,7 @@ function AddPutMusteri({ isOpen, onClose, selectedCustomer, onSave }) {
                     <button
                         type="button"
                         onClick={onClose}
-                        className="btn-close btn-close-white" // Koyu mod için beyaz çarpı butonu
+                        className="btn-close btn-close-white"
                         style={{ fontSize: "11px" }}
                     ></button>
                 </div>
@@ -308,7 +316,7 @@ function AddPutMusteri({ isOpen, onClose, selectedCustomer, onSave }) {
                         </button>
                     </div>
                 </form>
-            </div>
+            </motion.div>
         </>
     );
 }

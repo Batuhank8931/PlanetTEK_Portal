@@ -1,6 +1,6 @@
 import React, { useState } from "react";
-
-import { useTeklifStore } from "../utils/teklifStore"; // Store yolunu kontrol edin
+import { motion, AnimatePresence } from "framer-motion"; // Animasyon için eklendi
+import { useTeklifStore } from "../utils/teklifStore";
 
 import SelectCustomer from "./TeklifComponents/SelectCustomer_step_1";
 import SelectPlanetDisk from "./TeklifComponents/SelectPlanetDisk_step_2";
@@ -10,16 +10,13 @@ import SelectFinal from "./TeklifComponents/SelectFinal";
 import SelectionsModal from "./TeklifComponents/SelectionsModal";
 
 function TeklifPage() {
-  // 1. Store'dan sadece formData'yı dinliyoruz
   const formData = useTeklifStore((state) => state.formData);
-
-  // 2. Adım takibini tamamen bu ana komponentin lokal state'ine bırakıyoruz
   const [currentStep, setCurrentStep] = useState(1);
-
-  // Modal görünürlük state'i
   const [showModal, setShowModal] = useState(false);
 
-  // Sabit adım listesi
+  // Animasyon yönünü kontrol etmek için state (Geri basınca sola, ileri basınca sağa kayma hissi için)
+  const [direction, setDirection] = useState(1);
+
   const steps = [
     { id: 1, label: "Müşteri Seçimi", icon: "bi-building" },
     { id: 2, label: "Planet Disk", icon: "bi-disc" },
@@ -28,13 +25,18 @@ function TeklifPage() {
     { id: 5, label: "Özet & Onay", icon: "bi-check2-circle" }
   ];
 
-  // Adım değiştirme fonksiyonları (Lokal state'i günceller)
   const nextStep = () => {
-    if (currentStep < steps.length) setCurrentStep((prev) => prev + 1);
+    if (currentStep < steps.length) {
+      setDirection(1); // İleri yön
+      setCurrentStep((prev) => prev + 1);
+    }
   };
 
   const prevStep = () => {
-    if (currentStep > 1) setCurrentStep((prev) => prev - 1);
+    if (currentStep > 1) {
+      setDirection(-1); // Geri yön
+      setCurrentStep((prev) => prev - 1);
+    }
   };
 
   const handleSubmit = () => {
@@ -42,7 +44,6 @@ function TeklifPage() {
     console.log("Oluşturulan Teklif Verisi: ", formData);
   };
 
-  // Aktif adımı render eden fonksiyon (Proplar temiz, state lokalden geliyor)
   const renderStepComponent = () => {
     switch (currentStep) {
       case 1: return <SelectCustomer />;
@@ -54,6 +55,22 @@ function TeklifPage() {
     }
   };
 
+  // Framer Motion için slayt geçiş varyasyonları
+  const slideVariants = {
+    enter: (direction) => ({
+      x: direction > 0 ? 30 : -30,
+      opacity: 0
+    }),
+    center: {
+      x: 0,
+      opacity: 1
+    },
+    exit: (direction) => ({
+      x: direction > 0 ? -30 : 30,
+      opacity: 0
+    })
+  };
+
   return (
     <div
       className="container-fluid pb-4 min-vh-100"
@@ -61,20 +78,23 @@ function TeklifPage() {
         fontSize: "14px",
         fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
         backgroundColor: "#1a2d3a",
-        paddingTop: window.innerWidth < 768 ? "75px" : "20px"
+        paddingTop: typeof window !== "undefined" && window.innerWidth < 768 ? "75px" : "20px"
       }}
     >
       {/* ÜST BAŞLIK */}
-      <div className="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom" style={{ borderColor: "#dee2e6" }}>
+      <div className="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom" style={{ borderColor: "#334155" }}>
         <div>
           <h5 className="mb-1 fw-semibold tracking-tight" style={{ color: "#ffffff" }}>
-            <i className="bi bi-file-earmark-plus me-2" style={{ color: "#00874e" }}></i> Yeni Teklif Oluştur
+            <i className="bi bi-file-earmark-plus me-2" style={{ color: "#22c55e" }}></i> Yeni Teklif Oluştur
           </h5>
         </div>
       </div>
 
       {/* PROGRESS STEP BAR & AKSİYON BUTONLARI */}
-      <div className="card shadow-sm border-0 p-3 mb-4" style={{ backgroundColor: "transparent" }}>
+      <div 
+        className="p-3 mb-4 rounded-3" 
+        style={{ backgroundColor: "#0f172a", borderColor: "#334155" }}
+      >
         <div className="d-flex align-items-center justify-content-between flex-wrap gap-3">
 
           {/* GERİ BUTONU */}
@@ -85,11 +105,12 @@ function TeklifPage() {
             disabled={currentStep === 1}
             style={{
               borderRadius: "6px",
-              backgroundColor: currentStep === 1 ? "transparent" : "#334155",
-              border: "1px solid #475569",
-              opacity: currentStep === 1 ? 0.4 : 1,
+              backgroundColor: currentStep === 1 ? "transparent" : "#1e293b",
+              border: "1px solid #334155",
+              opacity: currentStep === 1 ? 0.3 : 1,
               color: "#e2e8f0",
-              fontSize: "13px"
+              fontSize: "13px",
+              transition: "all 0.2s"
             }}
           >
             <i className="bi bi-arrow-left me-1.5"></i> Geri
@@ -101,28 +122,44 @@ function TeklifPage() {
               const isActive = currentStep === step.id;
               const isCompleted = currentStep > step.id;
 
-              let textColor = "#94a3b8";
+              let textColor = "#64748b";
               if (isActive) textColor = "#ffffff";
-              if (isCompleted) textColor = "#e2e8f0";
+              if (isCompleted) textColor = "#94a3b8";
 
               return (
-                <div
-                  key={step.id}
-                  className="d-flex align-items-center"
-                  style={{ transition: "all 0.3s" }}
-                >
-                  <div
-                    className="rounded-circle d-flex align-items-center justify-content-center me-2 text-white shadow-sm"
+                <div key={step.id} className="d-flex align-items-center">
+                  {/* Adım Yuvarlağı ve onun animasyonu */}
+                  <motion.div
+                    animate={{
+                      scale: isActive ? 1.1 : 1,
+                      backgroundColor: isActive || isCompleted ? "#22c55e" : "#334155"
+                    }}
+                    transition={{ type: "spring", stiffness: 300, damping: 20 }}
+                    className="rounded-circle d-flex align-items-center justify-content-center me-2 text-white shadow-sm position-relative"
                     style={{
                       width: "28px",
                       height: "28px",
-                      backgroundColor: isActive || isCompleted ? "#00874e" : "#475569",
                       fontSize: "12px",
-                      fontWeight: isActive ? "600" : "400"
+                      fontWeight: isActive ? "600" : "400",
+                      zIndex: 2
                     }}
                   >
                     {isCompleted ? <i className="bi bi-check-lg"></i> : step.id}
-                  </div>
+                    
+                    {/* Aktif adımın arkasında hafif bir parlama efekti */}
+                    {isActive && (
+                      <motion.div
+                        layoutId="activeStepGlow"
+                        className="position-absolute rounded-circle w-100 h-100"
+                        style={{
+                          border: "2px solid #22c55e",
+                          scale: 1.2,
+                          opacity: 0.5,
+                          zIndex: -1
+                        }}
+                      />
+                    )}
+                  </motion.div>
                   <div>
                     <span
                       className={`d-none d-md-inline ${isActive ? "fw-semibold" : "fw-medium"}`}
@@ -148,7 +185,7 @@ function TeklifPage() {
                 type="button"
                 className="btn btn-sm text-white px-3 py-2 fw-bold d-flex align-items-center"
                 onClick={nextStep}
-                style={{ backgroundColor: "#00874e", borderRadius: "6px", border: "none", fontSize: "13px" }}
+                style={{ backgroundColor: "#22c55e", borderRadius: "6px", border: "none", fontSize: "13px" }}
               >
                 İleri <i className="bi bi-arrow-right ms-1.5"></i>
               </button>
@@ -170,7 +207,7 @@ function TeklifPage() {
               onClick={() => setShowModal(true)}
               title="Anlık JSON Çıktısı"
               style={{
-                backgroundColor: "#475569",
+                backgroundColor: "#334155",
                 borderRadius: "6px",
                 fontSize: "14px"
               }}
@@ -182,9 +219,23 @@ function TeklifPage() {
         </div>
       </div>
 
-      {/* MERKEZİ BİLEŞEN KARTI */}
-      <div className="card shadow-sm border-0 mb-4 text-white" style={{ borderRadius: "8px", backgroundColor: "#1a1c1dab" }}>
-        {renderStepComponent()}
+      {/* MERKEZİ BİLEŞEN KARTI VE GEÇİŞ ANİMASYONU */}
+      <div className="overflow-hidden position-relative" style={{ borderRadius: "8px" }}>
+        <AnimatePresence mode="wait" custom={direction}>
+          <motion.div
+            key={currentStep}
+            custom={direction}
+            variants={slideVariants}
+            initial="enter"
+            animate="center"
+            exit="exit"
+            transition={{ duration: 0.25, ease: "easeInOut" }}
+            className="card shadow-sm border-0 text-white"
+            style={{ borderRadius: "8px", backgroundColor: "#1a1c1dab" }}
+          >
+            {renderStepComponent()}
+          </motion.div>
+        </AnimatePresence>
       </div>
 
       {/* SELECTIONS MODAL */}

@@ -37,7 +37,7 @@ export function applyAutoAuthInterceptor(instance) {
                         status: refreshError.response?.status,
                         data: refreshError.response?.data
                     });
-                    window.location.href = "/login"; // Kapalı kalıyor
+                    window.location.href = "/"; // Kapalı kalıyor
                     return Promise.reject(refreshError);
                 }
             }

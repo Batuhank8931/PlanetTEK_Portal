@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from "react";
 import AddPutMusteri from "./MusteriComponents/AddPutMusteri";
+import { AnimatePresence } from "framer-motion";
 
 const INITIAL_CUSTOMERS = [
   {
@@ -348,12 +349,16 @@ function MusterilerPage() {
 
 
       {/* DIŞARIYA ALINAN PENCERE BİLEŞENİ */}
-      <AddPutMusteri
-        isOpen={isPanelOpen}
-        onClose={() => setIsPanelOpen(false)}
-        selectedCustomer={selectedCustomer}
-        onSave={handleSaveCustomer}
-      />
+      <AnimatePresence>
+        {isPanelOpen && (
+          <AddPutMusteri
+            isOpen={isPanelOpen}
+            onClose={() => setIsPanelOpen(false)}
+            selectedCustomer={selectedCustomer}
+            onSave={handleSaveCustomer}
+          />
+        )}
+      </AnimatePresence>
     </div>
   );
 }

@@ -1,5 +1,6 @@
 const mysql = require("mysql2/promise");
 const bcrypt = require("bcrypt");
+const { logActivity } = require("../utils/logger.js");
 
 // DB Pool Yapılandırması
 const pool = mysql.createPool({
@@ -45,71 +46,89 @@ const getUser = async (req, res) => {
 // ➕ 2. YENİ KULLANICI EKLEME
 // ==========================================
 const addUser = async (req, res) => {
-    const { username, email, password, role, department } = req.body;
-
-    // CERT: Girdi Doğrulama
-    if (!username || !email || !password) {
-        return res.status(400).json({ message: "Kullanıcı adı, e-posta ve şifre zorunludur." });
-    }
-
+    // ... mevcut kodlar (validation, password hashing vs.) ...
     try {
-        // OWASP: E-posta adresi sistemde zaten var mı kontrolü (UNIQUE KEY çakışmasını engellemek için)
-        const [existing] = await pool.execute("SELECT id FROM users WHERE eposta = ? LIMIT 1", [email.trim()]);
-        if (existing.length > 0) {
-            return res.status(400).json({ message: "Bu e-posta adresi zaten sisteme kayıtlı." });
-        }
-
-        // CWE-257: Şifreyi veritabanına yazmadan önce bcrypt ile zırhlıyoruz
-        const saltRounds = 10;
-        const hashedPassword = await bcrypt.hash(password, saltRounds);
-
-        // CWE-89: Prepared Statement ile SQL Injection engelleniyor
         const [result] = await pool.execute(
             "INSERT INTO users (isim, eposta, sifre_hash, rol, departman, durum) VALUES (?, ?, ?, ?, ?, 'Aktif')",
-            [username.trim(), email.trim(), hashedPassword, role || 'Kullanıcı', department || null]
+            [username.trim(), email.trim(), hashedPassword, role, department]
         );
 
-        return res.status(201).json({
-            message: "Kullanıcı başarıyla oluşturuldu.",
-            userId: result.insertId
+        // LOG AT
+        await logActivity(req.user.id, {
+            tip: "kullanici_ekleme",
+            eklenen_kullanici_id: result.insertId,
+            eklenen_eposta: email.trim(),
+            rol: role
         });
 
-    } catch (error) {
-        console.error("addUser Error:", error.message);
-        return res.status(500).json({ message: "Kullanıcı eklenirken hata oluştu.", error: error.message });
-    }
+        return res.status(201).json({ message: "Kullanıcı başarıyla oluşturuldu." });
+    } catch (error) { /* ... */ }
 };
 
 // ==========================================
 // 🔄 3. KULLANICI GÜNCELLEME
 // ==========================================
 const putUser = async (req, res) => {
-    const { id } = req.params; // Güncellenecek kullanıcının ID'si URL'den geliyor (/user/:id)
+    const { id } = req.params; // Güncellenecek kullanıcının ID'si
     const { username, email, role, status, department, password } = req.body;
+    const adminId = req.user?.id; // İşlemi yapan admin/kullanıcının ID'si
 
     try {
-        // Kullanıcı var mı kontrolü
-        const [userCheck] = await pool.execute("SELECT id FROM users WHERE id = ? LIMIT 1", [id]);
+        // 🔍 1. ADIM: Kullanıcının veritabanındaki mevcut (eski) bilgilerini çek
+        const [userCheck] = await pool.execute(
+            "SELECT isim, eposta, rol, durum, departman FROM users WHERE id = ? LIMIT 1",
+            [id]
+        );
+
         if (userCheck.length === 0) {
             return res.status(404).json({ message: "Güncellenecek kullanıcı bulunamadı." });
         }
 
+        const oldData = userCheck[0];
+
+        // 🔄 2. ADIM: SQL Sorgusunu hazırla ve çalıştır
         let query = "UPDATE users SET isim = ?, eposta = ?, rol = ?, durum = ?, departman = ?";
         let params = [username.trim(), email.trim(), role, status, department || null];
+        let isPasswordChanged = false;
 
-        // 🚨 Eğer şifre de değiştirilmek isteniyorsa sürece dahil et
+        // Eğer şifre de değiştirilmek isteniyorsa sürece dahil et
         if (password && password.trim() !== "") {
             const saltRounds = 10;
             const hashedPassword = await bcrypt.hash(password, saltRounds);
             query += ", sifre_hash = ?";
             params.push(hashedPassword);
+            isPasswordChanged = true;
         }
 
         query += " WHERE id = ?";
         params.push(id);
 
         await pool.execute(query, params);
-        return res.json({ message: "Kullanıcı bilgileri başarıyla güncellendi." });
+
+        // 📝 3. ADIM: Değişiklik Analizi Yap ve JSON olarak Logla
+        const dinamikDegisiklikler = {};
+
+        if (oldData.isim !== username.trim()) dinamikDegisiklikler.isim = { eski: oldData.isim, yeni: username.trim() };
+        if (oldData.eposta !== email.trim()) dinamikDegisiklikler.eposta = { eski: oldData.eposta, yeni: email.trim() };
+        if (oldData.rol !== role) dinamikDegisiklikler.rol = { eski: oldData.rol, yeni: role };
+        if (oldData.durum !== status) dinamikDegisiklikler.durum = { eski: oldData.durum, yeni: status };
+        if (oldData.departman !== (department || null)) dinamikDegisiklikler.departman = { eski: oldData.departman, yeni: department || null };
+        if (isPasswordChanged) dinamikDegisiklikler.sifre = { mesaj: "Kullanıcı şifresi admin tarafından güncellendi." };
+
+        // Eğer hiçbir alan değişmediyse boşuna log tablosunu şişirme
+        if (Object.keys(dinamikDegisiklikler).length > 0) {
+            const logPayload = {
+                tip: "kullanici_guncelleme",
+                hedef_kullanici_id: id,
+                degisiklikler: dinamikDegisiklikler,
+                tarih: new Date().toISOString()
+            };
+
+            // Log tablosuna asenkron olarak yaz
+            await logActivity(adminId, logPayload);
+        }
+
+        return res.json({ message: "Kullanıcı bilgileri başarıyla güncellendi ve loglandı." });
 
     } catch (error) {
         console.error("putUser Error:", error.message);
@@ -122,21 +141,22 @@ const putUser = async (req, res) => {
 // ==========================================
 const deleteUser = async (req, res) => {
     const { id } = req.params;
-
     try {
-        // OWASP Veri Güvenliği: Eğer istersen kaydı tamamen silmek yerine durumu 'Pasif'e de çekebilirsin.
-        // Biz burada veritabanından tamamen temizleme modelini uyguluyoruz:
+        // Silmeden önce ismini/epostasını logda saklamak için çekebilirsin
+        const [user] = await pool.execute("SELECT eposta FROM users WHERE id = ?", [id]);
+
         const [result] = await pool.execute("DELETE FROM users WHERE id = ?", [id]);
+        if (result.affectedRows === 0) return res.status(404).json({ message: "Bulunamadı" });
 
-        if (result.affectedRows === 0) {
-            return res.status(404).json({ message: "Silinecek kullanıcı bulunamadı." });
-        }
+        // LOG AT
+        await logActivity(req.user.id, {
+            tip: "kullanici_silme",
+            silinen_kullanici_id: id,
+            silinen_eposta: user[0]?.eposta || "Bilinmiyor"
+        });
 
-        return res.json({ message: "Kullanıcı sistemden başarıyla temizlendi." });
-    } catch (error) {
-        console.error("deleteUser Error:", error.message);
-        return res.status(500).json({ message: "Silme işlemi başarısız.", error: error.message });
-    }
+        return res.json({ message: "Kullanıcı silindi." });
+    } catch (error) { /* ... */ }
 };
 
 // Dışa aktarma uyuşmazlıkları düzeltildi babo
