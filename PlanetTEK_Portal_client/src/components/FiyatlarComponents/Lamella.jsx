@@ -5,57 +5,112 @@ import PriceChangeUpdateConfirmationModal from "../modals/PriceChangeUpdateConfi
 
 function Lamella() {
   const [lamellaData, setLamellaData] = useState([]);
-  const [originalData, setOriginalData] = useState([]); // Değişenleri süzmek için kopya data
+  const [originalData, setOriginalData] = useState([]); 
   const [loading, setLoading] = useState(true);
 
   // Modal State Yönetimi
   const [showModal, setShowModal] = useState(false);
   const [pendingChanges, setPendingChanges] = useState([]);
 
-  // ExcelGrid kolon ve alan eşleştirmeleri
+  // 📊 Kolon Yapısı: Başlıklar ve alanlar 1:1 eşleşiyor, sabit kolon yok!
   const headers = ["Lamella Tipi Seçeneği", "Birim Fiyat (€)"];
-  const fields = ["fiyat"];
+  const fields = ["tipi", "fiyat"]; // 'tipi' alanı grid'in ilk düzenlenebilir hücresi oldu
 
-  // 🔍 Bileşen yüklendiğinde verileri API'den çek
+  const fetchLamellaData = async () => {
+    try {
+      setLoading(true);
+      const response = await API.getLamellaData();
+      setLamellaData(response.data);
+      setOriginalData(JSON.parse(JSON.stringify(response.data)));
+    } catch (error) {
+      console.error("Lamella verileri yüklenirken hata oluştu:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchLamellaData = async () => {
-      try {
-        setLoading(true);
-        const response = await API.getLamellaData();
-        setLamellaData(response.data);
-        // İlk halini hafızaya derin kopyalayarak alıyoruz
-        setOriginalData(JSON.parse(JSON.stringify(response.data)));
-      } catch (error) {
-        console.error("Lamella verileri yüklenirken hata oluştu:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchLamellaData();
   }, []);
 
-  // 🔍 Kaydet tuşuna basıldığında sadece değişen hücreleri yakala ve modalı aç
+  // ➕ Yeni Boş Lamella Satırı Ekleme Fonksiyonu
+  const handleAddNewRow = () => {
+    const nextNum = lamellaData.length + 1;
+    const defaultName = `Yeni Lamella Tipi - LS ${nextNum}`;
+
+    const newRow = {
+      id: `new_${Date.now()}`, // Benzersiz geçici ID
+      tipi: defaultName,       // Kullanıcı grid hüresinden bunu değiştirebilecek
+      fiyat: 0,
+      isNew: true
+    };
+    setLamellaData(prev => [...prev, newRow]);
+  };
+
+  // 🛠️ KAYDET BUTONU: Ekleme, Silme ve Güncelleme Fark Ayrıştırma Modülü
   const handleSaveClick = () => {
     const changes = [];
 
     lamellaData.forEach((item) => {
-      const originalItem = originalData.find((o) => o.id === item.id);
+      // ❌ DURUM A: Satır Silinmiş mi? (DELETE)
+      if (item.isDeleted) {
+        if (String(item.id).startsWith("new_")) return; // DB'ye yazılmadan silindiyse pas geç
 
-      if (originalItem && Number(originalItem.fiyat) !== Number(item.fiyat)) {
         changes.push({
+          type: "DELETE",
           tableName: "lamella_data",
           id: item.id,
-          columnName: "fiyat",
-          newValue: Number(item.fiyat),
-          rowName: item.tipi, // "Yurt İçi - LS 8" gibi modalda görünecek ad
-          oldValue: Number(originalItem.fiyat)
+          columnName: "tipi", // Güvenlik duvarı için geçerli placeholder kolon
+          newValue: null,
+          rowName: item.tipi,
+          oldValue: 0
+        });
+        return;
+      }
+
+      // ➕ DURUM B: Yeni Satır mı? (INSERT)
+      if (String(item.id).startsWith("new_")) {
+        changes.push({
+          type: "INSERT",
+          tableName: "lamella_data",
+          id: undefined,
+          columnName: "tipi", // İlk zorunlu tetikleyici alanımız (Tip Adı)
+          newValue: item.tipi,
+          rowName: item.tipi,
+          oldValue: 0,
+          additionalData: {
+            fiyat: Number(item.fiyat) || 0
+          }
+        });
+        return;
+      }
+
+      // 🔄 DURUM C: Mevcut Satır Güncelleme mi? (UPDATE)
+      const originalItem = originalData.find((o) => String(o.id) === String(item.id));
+
+      if (originalItem) {
+        fields.forEach((field) => {
+          const esitMi = field === "tipi"
+            ? String(originalItem[field]).trim() === String(item[field]).trim()
+            : Number(originalItem[field] || 0) === Number(item[field] || 0);
+
+          if (!esitMi) {
+            changes.push({
+              type: "UPDATE",
+              tableName: "lamella_data",
+              id: originalItem.id,
+              columnName: field,
+              newValue: field === "tipi" ? item[field] : Number(item[field]),
+              rowName: item.tipi,
+              oldValue: originalItem[field] || 0
+            });
+          }
         });
       }
     });
 
     if (changes.length === 0) {
-      console.log("Değişen bir lamella verisi bulunamadı.");
+      alert("Değişen bir veri bulunamadı.");
       return;
     }
 
@@ -63,37 +118,35 @@ function Lamella() {
     setShowModal(true);
   };
 
-  // ✅ Modal onay verince istekleri paralel olarak backend'e fırlat
-  // ✅ Onay verilince lamella fiyatlarındaki tüm değişiklikleri tek bir toplu istekte gönder
   const handleConfirmSave = async () => {
     setShowModal(false);
     setLoading(true);
 
     try {
-      // Eğer kaydedilecek bir değişiklik yoksa işlemi durdur
-      if (pendingChanges.length === 0) return;
+      if (pendingChanges.length === 0) {
+        setLoading(false);
+        return;
+      }
 
-      // İlk elemandan tablonun adını güvenle alıyoruz ("lamella_data")
       const targetTableName = pendingChanges[0].tableName;
-
-      // Backend'in beklediği yeni sadeleştirilmiş bulk array formatı
       const updatesPayload = pendingChanges.map((change) => ({
         id: change.id,
         columnName: change.columnName,
-        newValue: change.newValue
+        newValue: change.newValue,
+        additionalData: change.additionalData || undefined
       }));
 
-      // 🚀 Tek istek, tek transaction!
       await API.updatePriceData({
         tableName: targetTableName,
         updates: updatesPayload
       });
 
-      // Güncel durumu yeni referans noktası (orijinalData) olarak mühürle
-      setOriginalData(JSON.parse(JSON.stringify(lamellaData)));
-      setPendingChanges([]); // Bekleyen değişiklikleri temizle
+      // Taptaze verileri DB'den yeniden çekip mühürle
+      await fetchLamellaData();
+      setPendingChanges([]); 
     } catch (error) {
       console.error("Lamella fiyatları güncellenirken teknik hata:", error);
+      alert("Veriler kaydedilirken sistemsel bir hata meydana geldi.");
     } finally {
       setLoading(false);
     }
@@ -109,26 +162,37 @@ function Lamella() {
     );
   }
 
+  const visibleLamellaData = lamellaData.filter(l => !l.isDeleted);
+
   return (
     <div>
-      <div className="d-flex justify-content-end align-items-center mb-3">
-        <button className="btn btn-success btn-sm px-4" onClick={handleSaveClick}>
-          <i className="bi bi-file-earmark-excel me-2"></i>Kaydet
-        </button>
+      <div className="d-flex justify-content-between align-items-center mb-3">
+        <div className="mb-2 d-flex align-items-center" style={{ color: "#94a3b8" }}>
+          <i className="bi bi-layers-half me-2 text-success"></i>
+          <span className="fw-semibold small">Lamella Tipi ve Fiyat Yönetimi</span>
+        </div>
+        <div className="d-flex gap-2">
+          <button className="btn btn-outline-primary btn-sm px-3" onClick={handleAddNewRow}>
+            <i className="bi bi-plus-circle me-2"></i>Yeni Seçenek Ekle
+          </button>
+          <button className="btn btn-success btn-sm px-4" onClick={handleSaveClick}>
+            <i className="bi bi-file-earmark-excel me-2"></i>Kaydet
+          </button>
+        </div>
       </div>
 
       <div className="row justify-content-start">
-        <div className="col-12 col-md-6">
+        <div className="col-12 col-md-7">
           <ExcelGrid
             headers={headers}
-            data={lamellaData}
+            data={visibleLamellaData}
             fields={fields}
             onDataChange={setLamellaData}
+            isMainTable={true} // Aksiyon (Silme) kolonu aktif
           />
         </div>
       </div>
 
-      {/* Şık Antrasit Onay Modalı */}
       <PriceChangeUpdateConfirmationModal
         show={showModal}
         onClose={() => setShowModal(false)}

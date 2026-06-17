@@ -7,6 +7,7 @@ import DebiDagitim from "./FiyatlarComponents/DebiDagitim";
 import IscilikMaliyetleri from "./FiyatlarComponents/IscilikMaliyetleri";
 import Filtration from "./FiyatlarComponents/Filtration";
 import DalgicPompa from "./FiyatlarComponents/DalgicPompa";
+import CamurSusuzlastirma from "./FiyatlarComponents/CamurSusuzlastirma";
 
 function FiyatlarPage() {
   const [activeTab, setActiveTab] = useState("anaUniteler");
@@ -20,7 +21,7 @@ function FiyatlarPage() {
     { id: "iscilik", label: "İşçilik Maliyetleri" },
     { id: "dalgicpompa", label: "Dalgıç Pompa" },
     { id: "filtration", label: "Filtrasyon" },
-
+    { id: "camursusuzlastirma", label: "Çamur Susuzlaştırma" },
   ];
 
   return (
@@ -36,7 +37,7 @@ function FiyatlarPage() {
       {/* BAŞLIK ALANI */}
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 pb-3 border-bottom gap-3" style={{ borderColor: "#334155" }}>
         <div>
-          <h5 className="mb-1 fw-semibold tracking-tight" style={{ color: "#ffffff" }}>
+          <h5 className="mb-1 fw-semibold tracking-tight" style={{ color: "#94a3b8" }}>
             <i className="bi bi-currency-exchange me-2" style={{ color: "#4ade80" }}></i>Fiyat Yönetim Paneli
           </h5>
         </div>
@@ -97,6 +98,7 @@ function FiyatlarPage() {
             {activeTab === "iscilik" && <IscilikMaliyetleri />}
             {activeTab === "dalgicpompa" && <DalgicPompa />}
             {activeTab === "filtration" && <Filtration />}
+            {activeTab === "camursusuzlastirma" && <CamurSusuzlastirma />}
 
           </motion.div>
         </AnimatePresence>

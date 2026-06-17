@@ -15,11 +15,10 @@ function DalgicPompa() {
     const [pendingChanges, setPendingChanges] = useState([]);
 
     const headers = ["Pompa Modeli", "Alış Fiyatı (€)", "Yurt İçi Satış Yİ (€)", "Yurt Dışı Satış YD (€)"];
-    const fields = ["alis_fiyati", "yi_satis", "yd_satis"];
+    const fields = ["pompa_adi", "alis_fiyati", "yi_satis", "yd_satis"];
     const duzenlenebilirFields = ["alis_fiyati"];
 
-    // 📊 Sütun sıralamasına kusursuz hiza: Yİ başta, YD sonda!
-    const oranHeaders = ["Ayar Tipi", "Yurt İçi Satış Oranı (Yİ)", "Yurt Dışı Satış Oranı (YD)"];
+    const oranHeaders = ["Yurt İçi Satış Oranı (Yİ)", "Yurt Dışı Satış Oranı (YD)"];
     const oranFields = ["yi_katsayi", "yd_katsayi"];
 
     const fetchPumpsData = async () => {
@@ -59,20 +58,35 @@ function DalgicPompa() {
         fetchPumpsData();
     }, []);
 
-    // 🛠️ Alış fiyatı elle değiştiğinde anlık satış simülasyonu
-    // 🛠️ Alış fiyatı elle değiştiğinde anlık satış simülasyonu (DÜZELTİLDİ)
+    // ➕ Yeni Boş Satır Ekleme Fonksiyonu
+    const handleAddNewRow = () => {
+        const newRow = {
+            id: `new_${Date.now()}`, // Benzersiz geçici ID
+            name: "Yeni Pompa Modeli", // Kullanıcı grid üzerinde bunu değiştirebilecek
+            alis_fiyati: 0,
+            yi_satis: 0,
+            yd_satis: 0,
+            isNew: true // Yeni satır olduğunu belirtmek için flag
+        };
+        setPumpsData(prev => [...prev, newRow]);
+    };
+
+    // 🛠️ Alış fiyatı veya isim değiştiğinde tetiklenir
     const handleGridDataChange = (newData) => {
-        // ExcelGrid bir functional update callback'i gönderebileceği için güvenle çözüyoruz
         const resolvedData = typeof newData === "function" ? newData(pumpsData) : newData;
         if (!resolvedData || !Array.isArray(resolvedData)) return;
 
         const currentOran = sabitOranlar[0] || { yi_katsayi: 1.30, yd_katsayi: 1.45 };
 
         const recalculated = resolvedData.map(item => {
+            if (item.isDeleted) return item;
+
             const alis = Number(item.alis_fiyati) || 0;
             return {
                 ...item,
-                alis_fiyati: alis, // Sayı formatında kalmasını garanti et
+                // 🚀 KRİTİK DÜZELTME: Kullanıcı hücreye ne yazdıysa 'name' alanına da eşle!
+                name: item.pompa_adi !== undefined ? String(item.pompa_adi).trim() : item.name,
+                alis_fiyati: alis,
                 yi_satis: (alis * Number(currentOran.yi_katsayi)).toFixed(2),
                 yd_satis: (alis * Number(currentOran.yd_katsayi)).toFixed(2)
             };
@@ -81,26 +95,76 @@ function DalgicPompa() {
         setPumpsData([...recalculated]);
     };
 
-    // 🛠️ handleSaveClick İçindeki Karşılaştırma Mantığı (ZIRHLANDI)
+    // 🛠️ KAYDET BUTONU: Ekleme, Silme ve Güncelleme Farklarını Toplar
     const handleSaveClick = () => {
         const changes = [];
         const guncelOranRow = sabitOranlar[0] || {};
         const eskiOranRow = originalOranData[0] || {};
 
-        // --- 1. Ana Tablo Kontrolü ---
+        // --- 1. Ana Tablo Kontrolleri (INSERT, UPDATE, DELETE) ---
         pumpsData.forEach((item) => {
-            // İki tarafta da ID'leri string'e zorlayarak gevşek referans uyuşmazlığını kökten çözüyoruz
+            // ❌ DURUM A: Satır Silinmiş mi?
+            if (item.isDeleted) {
+                // Eğer zaten client tarafında yeni eklenip henüz DB'ye kaydedilmeden silindiyse pas geç
+                if (String(item.id).startsWith("new_")) return;
+
+                changes.push({
+                    type: "DELETE",
+                    tableName: "submersible_pumps",
+                    id: item.id,
+                    columnName: "Tümü",
+                    newValue: null,
+                    rowName: item.name,
+                    oldValue: item.alis_fiyati
+                });
+                return;
+            }
+
+            // ➕ DURUM B: Yeni Satır mı? (INSERT)
+            if (String(item.id).startsWith("new_")) {
+                changes.push({
+                    type: "INSERT",
+                    tableName: "submersible_pumps",
+                    id: undefined, // Backend insert olarak algılasın diye undefined kalıyor
+                    columnName: "pompa_adi", // İlk zorunlu alan (İsim)
+                    newValue: item.name,     // Yeni eklenen pompanın adı (Örn: 'wilo')
+                    rowName: item.name,
+                    oldValue: 0,
+                    additionalData: {
+                        // Diğer zorunlu alan olan alis_fiyati'ni de tam burada içeri paslıyoruz!
+                        alis_fiyati: Number(item.alis_fiyati) || 0
+                    }
+                });
+                return;
+            }
+
+            // 🔄 DURUM C: Mevcut Satır Güncelleme mi? (UPDATE)
             const originalItem = originalData.find((o) => String(o.id) === String(item.id));
 
             if (originalItem) {
+                // İsim alanı değişti mi kontrolü (Eğer ismi de düzenlenebilir yaptıysanız)
+                if (originalItem.name !== item.name) {
+                    changes.push({
+                        type: "UPDATE",
+                        tableName: "submersible_pumps",
+                        id: originalItem.id,
+                        columnName: "pompa_adi",
+                        newValue: item.name,
+                        rowName: originalItem.name,
+                        oldValue: originalItem.name
+                    });
+                }
+
+                // Fiyat alanları kontrolü
                 duzenlenebilirFields.forEach((field) => {
                     const eskiDeger = parseFloat(originalItem[field] || 0).toFixed(2);
                     const yeniDeger = parseFloat(item[field] || 0).toFixed(2);
 
                     if (eskiDeger !== yeniDeger) {
                         changes.push({
+                            type: "UPDATE",
                             tableName: "submersible_pumps",
-                            id: originalItem.id, // Güvenli orijinal ID
+                            id: originalItem.id,
                             columnName: field,
                             newValue: Number(yeniDeger),
                             rowName: originalItem.name || item.name,
@@ -121,6 +185,7 @@ function DalgicPompa() {
                 const firstPumpId = originalData[0]?.id || 1;
 
                 changes.push({
+                    type: "UPDATE",
                     tableName: "submersible_pumps",
                     id: firstPumpId,
                     columnName: oranField,
@@ -140,35 +205,24 @@ function DalgicPompa() {
         setShowModal(true);
     };
 
-    // 🛠️ Katsayı kutucuğu değiştiğinde hem ExcelGrid'den gelen callback yapısını çözer hem alt tabloyu tetikler
     const handleOranDataChange = (newOranData) => {
-        // 🚀 ExcelGrid'den bir functional update tetikleyicisi (prev => ...) gelebileceği için güvenle resolve ediyoruz
-        const resolvedArray = typeof newOranData === "function"
-            ? newOranData(sabitOranlar)
-            : newOranData;
-
+        const resolvedArray = typeof newOranData === "function" ? newOranData(sabitOranlar) : newOranData;
         if (!resolvedArray || !Array.isArray(resolvedArray)) return;
 
-        // Üst katsayıyı yeni array referansıyla setle
         setSabitOranlar([...resolvedArray]);
 
         const currentOran = resolvedArray[0] || {};
         const eskiOranlar = originalOranData[0] || { yi_katsayi: 1.30, yd_katsayi: 1.45 };
 
-        const yiKatsayi = currentOran.yi_katsayi !== undefined && currentOran.yi_katsayi !== ""
-            ? Number(currentOran.yi_katsayi)
-            : Number(eskiOranlar.yi_katsayi);
+        const yiKatsayi = currentOran.yi_katsayi !== undefined && currentOran.yi_katsayi !== "" ? Number(currentOran.yi_katsayi) : Number(eskiOranlar.yi_katsayi);
+        const ydKatsayi = currentOran.yd_katsayi !== undefined && currentOran.yd_katsayi !== "" ? Number(currentOran.yd_katsayi) : Number(eskiOranlar.yd_katsayi);
 
-        const ydKatsayi = currentOran.yd_katsayi !== undefined && currentOran.yd_katsayi !== ""
-            ? Number(currentOran.yd_katsayi)
-            : Number(eskiOranlar.yd_katsayi);
-
-        // 🚀 `pumpsData` asenkron kilidini kırmak için functional state (`prevPumps`) kullanıyoruz!
         setPumpsData((prevPumps) => {
             const recalculated = originalData.map(item => {
                 const anlikItem = prevPumps.find(p => p.id === item.id) || item;
-                const alis = Number(anlikItem.alis_fiyati) || 0;
+                if (anlikItem.isDeleted) return anlikItem;
 
+                const alis = Number(anlikItem.alis_fiyati) || 0;
                 return {
                     ...anlikItem,
                     yi_satis: (alis * yiKatsayi).toFixed(2),
@@ -178,7 +232,6 @@ function DalgicPompa() {
             return [...recalculated];
         });
     };
-
 
     const handleConfirmSave = async () => {
         setShowModal(false);
@@ -191,10 +244,13 @@ function DalgicPompa() {
             }
 
             const targetTableName = pendingChanges[0].tableName;
+
+            // Backend'in yeni beklediği payload yapısına map'liyoruz
             const updatesPayload = pendingChanges.map((change) => ({
                 id: change.id,
                 columnName: change.columnName,
-                newValue: change.newValue
+                newValue: change.newValue,
+                additionalData: change.additionalData || undefined
             }));
 
             await API.updatePriceData({
@@ -202,6 +258,7 @@ function DalgicPompa() {
                 updates: updatesPayload
             });
 
+            // Başarılıysa verileri yeniden çekip sıfırla
             const response = await API.getSubmersibleCosts();
             const freshData = response.data.map(item => ({
                 ...item,
@@ -243,6 +300,9 @@ function DalgicPompa() {
         );
     }
 
+    // Ekrandaki listede isDeleted: true olanları göstermiyoruz (Arayüzde anlık silinme hissi)
+    const visiblePumpsData = pumpsData.filter(p => !p.isDeleted);
+
     return (
         <div>
             <div className="d-flex justify-content-between align-items-center mb-3">
@@ -250,11 +310,18 @@ function DalgicPompa() {
                     <i className="bi bi-gear-fill me-2 text-success"></i>
                     <span className="fw-semibold small">Dalgıç Pompa Yönetimi</span>
                 </div>
-                <button className="btn btn-success btn-sm px-4" onClick={handleSaveClick}>
-                    <i className="bi bi-file-earmark-excel me-2"></i>Kaydet
-                </button>
+                <div className="d-flex gap-2">
+                    {/* ➕ Satır Ekleme Butonu */}
+                    <button className="btn btn-outline-primary btn-sm px-3" onClick={handleAddNewRow}>
+                        <i className="bi bi-plus-circle me-2"></i>Yeni Satır Ekle
+                    </button>
+                    <button className="btn btn-success btn-sm px-4" onClick={handleSaveClick}>
+                        <i className="bi bi-file-earmark-excel me-2"></i>Kaydet
+                    </button>
+                </div>
             </div>
 
+            {/* Katsayı Tablosu Bloğu */}
             <div className="mb-4">
                 <div className="mb-2 d-flex align-items-center" style={{ color: "#94a3b8" }}>
                     <i className="bi bi-sliders me-2 text-success"></i>
@@ -272,6 +339,7 @@ function DalgicPompa() {
                 </div>
             </div>
 
+            {/* Ana Fiyat Tablosu Bloğu */}
             <div className="mt-4">
                 <div className="mb-2 d-flex align-items-center" style={{ color: "#94a3b8" }}>
                     <i className="bi bi-table me-2 text-secondary"></i>
@@ -279,9 +347,10 @@ function DalgicPompa() {
                 </div>
                 <ExcelGrid
                     headers={headers}
-                    data={pumpsData}
+                    data={visiblePumpsData}
                     fields={fields}
                     onDataChange={handleGridDataChange}
+                    isMainTable={true} // Silme butonunu sadece ana tabloda göstermek için flag paslıyoruz
                 />
             </div>
 

@@ -4,19 +4,15 @@ import API from "../../utils/utilRequest";
 import PriceChangeUpdateConfirmationModal from "../modals/PriceChangeUpdateConfirmationModal";
 
 function IscilikMaliyetleri() {
-    const [sadeceUnite, setSadeceUnite] = useState([]);
-    const [uniteFiltrasyon, setUniteFiltrasyon] = useState([]);
-    const [uniteFiltrasyonCamur, setUniteFiltrasyonCamur] = useState([]);
-    const [uniteCamur, setUniteCamur] = useState([]);
-
-    // Değişiklik kontrolü için veritabanından gelen saf veri kopyası
-    const [originalData, setOriginalData] = useState([]);
+    const [laborCostsData, setLaborCostsData] = useState([]);
+    const [originalData, setOriginalData] = useState([]); // Değişiklik kontrolü için saf veri kopyası
     const [loading, setLoading] = useState(true);
 
     // Modal State Yönetimi
     const [showModal, setShowModal] = useState(false);
     const [pendingChanges, setPendingChanges] = useState([]);
 
+    // 📊 Kolon Yapısı: 9 Başlık ve 9 Field tam 1:1 senkronize edildi, hiçbir alan hidden değil!
     const headers = [
         "Kombinasyon Adı",
         "Mekanik Kişi Sayısı", "Mekanik Gün Sayısı",
@@ -25,56 +21,120 @@ function IscilikMaliyetleri() {
         "Toplam İşçilik Maliyet (€)"
     ];
 
-    const fields = ["mekKisi", "mekGun", "elkKisi", "elkGun", "gunlikMekMaliyet", "gunlukYemek", "digerGunluk", "toplamMaliyet"];
+    // Kombinasyon adını ('ad' kolonu) fields dizisinin en başına çektik
+    const fields = [
+        "ad", 
+        "mekKisi", "mekGun", 
+        "elkKisi", "elkGun", 
+        "gunlikMekMaliyet", "gunlukYemek", "digerGunluk", 
+        "toplamMaliyet"
+    ];
 
-    // 🔍 Bileşen yüklendiğinde tek tablodan tüm verileri çek ve grupla
+    const fetchIscilikMaliyetleri = async () => {
+        try {
+            setLoading(true);
+            const response = await API.getUnitLaborCosts();
+            
+            // Tüm datayı tek bir state havuzunda topluyoruz
+            setLaborCostsData(JSON.parse(JSON.stringify(response.data)));
+            setOriginalData(JSON.parse(JSON.stringify(response.data)));
+        } catch (error) {
+            console.error("İşçilik maliyetleri yüklenirken hata oldu:", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     useEffect(() => {
-        const fetchIscilikMaliyetleri = async () => {
-            try {
-                setLoading(true);
-                const response = await API.getUnitLaborCosts();
-                const allData = response.data;
-
-                // Değişiklik analizi için ana kopyayı sakla
-                setOriginalData(JSON.parse(JSON.stringify(allData)));
-
-                // Veritabanı enum yapılarına göre filtreleyip state'leri besliyoruz
-                // Not: Eğer 'Filtrasyon' grubunda ünite+filtrasyon kastediliyorsa şemana göre grupluyoruz.
-                // Veritabanı enum değerlerine göre aşağıdaki filtreleri kontrol edebilirsin:
-                setSadeceUnite(allData.filter(item => !item.ad.includes('+')));
-                setUniteFiltrasyon(allData.filter(item => item.ad.includes('filtrasyon') && !item.ad.includes('çamur')));
-                setUniteFiltrasyonCamur(allData.filter(item => item.ad.includes('filtrasyon') && item.ad.includes('çamur')));
-                setUniteCamur(allData.filter(item => !item.ad.includes('filtrasyon') && item.ad.includes('çamur')));
-
-            } catch (error) {
-                console.error("İşçilik maliyetleri yüklenirken hata oluştu:", error);
-            } finally {
-                setLoading(false);
-            }
-        };
-
         fetchIscilikMaliyetleri();
     }, []);
 
-    // 🔍 4 Farklı grid üzerindeki tüm değişiklikleri tek seferde analiz et
+    // ➕ Yeni Boş İşçilik Kombinasyonu Ekleme Fonksiyonu
+    const handleAddNewRow = () => {
+        const nextNum = laborCostsData.length + 1;
+        const defaultName = `${nextNum} Ünite Kombinasyonu`;
+
+        const newRow = {
+            id: `new_${Date.now()}`, // Benzersiz geçici ID
+            ad: defaultName,         // ExcelGrid ilk hücrede bunu görecek ve düzenletecek
+            mekKisi: 0, mekGun: 0,
+            elkKisi: 0, elkGun: 0,
+            gunlikMekMaliyet: 0, gunlukYemek: 0, digerGunluk: 0,
+            toplamMaliyet: 0,
+            isNew: true
+        };
+        setLaborCostsData(prev => [...prev, newRow]);
+    };
+
+    // 🛠️ Grid üzerinde herhangi bir veri (ad veya sayısal veri) değiştiğinde doğrudan state'e yansıtır
+    const handleGridDataChange = (newData) => {
+        const resolvedData = typeof newData === "function" ? newData(laborCostsData) : newData;
+        if (!resolvedData || !Array.isArray(resolvedData)) return;
+
+        setLaborCostsData(resolvedData);
+    };
+
+    // 🔍 Değişiklikleri tek bir havuz üzerinden tarayan fonksiyon
     const handleSaveClick = () => {
         const changes = [];
-        // Tüm state içeriklerini tek bir kontrol array'inde birleştiriyoruz
-        const currentDataPool = [...sadeceUnite, ...uniteFiltrasyon, ...uniteFiltrasyonCamur, ...uniteCamur];
 
-        currentDataPool.forEach((item) => {
-            const originalItem = originalData.find((o) => o.id === item.id);
+        laborCostsData.forEach((item) => {
+            // ❌ DURUM A: Satır Silinmiş mi? (DELETE)
+            if (item.isDeleted) {
+                if (String(item.id).startsWith("new_")) return;
+
+                changes.push({
+                    type: "DELETE",
+                    tableName: "unit_labor_costs",
+                    id: item.id,
+                    columnName: "ad", // Güvenlik duvarı placeholder'ı
+                    newValue: null,
+                    rowName: item.ad,
+                    oldValue: 0
+                });
+                return;
+            }
+
+            // ➕ DURUM B: Yeni Satır mı? (INSERT)
+            if (String(item.id).startsWith("new_")) {
+                changes.push({
+                    type: "INSERT",
+                    tableName: "unit_labor_costs",
+                    id: undefined,
+                    columnName: "ad", // Tetikleyici ana kolon
+                    newValue: item.ad,
+                    rowName: item.ad,
+                    oldValue: 0,
+                    additionalData: {
+                        mekKisi: Number(item.mekKisi) || 0, mekGun: Number(item.mekGun) || 0,
+                        elkKisi: Number(item.elkKisi) || 0, elkGun: Number(item.elkGun) || 0,
+                        gunlikMekMaliyet: Number(item.gunlikMekMaliyet) || 0,
+                        gunlukYemek: Number(item.gunlukYemek) || 0,
+                        digerGunluk: Number(item.digerGunluk) || 0,
+                        toplamMaliyet: Number(item.toplamMaliyet) || 0
+                    }
+                });
+                return;
+            }
+
+            // 🔄 DURUM C: Mevcut Satır Güncelleme mi? (UPDATE)
+            const originalItem = originalData.find((o) => String(o.id) === String(item.id));
 
             if (originalItem) {
                 fields.forEach((field) => {
-                    if (Number(originalItem[field]) !== Number(item[field])) {
+                    const esitMi = field === "ad"
+                        ? String(originalItem[field]).trim() === String(item[field]).trim()
+                        : Number(originalItem[field] || 0) === Number(item[field] || 0);
+
+                    if (!esitMi) {
                         changes.push({
+                            type: "UPDATE",
                             tableName: "unit_labor_costs",
-                            id: item.id,
+                            id: originalItem.id,
                             columnName: field,
-                            newValue: Number(item[field]),
-                            rowName: item.ad, // Kombinasyon adı (Örn: "3 ünite + filtrasyon")
-                            oldValue: Number(originalItem[field])
+                            newValue: field === "ad" ? item[field] : Number(item[field]),
+                            rowName: item.ad,
+                            oldValue: originalItem[field] || 0
                         });
                     }
                 });
@@ -82,7 +142,7 @@ function IscilikMaliyetleri() {
         });
 
         if (changes.length === 0) {
-            console.log("Değişen bir işçilik verisi bulunamadı.");
+            alert("Değişen bir veri bulunamadı.");
             return;
         }
 
@@ -90,38 +150,35 @@ function IscilikMaliyetleri() {
         setShowModal(true);
     };
 
-    // ✅ Onay verilince tüm işçilik değişikliklerini tek bir toplu istekte gönder
     const handleConfirmSave = async () => {
         setShowModal(false);
         setLoading(true);
 
         try {
-            // Eğer kaydedilecek bir değişiklik yoksa işlemi durdur
-            if (pendingChanges.length === 0) return;
+            if (pendingChanges.length === 0) {
+                setLoading(false);
+                return;
+            }
 
-            // İlk elemandan tablonun adını güvenle alıyoruz ("unit_labor_costs")
             const targetTableName = pendingChanges[0].tableName;
-
-            // Backend'in beklediği yeni sadeleştirilmiş bulk array formatı
             const updatesPayload = pendingChanges.map((change) => ({
                 id: change.id,
                 columnName: change.columnName,
-                newValue: change.newValue
+                newValue: change.newValue,
+                additionalData: change.additionalData || undefined
             }));
 
-            // 🚀 Tek istek, tek transaction!
             await API.updatePriceData({
                 tableName: targetTableName,
                 updates: updatesPayload
             });
 
-            // Başarılıysa, ekrandaki 4 farklı state'in güncel halini bir havuzda birleştirip orijinal veri olarak mühürle
-            const currentDataPool = [...sadeceUnite, ...uniteFiltrasyon, ...uniteFiltrasyonCamur, ...uniteCamur];
-            setOriginalData(JSON.parse(JSON.stringify(currentDataPool)));
-
-            setPendingChanges([]); // Bekleyen değişiklikleri temizle
+            // Taptaze verileri DB'den tek bir havuz olarak yeniden çek
+            await fetchIscilikMaliyetleri();
+            setPendingChanges([]); 
         } catch (error) {
-            console.error("İşçilik verileri veritabanına yazılırken hata:", error);
+            console.error("İşçilik verileri kaydedilirken hata oluştu:", error);
+            alert("Veriler kaydedilirken sistemsel bir hata meydana geldi.");
         } finally {
             setLoading(false);
         }
@@ -137,50 +194,37 @@ function IscilikMaliyetleri() {
         );
     }
 
+    const visibleLaborCostsData = laborCostsData.filter(d => !d.isDeleted);
+
     return (
         <div>
-            {/* ÜST BAR VE KAYDET BUTONU */}
-            <div className="d-flex justify-content-end align-items-center mb-3">
-                <button className="btn btn-success btn-sm px-4" onClick={handleSaveClick}>
-                    <i className="bi bi-file-earmark-excel me-2"></i>Kaydet
-                </button>
-            </div>
-
-            <div className="d-flex flex-column gap-5">
-                {/* TABLO 1: SADECE ÜNİTE */}
-                <div>
-                    <div className="p-2 mb-2 rounded bg-dark fw-bold text-info border-bottom" style={{ borderColor: "#334155", fontSize: "13px" }}>
-                        1. Standart Ünite İşçilik Parametreleri (1 - 20 Ünite)
-                    </div>
-                    <ExcelGrid headers={headers} data={sadeceUnite} fields={fields} onDataChange={setSadeceUnite} />
+            {/* ÜST BAR, PANEL BAŞLIĞI VE BUTONLAR */}
+            <div className="d-flex justify-content-between align-items-center mb-3">
+                <div className="mb-2 d-flex align-items-center" style={{ color: "#94a3b8" }}>
+                    <i className="bi bi-people-fill me-2 text-success"></i>
+                    <span className="fw-semibold small">İşçilik ve Kombinasyon Maliyet Yönetimi</span>
                 </div>
-
-                {/* TABLO 2: ÜNİTE + FİLTRASYON */}
-                <div>
-                    <div className="p-2 mb-2 rounded bg-dark fw-bold text-info border-bottom" style={{ borderColor: "#334155", fontSize: "13px" }}>
-                        2. Ünite + Filtrasyon Kombinasyonu (1 - 10 Ünite)
-                    </div>
-                    <ExcelGrid headers={headers} data={uniteFiltrasyon} fields={fields} onDataChange={setUniteFiltrasyon} />
-                </div>
-
-                {/* TABLO 3: ÜNİTE + FİLTRASYON + ÇAMUR SUSUZLAŞTIRMA */}
-                <div>
-                    <div className="p-2 mb-2 rounded bg-dark fw-bold text-info border-bottom" style={{ borderColor: "#334155", fontSize: "13px" }}>
-                        3. Ünite + Filtrasyon + Çamur Susuzlaştırma Kombinasyonu (1 - 10 Ünite)
-                    </div>
-                    <ExcelGrid headers={headers} data={uniteFiltrasyonCamur} fields={fields} onDataChange={setUniteFiltrasyonCamur} />
-                </div>
-
-                {/* TABLO 4: ÜNİTE + ÇAMUR SUSUZLAŞTIRMA */}
-                <div>
-                    <div className="p-2 mb-2 rounded bg-dark fw-bold text-info border-bottom" style={{ borderColor: "#334155", fontSize: "13px" }}>
-                        4. Ünite + Çamur Susuzlaştırma Kombinasyonu (1 - 10 Ünite)
-                    </div>
-                    <ExcelGrid headers={headers} data={uniteCamur} fields={fields} onDataChange={setUniteCamur} />
+                <div className="d-flex gap-2">
+                    <button className="btn btn-outline-primary btn-sm px-3" onClick={handleAddNewRow}>
+                        <i className="bi bi-plus-circle me-2"></i>Yeni Kombinasyon Ekle
+                    </button>
+                    <button className="btn btn-success btn-sm px-4" onClick={handleSaveClick}>
+                        <i className="bi bi-file-earmark-excel me-2"></i>Kaydet
+                    </button>
                 </div>
             </div>
 
-            {/* Antrasit Tasarımlı Onay Modalı */}
+            {/* TEK VE SAĞLAM HAVUZ TABLOSU */}
+            <div className="mb-4">
+                <ExcelGrid
+                    headers={headers}
+                    data={visibleLaborCostsData}
+                    fields={fields}
+                    onDataChange={handleGridDataChange}
+                    isMainTable={true} // Aksiyon (Silme) butonu aktif
+                />
+            </div>
+
             <PriceChangeUpdateConfirmationModal
                 show={showModal}
                 onClose={() => setShowModal(false)}

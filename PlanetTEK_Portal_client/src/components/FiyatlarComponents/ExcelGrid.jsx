@@ -1,26 +1,58 @@
 import React, { useState, useEffect, useRef } from "react";
 
-const ExcelGrid = ({ headers, data, fields, onDataChange }) => {
+const ExcelGrid = ({ headers, data, fields, onDataChange, isMainTable = false }) => {
   const tableRef = useRef(null);
 
   const [selection, setSelection] = useState({ start: null, end: null });
   const [isDragging, setIsDragging] = useState(false);
   const [editingCell, setEditingCell] = useState({ row: null, col: null });
 
-  // --- Sayı Biçimlendirme Yardımcıları ---
-  const formatNumber = (num) => {
-    if (num === undefined || num === null || isNaN(num) || num === "") return "";
-    return new Intl.NumberFormat("tr-TR").format(num);
+  // 🛠️ TÜRKÇE/AVRUPA SAYI FORMATI DOSTU BİÇİMLENDİRİCİ
+  const formatCellValue = (value, fieldName) => {
+    if (value === undefined || value === null || value === "") return "";
+    
+    // sale_amount bir adettir, küsuratsız tam sayı bas
+    if (fieldName === "sale_amount") return parseInt(value, 10) || 0;
+
+    // 🚀 Metinsel kolon kontrolü ('tipi' listeye eklendi)
+    if (["model", "pompa_adi", "ad", "ekipman_tipi", "kapasite_birimi", "tipi", "kapasite"].includes(fieldName)) return String(value);
+    if (typeof value === "string" && isNaN(value)) return value;
+
+    // Fiyat verilerini HER ZAMAN virgülden sonra 2 basamak garanti ederek bas (Örn: 223,00)
+    const num = Number(value);
+    if (isNaN(num)) return value;
+    return new Intl.NumberFormat("tr-TR", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2
+    }).format(num);
   };
 
-  const parseNumber = (str) => {
-    if (!str) return 0;
-    const cleanStr = str.toString().replace(/\./g, "").replace(",", ".").trim();
-    const num = Number(cleanStr);
+  // 🛠️ SAYI PARSERI (Hücreden çıkarken sayıların uçmasını engeller)
+  const parseCellValue = (str, fieldName) => {
+    if (str === undefined || str === null || str === "") {
+      return ["model", "pompa_adi", "ad", "ekipman_tipi", "kapasite_birimi", "tipi", "kapasite"].includes(fieldName) ? "" : 0;
+    }
+    
+    // 🚀 Metinsel kolon kontrolü ('tipi' listeye eklendi)
+    if (["model", "pompa_adi", "ad", "ekipman_tipi", "kapasite_birimi", "tipi", "kapasite"].includes(fieldName)) {
+      return String(str).trim();
+    }
+    
+    // Arayüzde "223,00" veya "32.036,00" gibi görünen dizeyi JS'in anlayacağı saf float'a çevirir
+    let cleanStr = str.toString().trim();
+    
+    // Nokta binlik, virgül ondalık ayracı ise (tr-TR): Noktaları sil, virgülü noktaya çevir
+    if (cleanStr.includes(",") && cleanStr.includes(".")) {
+      cleanStr = cleanStr.replace(/\./g, "").replace(",", ".");
+    } else if (cleanStr.includes(",")) {
+      // Sadece virgül varsa (Ondalık kısmıdır)
+      cleanStr = cleanStr.replace(",", ".");
+    }
+    
+    const num = parseFloat(cleanStr);
     return isNaN(num) ? 0 : num;
   };
 
-  // --- Seçim Alanı Hesaplamaları ---
   const getSelectionCells = () => {
     if (!selection.start || !selection.end) return [];
     const { start, end } = selection;
@@ -43,7 +75,14 @@ const ExcelGrid = ({ headers, data, fields, onDataChange }) => {
     return cells.some(cell => cell.row === row && cell.col === col);
   };
 
-  // --- Seçili Hücreleri Silme (Delete) ---
+  const handleRowDeleteClick = (rowIndex) => {
+    onDataChange(prev => {
+      const updated = [...prev];
+      updated[rowIndex] = { ...updated[rowIndex], isDeleted: true };
+      return updated;
+    });
+  };
+
   useEffect(() => {
     const onKeyDown = (e) => {
       if (e.key !== "Delete") return;
@@ -53,10 +92,9 @@ const ExcelGrid = ({ headers, data, fields, onDataChange }) => {
       onDataChange(prev => {
         const updated = [...prev];
         cells.forEach(({ row, col }) => {
-          if (col === 0) return; 
-          const key = fields[col - 1]; // Seçim alanında sanal kolon (col) kullanıldığı için -1 kalıyor
+          const key = fields[col];
           if (key) {
-            updated[row] = { ...updated[row], [key]: 0 };
+            updated[row] = { ...updated[row], [key]: ["model", "pompa_adi", "ad", "ekipman_tipi", "tipi", "kapasite"].includes(key) ? "" : 0 };
           }
         });
         return updated;
@@ -67,11 +105,9 @@ const ExcelGrid = ({ headers, data, fields, onDataChange }) => {
     return () => document.removeEventListener("keydown", onKeyDown);
   }, [selection, fields, editingCell, onDataChange]);
 
-  // --- Kopyala / Yapıştır Eventleri ---
   useEffect(() => {
     const onCopy = (e) => {
       if (document.activeElement.getAttribute("contenteditable") === "true") return;
-
       const cells = getSelectionCells();
       if (!cells.length) return;
 
@@ -80,11 +116,12 @@ const ExcelGrid = ({ headers, data, fields, onDataChange }) => {
 
       cells.forEach(({ row, col }) => {
         if (!rowGroups[row]) rowGroups[row] = [];
-        const val = col === 0 ? (data[row].name || data[row].kapasite || data[row].tipi || data[row].ad) : (data[row][fields[col - 1]] || 0);
+        const key = fields[col];
+        const val = data[row][key] || "";
         rowGroups[row].push({ col, val });
       });
 
-      Object.keys(rowGroups).sort((a, b) => a - b).forEach(r => {
+      Object.keys(rowGroups).sort((a, b) => Number(a) - Number(b)).forEach(r => {
         const sorted = rowGroups[r].sort((a, b) => a.col - b.col);
         rows.push(sorted.map(x => x.val).join("\t"));
       });
@@ -96,7 +133,6 @@ const ExcelGrid = ({ headers, data, fields, onDataChange }) => {
 
     const onPaste = (e) => {
       if (document.activeElement.getAttribute("contenteditable") === "true") return;
-
       const text = e.clipboardData.getData("text/plain");
       if (!text) return;
 
@@ -107,172 +143,182 @@ const ExcelGrid = ({ headers, data, fields, onDataChange }) => {
 
       onDataChange(prev => {
         const updated = [...prev];
-
         rows.forEach((rowVals, i) => {
           const rIndex = start.row + i;
           if (rIndex >= updated.length) return;
 
           rowVals.forEach((val, j) => {
             const cIndex = start.col + j;
-            if (cIndex === 0) return;
-
-            const key = fields[cIndex - 1];
+            const key = fields[cIndex];
             if (key) {
-              updated[rIndex] = {
-                ...updated[rIndex],
-                [key]: parseNumber(val)
-              };
+              updated[rIndex] = { ...updated[rIndex], [key]: parseCellValue(val, key) };
             }
           });
         });
-
         return updated;
       });
-
       e.preventDefault();
     };
 
     document.addEventListener("copy", onCopy);
     document.addEventListener("paste", onPaste);
-
     return () => {
       document.removeEventListener("copy", onCopy);
       document.removeEventListener("paste", onPaste);
     };
   }, [selection, data, fields, onDataChange]);
 
-  // 🚀 Blur olduğunda doğrudan döngüdeki saf colIndex parametresini kullanıyoruz
   const handleCellBlur = (rowIndex, colIndex, textValue) => {
     const columnKey = fields[colIndex]; 
     if (!columnKey) return;
 
     onDataChange(prev => {
       const updated = [...prev];
-      updated[rowIndex] = {
-        ...updated[rowIndex],
-        [columnKey]: parseNumber(textValue)
-      };
+      updated[rowIndex] = { ...updated[rowIndex], [columnKey]: parseCellValue(textValue, columnKey) };
       return updated;
     });
     setEditingCell({ row: null, col: null });
   };
 
   const gridTableStyle = {
-    borderCollapse: "collapse",
+    borderCollapse: "separate",
+    borderSpacing: 0,
     width: "100%",
-    backgroundColor: "#1e293b",
-    color: "#ffffff",
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
-    fontSize: "12px",
+    backgroundColor: "#0f172a", 
+    color: "#cbd5e1", 
+    fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
+    fontSize: "11.5px", 
     userSelect: "none"
   };
 
   const thStyle = {
-    backgroundColor: "#0f172a",
-    border: "1px solid #334155",
-    padding: "8px 12px",
+    backgroundColor: "#1e293b", 
+    borderBottom: "2px solid #334155",
+    borderRight: "1px solid #1e293b",
+    padding: "6px 10px", 
     fontWeight: "600",
     textAlign: "center",
-    color: "#94a3b8"
+    color: "#94a3b8", 
+    letterSpacing: "0.3px"
   };
 
   return (
-    <div
-      ref={tableRef}
-      className="table-responsive"
-      onMouseUp={() => setIsDragging(false)}
-      style={{ overflow: "auto", maxHeight: "650px", borderRadius: "8px", outline: "none" }}
-    >
-      <table style={gridTableStyle}>
-        <thead style={{ sticky: "top", zIndex: 10 }}>
-          <tr>
-            <th style={{ ...thStyle, width: "45px", backgroundColor: "#020617", color: "#475569" }}>#</th>
-            {headers.map((h, i) => (
-              <th key={i} style={thStyle}>{h}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {data.map((row, rowIndex) => (
-            <tr key={rowIndex} style={{ borderBottom: "1px solid #334155" }}>
-              <td style={{ ...thStyle, backgroundColor: "#0f172a", fontWeight: "bold", color: "#64748b" }}>
-                {rowIndex + 1}
-              </td>
+    <>
+      {/* 🎨 Scrollbar'ları modernleştirmek için dinamik CSS enjekte ediyoruz */}
+      <style>{`
+        .custom-excel-container::-webkit-scrollbar {
+          width: 8px;
+          height: 8px;
+        }
+        .custom-excel-container::-webkit-scrollbar-track {
+          background: #0f172a; 
+          border-radius: 6px;
+        }
+        .custom-excel-container::-webkit-scrollbar-thumb {
+          background: #1e293b; 
+          border-radius: 6px;
+          border: 1px solid #334155;
+        }
+        .custom-excel-container::-webkit-scrollbar-thumb:hover {
+          background: #00874e; 
+        }
+      `}</style>
 
-              {/* Sabit İsim Hücresi */}
-              <td
-                onMouseDown={() => {
-                  setIsDragging(true);
-                  setSelection({ start: { row: rowIndex, col: 0 }, end: { row: rowIndex, col: 0 } });
-                }}
-                onMouseEnter={() => {
-                  if (!isDragging) return;
-                  setSelection(prev => ({ ...prev, end: { row: rowIndex, col: 0 } }));
-                }}
-                style={{
-                  border: isCellSelected(rowIndex, 0) ? "2px solid #38bdf8" : "1px solid #334155",
-                  backgroundColor: isCellSelected(rowIndex, 0) ? "rgba(56, 189, 248, 0.15)" : "#1e293b",
-                  padding: "6px 12px",
-                  fontWeight: "bold",
-                  color: "#ffffff",
-                  minWidth: "160px"
-                }}
-              >
-                {row.name || row.kapasite || row.tipi || row.ad}
-              </td>
-
-              {/* Düzenlenebilir Fiyat Hücreleri */}
-              {fields.map((field, colIndex) => {
-                const virtualColIndex = colIndex + 1; 
-                const isSelected = isCellSelected(rowIndex, virtualColIndex);
-                const isEditing = editingCell.row === rowIndex && editingCell.col === virtualColIndex;
-
-                return (
-                  <td
-                    key={field}
-                    contentEditable={isEditing}
-                    suppressContentEditableWarning
-                    onDoubleClick={(e) => {
-                      setEditingCell({ row: rowIndex, col: virtualColIndex });
-                      e.currentTarget.innerText = row[field] || "";
-                    }}
-                    // 🚀 Saf colIndex'i paslayarak indeks taşmasını önlüyoruz
-                    onBlur={(e) => handleCellBlur(rowIndex, colIndex, e.currentTarget.innerText)}
-                    onMouseDown={() => {
-                      if (isEditing) return;
-                      setIsDragging(true);
-                      setSelection({
-                        start: { row: rowIndex, col: virtualColIndex },
-                        end: { row: rowIndex, col: virtualColIndex }
-                      });
-                    }}
-                    onMouseEnter={() => {
-                      if (!isDragging || isEditing) return;
-                      setSelection(prev => ({
-                        ...prev,
-                        end: { row: rowIndex, col: virtualColIndex }
-                      }));
-                    }}
-                    style={{
-                      border: isSelected ? "2px solid #38bdf8" : "1px solid #334155",
-                      backgroundColor: isEditing ? "#0284c7" : isSelected ? "rgba(56, 189, 248, 0.15)" : "#0f172a",
-                      color: isEditing ? "#ffffff" : "#38bdf8",
-                      padding: "6px 12px",
-                      textAlign: "right",
-                      fontWeight: "500",
-                      minWidth: "130px",
-                      outline: "none"
-                    }}
-                  >
-                    {isEditing ? row[field] : formatNumber(row[field])}
-                  </td>
-                );
-              })}
+      <div
+        ref={tableRef}
+        className="table-responsive border border-secondary border-opacity-25 custom-excel-container"
+        onMouseUp={() => setIsDragging(false)}
+        style={{ overflow: "auto", maxHeight: "650px", borderRadius: "6px", outline: "none", boxShadow: "0 4px 6px -1px rgba(0, 0, 0, 0.2)" }}
+      >
+        <table style={gridTableStyle}>
+          <thead style={{ position: "sticky", top: 0, zIndex: 10 }}>
+            <tr>
+              <th style={{ ...thStyle, width: "35px", backgroundColor: "#020617", color: "#475569", borderRight: "1px solid #1e293b" }}>#</th>
+              {headers.map((h, i) => (
+                <th key={i} style={thStyle}>{h}</th>
+              ))}
+              {isMainTable && <th style={{ ...thStyle, width: "50px" }}>İşlem</th>}
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {data.map((row, rowIndex) => (
+              <tr key={row.id || rowIndex} style={{ transition: "background-color 0.15s ease" }} className="grid-row-hover">
+                <td style={{ ...thStyle, backgroundColor: "#0f172a", borderRight: "1px solid #1e293b", borderBottom: "1px solid #1e293b", fontWeight: "bold", color: "#475569" }}>
+                  {rowIndex + 1}
+                </td>
+
+                {fields.map((field, colIndex) => {
+                  const isSelected = isCellSelected(rowIndex, colIndex);
+                  const isEditing = editingCell.row === rowIndex && editingCell.col === colIndex;
+                  
+                  // 🚀 'tipi' ve 'kapasite' alanları da dize olarak algılansın
+                  const isStringField = ["model", "pompa_adi", "ad", "ekipman_tipi", "kapasite_birimi", "tipi", "kapasite"].includes(field) || (typeof row[field] === "string" && isNaN(row[field]));
+
+                  const getEditText = () => {
+                    if (row[field] === undefined || row[field] === null) return "";
+                    if (isStringField || field === "sale_amount") return String(row[field]);
+                    return Number(row[field]).toFixed(2);
+                  };
+
+                  return (
+                    <td
+                      key={field}
+                      contentEditable={isEditing}
+                      suppressContentEditableWarning
+                      onDoubleClick={(e) => {
+                        setEditingCell({ row: rowIndex, col: colIndex });
+                        e.currentTarget.innerText = getEditText();
+                      }}
+                      onBlur={(e) => handleCellBlur(rowIndex, colIndex, e.currentTarget.innerText)}
+                      onMouseDown={() => {
+                        if (isEditing) return;
+                        setIsDragging(true);
+                        setSelection({ start: { row: rowIndex, col: colIndex }, end: { row: rowIndex, col: colIndex } });
+                      }}
+                      onMouseEnter={() => {
+                        if (!isDragging || isEditing) return;
+                        setSelection(prev => ({ ...prev, end: { row: rowIndex, col: colIndex } }));
+                      }}
+                      style={{
+                        borderRight: "1px solid #1e293b",
+                        borderBottom: "1px solid #1e293b",
+                        borderTop: isSelected ? "1px solid #00874e" : "transparent",
+                        borderLeft: isSelected ? "1px solid #00874e" : "transparent",
+                        outline: isSelected ? "1px solid #00874e" : "none",
+                        backgroundColor: isEditing ? "#00663a" : isSelected ? "rgba(0, 135, 78, 0.15)" : "#131c2e",
+                        color: isEditing ? "#ffffff" : isStringField ? "#94a3b8" : "#22c55e", // Seçili alanlar dışındakiler de okunabilir yeşil/gri kalsın diye düzenlendi
+                        padding: "5px 8px", 
+                        textAlign: isStringField ? "center" : "right",
+                        fontWeight: isStringField ? "600" : "500",
+                        minWidth: isStringField ? "100px" : "115px"
+                      }}
+                    >
+                      {isEditing ? getEditText() : formatCellValue(row[field], field)}
+                    </td>
+                  );
+                })}
+
+                {isMainTable && (
+                  <td style={{ borderBottom: "1px solid #1e293b", borderRight: "1px solid #1e293b", textAlign: "center", padding: "2px" }}>
+                    <button 
+                      type="button" 
+                      className="btn btn-sm text-danger p-0 shadow-none border-0 bg-transparent"
+                      onClick={() => handleRowDeleteClick(rowIndex)}
+                      style={{ opacity: 0.7, transition: "opacity 0.2s" }}
+                      onMouseEnter={(e) => e.currentTarget.style.opacity = "1"}
+                      onMouseLeave={(e) => e.currentTarget.style.opacity = "0.7"}
+                      title="Satırı Sil"
+                    >
+                      <i className="bi bi-trash3-fill" style={{ fontSize: "11px" }}></i>
+                    </button>
+                  </td>
+                )}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </>
   );
 };
 

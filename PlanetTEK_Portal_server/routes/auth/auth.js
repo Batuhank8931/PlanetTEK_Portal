@@ -134,12 +134,14 @@ router.post("/refresh", async (req, res) => {
             { id: user.id, role: user.rol },
             SECRET_KEY,
             { expiresIn: "1h", algorithm: "HS256" }
+            //1m
         );
 
         // 🚀 DÜZELTME: Refresh anında basılan çerez de artık dinamik ayarlara uyar, lokalde patlamaz!
         res.cookie("accessToken", newAccessToken, {
             ...cookieOptions,
             maxAge: 60 * 60 * 1000,
+            //maxAge: 60 * 1000,
         });
 
         return res.json({ message: "Oturum başarıyla yenilendi." });

@@ -84,7 +84,7 @@ function TeklifPage() {
       {/* ÜST BAŞLIK */}
       <div className="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom" style={{ borderColor: "#334155" }}>
         <div>
-          <h5 className="mb-1 fw-semibold tracking-tight" style={{ color: "#ffffff" }}>
+          <h5 className="mb-1 fw-semibold tracking-tight" style={{ color: "#94a3b8" }}>
             <i className="bi bi-file-earmark-plus me-2" style={{ color: "#22c55e" }}></i> Yeni Teklif Oluştur
           </h5>
         </div>

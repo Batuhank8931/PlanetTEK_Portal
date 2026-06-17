@@ -15,7 +15,9 @@ const {
     getUnitLaborCosts,
     updatePriceData,
     getFiltrationCosts,
-    getSubmersibleCosts
+    getSubmersibleCosts,
+    getSludgeDewateringCosts,
+    syncUniversalTableData
 } = require("../../models/price_data.js");
 
 // ==========================================
@@ -40,6 +42,7 @@ router.get('/price/flow-distribution', verifyToken, getFlowDistribution);
 router.get('/price/unit-labor-costs', verifyToken, getUnitLaborCosts);
 router.get('/price/submersible-pumps-costs', verifyToken, getSubmersibleCosts);
 router.get('/price/filtration-costs', verifyToken, getFiltrationCosts);
+router.get('/price/sludge-dewatering-costs', verifyToken, getSludgeDewateringCosts);
 
 // 🔄 1 Adet Dinamik POST İsteği (Tüm tablolardaki fiyat/parametre güncellemeleri için)
 router.post('/price/update', verifyToken, updatePriceData);

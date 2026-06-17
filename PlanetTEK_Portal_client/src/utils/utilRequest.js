@@ -99,6 +99,10 @@ const API = {
     getFiltrationCosts: async () => {
         return crudClient.get("api/price/filtration-costs");
     },
+    getSludgeDewateringCosts: async () => {
+        return crudClient.get("api/price/sludge-dewatering-costs");
+    },
+
 
     // 🔄 Dinamik Fiyat / Parametre Güncelleme (POST api/price/update)
     updatePriceData: async (payload) => {
@@ -114,6 +118,7 @@ const API = {
             throw err;
         }
     }
+
 };
 
 export default API;

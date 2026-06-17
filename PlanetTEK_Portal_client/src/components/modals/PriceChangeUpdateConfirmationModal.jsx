@@ -92,22 +92,29 @@ function PriceChangeUpdateConfirmationModal({ show, onClose, onConfirm, changesL
                                         </tr>
                                     </thead>
                                     <tbody>
+
                                         {changesList.map((change, index) => {
-                                            // 🚀 Dinamik Birim Kontrolü: Eğer kolon adı 'katsayi' veya 'oran' içeriyorsa simge koyma, fiyat ise '€' koy.
                                             const isRateOrCoefficient =
                                                 change.columnName.toLowerCase().includes("katsayi") ||
                                                 change.columnName.toLowerCase().includes("oran");
 
                                             const unit = isRateOrCoefficient ? "" : " €";
 
+                                            // 🎨 İşlem tipine göre badge renk şeması
+                                            let typeBadge = <span className="badge bg-warning text-dark px-2 py-1">UPDATE</span>;
+                                            if (change.type === "INSERT") {
+                                                typeBadge = <span className="badge bg-success text-white px-2 py-1">INSERT</span>;
+                                            } else if (change.type === "DELETE") {
+                                                typeBadge = <span className="badge bg-danger text-white px-2 py-1">DELETE</span>;
+                                            }
+
                                             return (
-                                                <tr
-                                                    key={index}
-                                                    style={{ borderBottom: "1px solid #1e293b" }}
-                                                    className="hover-row"
-                                                >
-                                                    <td className="text-start fw-bold py-2 ps-3" style={{ color: "#0c223d" }}>
+                                                <tr key={index} style={{ borderBottom: "1px solid #1e293b" }} className="hover-row">
+                                                    <td className="text-start fw-bold py-2 ps-3">
                                                         {change.rowName}
+                                                    </td>
+                                                    <td className="py-2">
+                                                        {typeBadge}
                                                     </td>
                                                     <td className="py-2">
                                                         <span
@@ -117,16 +124,16 @@ function PriceChangeUpdateConfirmationModal({ show, onClose, onConfirm, changesL
                                                             {change.columnName.toUpperCase()}
                                                         </span>
                                                     </td>
-                                                    {/* 🛡️ Eski Değer (Birim dinamik hale getirildi) */}
+                                                    {/* Eski Değer */}
                                                     <td className="text-muted py-2 text-decoration-line-through" style={{ color: "#64748b" }}>
-                                                        {change.oldValue.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}{unit}
+                                                        {change.type === "INSERT" ? "—" : `${change.oldValue.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}${unit}`}
                                                     </td>
                                                     <td className="py-2 text-success">
                                                         <i className="bi bi-chevron-right"></i>
                                                     </td>
-                                                    {/* 🛡️ Yeni Değer (Birim dinamik hale getirildi) */}
-                                                    <td className="fw-bold py-2" style={{ color: "#4ade80" }}>
-                                                        {change.newValue.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}{unit}
+                                                    {/* Yeni Değer */}
+                                                    <td className="fw-bold py-2" style={{ color: change.type === "DELETE" ? "#ef4444" : "#4ade80" }}>
+                                                        {change.type === "DELETE" ? "SİLİNECEK" : `${change.newValue.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}${unit}`}
                                                     </td>
                                                 </tr>
                                             );

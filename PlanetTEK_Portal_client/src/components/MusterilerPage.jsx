@@ -138,8 +138,8 @@ function MusterilerPage() {
       {/* ÜST BAŞLIK - Mobilde alt alta, md ekranda yan yana */}
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 pb-3 border-bottom gap-3" style={{ borderColor: "#dee2e6" }}>
         <div>
-          <h5 className="mb-1 fw-semibold tracking-tight" style={{ color: "#1a1c1d" }}>
-            <i className="bi bi-building me-2" style={{ color: "#00874e" }}></i><span style={{ color: "#ffffff" }}>Müşteri Portföyü </span>
+          <h5 className="mb-1 fw-semibold tracking-tight" style={{ color: "#94a3b8" }}>
+            <i className="bi bi-building me-2" style={{ color: "#00874e" }}></i>Müşteri Portföyü
           </h5>
         </div>
 

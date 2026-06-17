@@ -96,7 +96,7 @@ function CalculationPage() {
       {/* ÜST BAŞLIK */}
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 pb-3 border-bottom gap-3" style={{ borderColor: "#334155" }}>
         <div>
-          <h5 className="mb-1 fw-semibold tracking-tight" style={{ color: "#ffffff" }}>
+          <h5 className="mb-1 fw-semibold tracking-tight" style={{ color: "#94a3b8" }}>
             <i className="bi bi-sliders me-2" style={{ color: "#00874e" }}></i>Hesaplama Parametreleri ve Katsayı Ayarları
           </h5>
 

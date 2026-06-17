@@ -25,7 +25,7 @@ function DashBoardPage() {
   // --- OTO SÜRE KONTROLÜ (30 Gün Geçenleri Ayıklama) ---
   const { aktifTeklifler, suresiDolmusTeklifler } = useMemo(() => {
     const bugun = new Date("2026-06-04"); // Sistem yılı 2026 simülasyonu
-    
+
     const aktif = [];
     const dolmus = [];
 
@@ -59,8 +59,8 @@ function DashBoardPage() {
   // --- DİNAMİK ARAMA FİLTRESİ (Aktif Tablo İçin) ---
   const filtrelenmişTeklifler = useMemo(() => {
     return aktifTeklifler.filter((teklif) => {
-      const noEşleşti = teklif.id.toLowerCase().includes(searchNo.toLowerCase()) || 
-                       teklif.musteri.toLowerCase().includes(searchNo.toLowerCase());
+      const noEşleşti = teklif.id.toLowerCase().includes(searchNo.toLowerCase()) ||
+        teklif.musteri.toLowerCase().includes(searchNo.toLowerCase());
       const tarihEşleşti = searchTarih === "" ? true : teklif.tarih === searchTarih;
       const kapasiteEşleşti = searchKapasite === "" ? true : teklif.kapasite >= parseFloat(searchKapasite);
       return noEşleşti && tarihEşleşti && kapasiteEşleşti;
@@ -74,7 +74,7 @@ function DashBoardPage() {
       return;
     }
 
-    setOffers(prevOffers => 
+    setOffers(prevOffers =>
       prevOffers.map(o => {
         if (o.id === selectedOffer.id) {
           // İptal veya Revize seçildiyse durum güncellenir, Süre Uzatımı seçildiyse tarih bugüne çekilir
@@ -107,8 +107,9 @@ function DashBoardPage() {
       {/* ÜST BAŞLIK */}
       <div className="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom" style={{ borderColor: "rgba(255,255,255,0.1)" }}>
         <div>
-          <h5 className="mb-1 fw-semibold tracking-tight">
+          <h5 className="mb-1 fw-semibold tracking-tight" style={{ color: "#94a3b8" }}>
             <i className="bi bi-grid-1x2-fill me-2" style={{ color: "#00874e" }}></i> Satış Paneli
+
           </h5>
         </div>
       </div>
@@ -129,8 +130,8 @@ function DashBoardPage() {
                     <span className="text-white-50 ms-2" style={{ fontSize: "11px" }}>{t.musteri} ({t.kapasite} m³/g)</span>
                     <div className="text-white-50" style={{ fontSize: "10px" }}>Teklif Tarihi: {t.tarih} - <span className="text-warning">{t.gecenGun} gündür yanıtsız</span></div>
                   </div>
-                  <button 
-                    className="btn btn-sm btn-danger fw-bold px-3" 
+                  <button
+                    className="btn btn-sm btn-danger fw-bold px-3"
                     style={{ fontSize: "11px", height: "26px", lineHeight: "12px" }}
                     onClick={() => setSelectedOffer(t)}
                   >
@@ -192,7 +193,7 @@ function DashBoardPage() {
         <div className="row g-2">
           <div className="col-md-4 col-12">
             <label className="form-label mb-1 text-white-50" style={{ fontSize: "11px" }}>Teklif No veya Müşteri Adı</label>
-            <input type="text" className="form-control form-control-sm text-white border-0" style={{ backgroundColor: "#1e293b", height: "32px", fontSize: "12px" }} value={searchNo} onChange={(e) => setSearchNo(e.target.value)} placeholder="Arama..."/>
+            <input type="text" className="form-control form-control-sm text-white border-0" style={{ backgroundColor: "#1e293b", height: "32px", fontSize: "12px" }} value={searchNo} onChange={(e) => setSearchNo(e.target.value)} placeholder="Arama..." />
           </div>
           <div className="col-md-4 col-6">
             <label className="form-label mb-1 text-white-50" style={{ fontSize: "11px" }}>Teklif Tarihi</label>
@@ -200,7 +201,7 @@ function DashBoardPage() {
           </div>
           <div className="col-md-4 col-6">
             <label className="form-label mb-1 text-white-50" style={{ fontSize: "11px" }}>Min Kapasite (m³/gün)</label>
-            <input type="number" className="form-control form-control-sm text-white border-0 text-center" style={{ backgroundColor: "#1e293b", height: "32px", fontSize: "12px" }} value={searchKapasite} onChange={(e) => setSearchKapasite(e.target.value)} placeholder="Örn: 500"/>
+            <input type="number" className="form-control form-control-sm text-white border-0 text-center" style={{ backgroundColor: "#1e293b", height: "32px", fontSize: "12px" }} value={searchKapasite} onChange={(e) => setSearchKapasite(e.target.value)} placeholder="Örn: 500" />
           </div>
         </div>
       </div>
@@ -252,7 +253,7 @@ function DashBoardPage() {
               <h6 className="mb-0 fw-bold text-danger"><i className="bi bi-lightning-charge-fill"></i> Teklif Durum Aksiyonu ({selectedOffer.id})</h6>
               <button className="btn-close btn-close-white btn-sm" onClick={() => setSelectedOffer(null)}></button>
             </div>
-            
+
             <p className="text-white-50" style={{ fontSize: "12px" }}>
               <strong>{selectedOffer.musteri}</strong> firmasına ait 30 günlük teklif süresi aşılmıştır. Lütfen zorunlu takip aksiyonunu seçiniz.
             </p>
@@ -260,7 +261,7 @@ function DashBoardPage() {
             {/* SEÇENEK RADİO KUTULARI */}
             <div className="mb-3">
               <label className="form-label text-white-50 mb-2" style={{ fontSize: "11px" }}>Alınacak Aksiyon Tipi *</label>
-              <select 
+              <select
                 className="form-select form-select-sm bg-dark text-white border-secondary"
                 value={actionType}
                 onChange={(e) => setActionType(e.target.value)}
@@ -275,9 +276,9 @@ function DashBoardPage() {
             {/* BİLGİ NOTU GİRİŞİ */}
             <div className="mb-3">
               <label className="form-label text-white-50 mb-1" style={{ fontSize: "11px" }}>Aksiyon Nedeni / Bilgi Notu *</label>
-              <textarea 
-                className="form-control bg-dark text-white border-secondary" 
-                rows="3" 
+              <textarea
+                className="form-control bg-dark text-white border-secondary"
+                rows="3"
                 style={{ fontSize: "12px" }}
                 placeholder="Örn: Müşteri bütçe onayı bekliyor, süre uzatıldı..."
                 value={actionNote}

@@ -22,7 +22,6 @@ export function AuthProvider({ children }) {
 
     try {
       const response = await API.login(body);
-      console.log("Backend Yanıtı:", response.data);
 
       const userData = response.data.user;
       setUser(userData);
