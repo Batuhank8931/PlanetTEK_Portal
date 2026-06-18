@@ -1,18 +1,33 @@
 // App.jsx
 import "./App.css";
+import { useEffect } from "react"; // 👈 useEffect'i ekledik
 import MainPage from "./pages/MainPage";
 import LoginPage from "./pages/LoginPage";
 import { AuthProvider, useAuth } from "./context/AuthContext";
 import "bootstrap/dist/css/bootstrap.min.css";
 
 function AppContent() {
-  // 🚀 GÜNCELLEME: 'token' bağımlılığını tamamen çöpe atıyoruz.
-  // Sadece ve sadece merkezi 'user' nesnesinin varlığına güveniyoruz.
-  const { user } = useAuth();
+  const { user, logout } = useAuth(); // 👈 Context'indeki logout fonksiyonunu çek (ismi clearUser vb. ise ona göre düzelt)
 
-  // Eğer hafızada veya context içinde doğrulanmış bir kullanıcı varsa içeri al, yoksa kapıda tut.
-  // Interceptor arkada token yenilerken 'user' nesnesi silinmediği için 
-  // uygulama artık asenkron istek anlarında donmayacak veya login'e fırlatmayacak!
+  useEffect(() => {
+    // 🎧 autoAuth'tan gelecek sinyali dinleyen kulaklık
+    const handleAuthFailure = () => {
+      console.log("🔒 [App] Sinyal alındı! Token bitti, giriş sayfasına yönlendiriliyorsunuz...");
+      if (logout) {
+        logout(); // Kullanıcı nesnesini null yapar
+      }
+    };
+
+    // Dinleyiciyi tarayıcıya ekle
+    window.addEventListener("auth-failure", handleAuthFailure);
+
+    // Bileşen kapandığında hafıza sızıntısı olmasın diye temizle
+    return () => {
+      window.removeEventListener("auth-failure", handleAuthFailure);
+    };
+  }, [logout]);
+
+  // user null olduğu an LoginPage otomatik ekrana basılır!
   return user ? <MainPage /> : <LoginPage />;
 }
 
