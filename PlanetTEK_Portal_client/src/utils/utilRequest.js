@@ -168,7 +168,24 @@ const API = {
             });
             throw err;
         }
-    }
+    },
+
+    // API objesinin içine (Örn: getSludgeDewateringCosts'un altına) ekle:
+
+    // 🔍 Tüm pompaları eğri dataları (mssData) ile birlikte listeler
+    getAllPumpsWithCurves: async () => {
+        try {
+            const res = await crudClient.get("api/price/pumps-with-curves");
+            return res;
+        } catch (err) {
+            console.error("❌ [API.getAllPumpsWithCurves] Eğrili pompa listesi çekilemedi:", {
+                status: err.response?.status,
+                message: err.message,
+                responseData: err.response?.data
+            });
+            throw err;
+        }
+    },
 
 };
 

@@ -1,17 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import GeriDevirPompasiModal from "./modals/GeriDevirPompasiModal";
 import { useTeklifStore } from "../../../../utils/teklifStore";
-
-const PUMP_DATABASE = [
-    { id: 0, name: "City Pumps Security 10T", mssData: { 0: 15, 1.5: 14.5, 3: 14, 4.5: 13.2, 6: 12, 9: 11, 12: 9, 15: 6, 18: 3.5, 21: 1.5 } },
-    { id: 1, name: "City Pumps Ranger 10 35", mssData: { 0: 10, 1.5: 9.7, 3: 9.5, 4.5: 8.7, 6: 8.5, 9: 7, 12: 5.8, 15: 4, 18: 2 } },
-    { id: 2, name: "City Pumps Ranger 15 35", mssData: { 0: 15, 1.5: 14.5, 3: 14, 4.5: 13.5, 6: 13, 9: 11.5, 12: 10.5, 15: 6, 18: 7.5, 21: 6, 24: 4, 27: 2 } },
-    { id: 3, name: "City Pumps Titan 15 50", mssData: { 4.5: 11.5, 6: 10.5, 9: 10, 12: 9.5, 15: 8.8, 18: 8.2, 21: 7.2, 24: 6.5, 27: 6, 30: 5, 36: 2 } },
-    { id: 4, name: "City Pumps Titan 20 50", mssData: { 4.5: 13, 6: 12, 9: 11.5, 12: 11, 15: 10.8, 18: 10, 21: 9, 24: 8, 27: 6.5, 30: 5.8, 36: 4.5, 39: 3, 42: 2 } },
-    { id: 5, name: "City Pumps Titan 30 50", mssData: { 4.5: 16, 6: 15, 9: 14.5, 12: 14, 15: 13.5, 18: 13, 21: 12.3, 24: 11.5, 27: 10.8, 30: 9.5, 36: 8, 39: 6.8, 42: 5.9, 48: 3, 51: 2 } },
-    { id: 6, name: "City Pumps Patrol 20 50", mssData: { 4.5: 18, 6: 16, 9: 15, 12: 14, 15: 13, 18: 12.5, 21: 11, 24: 10.5, 27: 9, 30: 8, 36: 7, 39: 6, 42: 5, 48: 3, 51: 2, 54: 1 } },
-    { id: 7, name: "City Pumps Patrol 30 50", mssData: { 4.5: 24, 6: 22, 9: 21, 12: 20, 15: 19, 18: 18, 21: 17, 24: 16, 27: 15, 30: 14, 36: 12, 39: 11, 42: 10, 48: 8, 51: 7, 54: 6, 60: 4, 66: 2 } }
-];
+import API from "../../../../utils/utilRequest";
 
 const CRITERIA_DATABASE = [
     { id: 1, label: "≥ 120,00", multiplier: 6.0, minAzot: 120, maxAzot: Infinity },
@@ -24,8 +14,24 @@ const CRITERIA_DATABASE = [
 function IleriAritmaPumpSelections() {
     const CALC_HOURS = 24;
 
+    // 🚀 1. ADIM: Dinamik veritabanı durumu için local state tanımı
+    const [pumpDatabase, setPumpDatabase] = useState([]);
+
     const formData = useTeklifStore((state) => state.formData);
     const updateSection = useTeklifStore((state) => state.updateSection);
+
+    // 🚀 2. ADIM: Sayfa açıldığında güncel eğrili pompa verilerini API'den çek
+    useEffect(() => {
+        const fetchPumps = async () => {
+            try {
+                const response = await API.getAllPumpsWithCurves();
+                setPumpDatabase(response.data || []);
+            } catch (error) {
+                console.error("Geri devir pompası motoru için eğri dataları yüklenemedi:", error);
+            }
+        };
+        fetchPumps();
+    }, []);
 
     const debi = parseFloat(formData.planetDiskDetails?.debi) || 0;
     const ActuralHourlyFlow = debi ? debi / CALC_HOURS : 0;
@@ -85,6 +91,7 @@ function IleriAritmaPumpSelections() {
         return isNaN(val) ? 5.9 : val;
     }, [manualMinMss]);
 
+    // 🚀 3. ADIM: "1.5" sayı ve "1.50" dize veri tipi uyuşmazlığını ortadan kaldıran akıllı MSS bulucu
     const getMssValue = (pump, qSaat) => {
         if (!pump || !pump.mssData) return null;
 
@@ -95,15 +102,25 @@ function IleriAritmaPumpSelections() {
         const maxStep = steps[steps.length - 1];
 
         if (qSaat < minStep || qSaat > maxStep) return null;
-        if (pump.mssData[qSaat] !== undefined) return pump.mssData[qSaat];
+        
+        const getSafeValue = (keyNum) => {
+            if (pump.mssData[keyNum] !== undefined) return Number(pump.mssData[keyNum]);
+            if (pump.mssData[keyNum.toFixed(2)] !== undefined) return Number(pump.mssData[keyNum.toFixed(2)]);
+            return null;
+        };
+
+        const directMatch = getSafeValue(qSaat);
+        if (directMatch !== null) return directMatch;
 
         for (let i = 0; i < steps.length - 1; i++) {
             const currentStep = steps[i];
             const nextStep = steps[i + 1];
 
             if (qSaat >= currentStep && qSaat <= nextStep) {
-                const mssCurrent = pump.mssData[currentStep];
-                const mssNext = pump.mssData[nextStep];
+                const mssCurrent = getSafeValue(currentStep);
+                const mssNext = getSafeValue(nextStep);
+
+                if (mssCurrent === null || mssNext === null) continue;
 
                 const ratio = (qSaat - currentStep) / (nextStep - currentStep);
                 const interpolatedMss = mssCurrent + ratio * (mssNext - mssCurrent);
@@ -114,21 +131,22 @@ function IleriAritmaPumpSelections() {
         return null;
     };
 
-    // --- SEÇİM VE POMPA ADET MANTIĞI (DİNAMİK ARTAN ADET) ---
+    // --- SEÇİM VE POMPA ADET MANTIĞI (PUMP_DATABASE -> pumpDatabase) ---
     const { idealPumpIndex, pompaAdeti, hesaplananDebi } = useMemo(() => {
-        if (activeHourlyFlow === 0) return { idealPumpIndex: -1, pompaAdeti: 1, hesaplananDebi: 0 };
+        if (activeHourlyFlow === 0 || pumpDatabase.length === 0) {
+            return { idealPumpIndex: -1, pompaAdeti: 1, hesaplananDebi: 0 };
+        }
 
         let bestPumpIndex = -1;
         let minValidMss = Infinity;
         let adet = 1;
         let qHesap = activeHourlyFlow;
 
-        // Uygun pompa bulunana kadar adet sayısını artıracak döngü (max 20 adet güvenlik sınırı)
         while (bestPumpIndex === -1 && adet <= 20) {
             qHesap = activeHourlyFlow / adet;
             minValidMss = Infinity;
 
-            PUMP_DATABASE.forEach((pump, index) => {
+            pumpDatabase.forEach((pump, index) => {
                 const mss = getMssValue(pump, qHesap);
                 if (mss !== null && mss >= activeMinMss && mss < minValidMss) {
                     minValidMss = mss;
@@ -137,31 +155,33 @@ function IleriAritmaPumpSelections() {
             });
 
             if (bestPumpIndex !== -1) {
-                break; // Uygun pompa kombinasyonu bulundu, döngüden çık.
+                break;
             }
             adet++;
         }
 
         return { idealPumpIndex: bestPumpIndex, pompaAdeti: bestPumpIndex !== -1 ? adet : 1, hesaplananDebi: qHesap };
-    }, [activeHourlyFlow, activeMinMss]);
+    }, [activeHourlyFlow, activeMinMss, pumpDatabase]);
 
     const { selectedPump, currentMss } = useMemo(() => {
         let finalIndex = idealPumpIndex;
 
-        if (idealPumpIndex !== -1) {
+        if (idealPumpIndex !== -1 && pumpDatabase.length > 0) {
             finalIndex = idealPumpIndex + pumpOffset;
             if (finalIndex < 0) finalIndex = 0;
-            if (finalIndex >= PUMP_DATABASE.length) finalIndex = PUMP_DATABASE.length - 1;
+            if (finalIndex >= pumpDatabase.length) finalIndex = pumpDatabase.length - 1;
         }
 
-        const pump = finalIndex !== -1 ? PUMP_DATABASE[finalIndex] : null;
+        const pump = finalIndex !== -1 && pumpDatabase.length > 0 ? pumpDatabase[finalIndex] : null;
         const mss = pump ? getMssValue(pump, hesaplananDebi) : 0;
 
         return { selectedPump: pump, currentMss: mss, finalPumpIndex: finalIndex };
-    }, [idealPumpIndex, pumpOffset, hesaplananDebi]);
+    }, [idealPumpIndex, pumpOffset, hesaplananDebi, pumpDatabase]);
 
     // Merkezi Store Senkronizasyon Helper'ı
     const updateIleriPumpStore = (nextHourly, nextMss, nextOffset, isManual = true) => {
+        if (pumpDatabase.length === 0) return;
+
         let pumpString = "---";
         const hourlyFlowNum = parseFloat(nextHourly) || 0;
         const parsedNextMss = parseFloat(nextMss) || 5.9;
@@ -176,7 +196,7 @@ function IleriAritmaPumpSelections() {
                 simQ = hourlyFlowNum / simAdet;
                 simMinMss = Infinity;
 
-                PUMP_DATABASE.forEach((p, idx) => {
+                pumpDatabase.forEach((p, idx) => {
                     const m = getMssValue(p, simQ);
                     if (m !== null && m >= parsedNextMss && m < simMinMss) {
                         simMinMss = m;
@@ -195,10 +215,10 @@ function IleriAritmaPumpSelections() {
         if (simBestIndex !== -1) {
             simFinalIndex = simBestIndex + nextOffset;
             if (simFinalIndex < 0) simFinalIndex = 0;
-            if (simFinalIndex >= PUMP_DATABASE.length) simFinalIndex = PUMP_DATABASE.length - 1;
+            if (simFinalIndex >= pumpDatabase.length) simFinalIndex = pumpDatabase.length - 1;
         }
 
-        const targetPump = simFinalIndex !== -1 ? PUMP_DATABASE[simFinalIndex] : null;
+        const targetPump = simFinalIndex !== -1 ? pumpDatabase[simFinalIndex] : null;
         const targetMss = targetPump ? getMssValue(targetPump, simQ) : 0;
 
         if (hourlyFlowNum > 0 && targetPump) {
@@ -226,14 +246,15 @@ function IleriAritmaPumpSelections() {
         });
     };
 
+    // 🚀 4. ADIM: Bağımlılık dizisine (dependency array) pumpDatabase eklenerek senkronizasyon garantilendi
     useEffect(() => {
-        if (defaultHourlyFlowStr === "0") return;
+        if (defaultHourlyFlowStr === "0" || pumpDatabase.length === 0) return;
 
         if (!storePumpSelections.geridevirPompasi || isParamsChanged || !isInputsChanged) {
             updateIleriPumpStore(defaultHourlyFlowStr, defaultMinMssStr, 0, false);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [debi, girisToplamAzot, defaultHourlyFlowStr, isParamsChanged]);
+    }, [debi, girisToplamAzot, defaultHourlyFlowStr, isParamsChanged, pumpDatabase]);
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -246,7 +267,7 @@ function IleriAritmaPumpSelections() {
 
     const handleDropdownPumpChange = (targetPumpId) => {
         if (idealPumpIndex === -1) return;
-        const selectedIdx = PUMP_DATABASE.findIndex(p => p.id === parseInt(targetPumpId));
+        const selectedIdx = pumpDatabase.findIndex(p => p.id === parseInt(targetPumpId));
         if (selectedIdx === -1) return;
 
         const nextOffset = selectedIdx - idealPumpIndex;
@@ -280,7 +301,11 @@ function IleriAritmaPumpSelections() {
 
             <div className="row g-2 mb-1">
                 <div className="col-6">
-                    <label className="form-label mb-1 text-white-50" style={{ fontSize: "11px" }}>Geri Devir Debisi (m³/h)</label>
+                    <label className="form-label mb-1 text-white-50" style={{ fontSize: "11px" }}>Geri Devir Debisi (m³/h)
+                        <span className="text-white-50 text-none ms-1" style={{ fontSize: "10px", transform: "none" }}>
+                            ({ActuralHourlyFlow.toFixed(2)} m³/h x {currentMultiplier.toFixed(1)})
+                        </span>
+                    </label>
                     <input
                         type="number"
                         name="manualHourlyFlow"
@@ -328,15 +353,15 @@ function IleriAritmaPumpSelections() {
                             height: "36px"
                         }}
                         value={selectedPump ? selectedPump.id : ""}
-                        disabled={activeHourlyFlow === 0 || idealPumpIndex === -1}
+                        disabled={activeHourlyFlow === 0 || idealPumpIndex === -1 || pumpDatabase.length === 0}
                         onChange={(e) => handleDropdownPumpChange(e.target.value)}
                     >
-                        {idealPumpIndex === -1 && activeHourlyFlow > 0 ? (
+                        {pumpDatabase.length === 0 || (idealPumpIndex === -1 && activeHourlyFlow > 0) ? (
                             <option value="">Kapasite Aşımı</option>
                         ) : activeHourlyFlow === 0 ? (
                             <option value="">---</option>
                         ) : (
-                            PUMP_DATABASE.map((pump) => (
+                            pumpDatabase.map((pump) => (
                                 <option key={pump.id} value={pump.id} style={{ backgroundColor: "#1e293b", color: "#fff" }}>
                                     {pump.name}
                                 </option>

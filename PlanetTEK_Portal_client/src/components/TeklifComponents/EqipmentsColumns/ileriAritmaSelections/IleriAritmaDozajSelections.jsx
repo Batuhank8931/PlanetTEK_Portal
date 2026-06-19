@@ -47,7 +47,7 @@ function IleriAritmaDozajSelections() {
     // 4. Pompa Saatlik Debisi (L/saat)
     const pompaSaatlikDebi = cozeltiLitreGun / 24;
 
-    // 5. Pompa Adedi Hesabı (Standart pompa: 5 L/saat)
+    // 5. Pompa Adedi Hesabı (Standart pompa: 5 L/saat) -> Math.ceil ile Tamsayı
     const standartPompaKapasitesi = 5;
     const pompaAdedi = pompaSaatlikDebi > 0 ? Math.ceil(pompaSaatlikDebi / standartPompaKapasitesi) : 1;
 
@@ -69,28 +69,32 @@ function IleriAritmaDozajSelections() {
   // 3. HESAPLANAN VERİLERİN MERKEZİ STORE'A BAĞLANMASI (Sonsuz döngü korumalı useEffect)
   useEffect(() => {
     if (debi > 0) {
-      const dozajPompasiString = `${hesaplananDegerler.pompaAdedi} Adet Dozaj Pompası (5 L/h @ 5 Bar)`;
-      const kimyasalTankString = hesaplananDegerler.standartTankHacmi > 0 
-        ? `${hesaplananDegerler.standartTankHacmi} Litre FeCl₃ Kimyasal Depolama Tankı` 
+      const currentPompaAdedi = parseInt(storeDozajSelections.pompaAdedi ?? hesaplananDegerler.pompaAdedi, 10) || 1;
+      const dozajPompasiString = `${currentPompaAdedi} Adet Dozaj Pompası (5 L/h @ 5 Bar)`;
+      
+      const currentTankHacmi = storeDozajSelections.standartTankHacmi ?? hesaplananDegerler.standartTankHacmi;
+      const kimyasalTankString = currentTankHacmi > 0 
+        ? `${Number(currentTankHacmi).toFixed(2)} Litre FeCl₃ Kimyasal Depolama Tankı` 
         : "---";
 
       // Sadece verilerde gerçekten bir değişiklik varsa store'u güncelle
       if (
         storeDozajSelections.dozajPompasi !== dozajPompasiString ||
-        storeDozajSelections.kimyasalTanki !== kimyasalTankString
+        storeDozajSelections.kimyasalTanki !== kimyasalTankString ||
+        storeDozajSelections.gerekliFe === undefined // İlk yükleme kontrolü
       ) {
         updateSection("equipments", {
-          ...equipmentsCache, // Kök equipments objelerini koru (modulesState vb.)
+          ...equipmentsCache,
           ileriAritma: {
-            ...storeIleriAritma, // Diğer InputSelections ve PumpSelections verilerini koru!
+            ...storeIleriAritma,
             IleriAritmaDozajSelections: {
-              gerekliFe: hesaplananDegerler.gerekliFe,
-              gerekliFeCl3: hesaplananDegerler.gerekliFeCl3,
-              cozeltiLitreGun: hesaplananDegerler.cozeltiLitreGun,
-              pompaSaatlikDebi: hesaplananDegerler.pompaSaatlikDebi,
-              pompaAdedi: hesaplananDegerler.pompaAdedi,
-              tankHacmiLitre: hesaplananDegerler.tankHacmiLitre,
-              standartTankHacmi: hesaplananDegerler.standartTankHacmi,
+              gerekliFe: storeDozajSelections.gerekliFe ?? hesaplananDegerler.gerekliFe,
+              gerekliFeCl3: storeDozajSelections.gerekliFeCl3 ?? hesaplananDegerler.gerekliFeCl3,
+              cozeltiLitreGun: storeDozajSelections.cozeltiLitreGun ?? hesaplananDegerler.cozeltiLitreGun,
+              pompaSaatlikDebi: storeDozajSelections.pompaSaatlikDebi ?? hesaplananDegerler.pompaSaatlikDebi,
+              pompaAdedi: currentPompaAdedi,
+              tankHacmiLitre: storeDozajSelections.tankHacmiLitre ?? hesaplananDegerler.tankHacmiLitre,
+              standartTankHacmi: storeDozajSelections.standartTankHacmi ?? hesaplananDegerler.standartTankHacmi,
               dozajPompasi: dozajPompasiString,
               kimyasalTanki: kimyasalTankString
             }
@@ -100,6 +104,49 @@ function IleriAritmaDozajSelections() {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hesaplananDegerler]);
+
+  // Manuel Input Değişim Yönetimi
+  const handleInputChange = (field, value) => {
+    // Pompa adedi için tamsayı (int), diğer alanlar için float dönüşümü yapıyoruz
+    const numValue = value === "" ? "" : (field === "pompaAdedi" ? parseInt(value, 10) : parseFloat(value)) || 0;
+    
+    let ekAlanlar = {};
+    if (field === "tankHacmiLitre" && numValue !== "") {
+      ekAlanlar.standartTankHacmi = getStandardTankVolume(numValue);
+    }
+
+    updateSection("equipments", {
+      ...equipmentsCache,
+      ileriAritma: {
+        ...storeIleriAritma,
+        IleriAritmaDozajSelections: {
+          ...storeDozajSelections,
+          [field]: numValue,
+          ...ekAlanlar
+        }
+      }
+    });
+  };
+
+  // Inputlar için ortak şeffaf stil şablonu
+  const inputStyle = {
+    background: "transparent",
+    border: "none",
+    color: "inherit",
+    fontWeight: "bold",
+    fontSize: "11px",
+    textAlign: "right",
+    width: "80px",
+    outline: "none",
+    padding: 0
+  };
+
+  // Değerleri güvenli formatlayan yardımcı fonksiyon (isInt parametresi true ise virgülsüz basar)
+  const formatValue = (storeVal, calcVal, isInt = false) => {
+    const val = storeVal ?? calcVal;
+    if (val === undefined || val === "") return "";
+    return isInt ? parseInt(val, 10).toString() : Number(val).toFixed(2);
+  };
 
   return (
     <div className="card-body d-flex flex-column gap-3" style={{ position: "relative", color: "#fff", padding: 0 }}>
@@ -120,23 +167,44 @@ function IleriAritmaDozajSelections() {
 
           <div className="p-2 rounded d-flex justify-content-between align-items-center" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
             <span className="text-white-50" style={{ fontSize: "10px" }}>Gerekli Saf Fe Miktarı:</span>
-            <span className="fw-bold text-white" style={{ fontSize: "11px" }}>
-              {hesaplananDegerler.gerekliFe.toFixed(2)} <span className="text-white-50" style={{ fontSize: "9px" }}>kg/gün</span>
-            </span>
+            <div className="d-flex align-items-center gap-1 text-white">
+              <input
+                type="number"
+                step="0.01"
+                style={inputStyle}
+                value={formatValue(storeDozajSelections.gerekliFe, hesaplananDegerler.gerekliFe)}
+                onChange={(e) => handleInputChange("gerekliFe", e.target.value)}
+              />
+              <span className="text-white-50" style={{ fontSize: "9px" }}>kg/gün</span>
+            </div>
           </div>
 
           <div className="p-2 rounded d-flex justify-content-between align-items-center" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
             <span className="text-white-50" style={{ fontSize: "10px" }}>Gerekli Saf FeCl₃ Miktarı:</span>
-            <span className="fw-bold text-white" style={{ fontSize: "11px" }}>
-              {hesaplananDegerler.gerekliFeCl3.toFixed(2)} <span className="text-white-50" style={{ fontSize: "9px" }}>kg/gün</span>
-            </span>
+            <div className="d-flex align-items-center gap-1 text-white">
+              <input
+                type="number"
+                step="0.01"
+                style={inputStyle}
+                value={formatValue(storeDozajSelections.gerekliFeCl3, hesaplananDegerler.gerekliFeCl3)}
+                onChange={(e) => handleInputChange("gerekliFeCl3", e.target.value)}
+              />
+              <span className="text-white-50" style={{ fontSize: "9px" }}>kg/gün</span>
+            </div>
           </div>
 
           <div className="p-2 rounded d-flex justify-content-between align-items-center" style={{ backgroundColor: "#1e293b", border: "1px solid #00874e" }}>
             <span className="text-white-50" style={{ fontSize: "10px" }}>%40 Çözelti İhtiyacı:</span>
-            <span className="fw-bold text-success" style={{ fontSize: "11px" }}>
-              {hesaplananDegerler.cozeltiLitreGun.toFixed(1)} <span style={{ fontSize: "9px" }}>L/gün</span>
-            </span>
+            <div className="d-flex align-items-center gap-1 text-success">
+              <input
+                type="number"
+                step="0.01"
+                style={{ ...inputStyle, color: "#198754" }}
+                value={formatValue(storeDozajSelections.cozeltiLitreGun, hesaplananDegerler.cozeltiLitreGun)}
+                onChange={(e) => handleInputChange("cozeltiLitreGun", e.target.value)}
+              />
+              <span style={{ fontSize: "9px" }}>L/gün</span>
+            </div>
           </div>
 
         </div>
@@ -147,28 +215,51 @@ function IleriAritmaDozajSelections() {
           {/* Pompa Saatlik Debisi */}
           <div className="p-2 rounded d-flex justify-content-between align-items-center" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
             <span className="text-white-50" style={{ fontSize: "10px" }}>Pompa Saatlik Debisi:</span>
-            <span className="fw-bold text-white" style={{ fontSize: "11px" }}>
-              {hesaplananDegerler.pompaSaatlikDebi.toFixed(2)} <span className="text-white-50" style={{ fontSize: "9px" }}>L/saat</span>
-            </span>
+            <div className="d-flex align-items-center gap-1 text-white">
+              <input
+                type="number"
+                step="0.01"
+                style={inputStyle}
+                value={formatValue(storeDozajSelections.pompaSaatlikDebi, hesaplananDegerler.pompaSaatlikDebi)}
+                onChange={(e) => handleInputChange("pompaSaatlikDebi", e.target.value)}
+              />
+              <span className="text-white-50" style={{ fontSize: "9px" }}>L/saat</span>
+            </div>
           </div>
 
-          {/* DİNAMİK POMPA ADEDİ KUTUSU */}
+          {/* DİNAMİK POMPA ADEDİ KUTUSU (TAMSAYI - INT) */}
           <div className="p-2 rounded d-flex justify-content-between align-items-center" style={{ backgroundColor: "#1e293b", border: "1px solid #ef4444" }}>
             <span className="text-white-50" style={{ fontSize: "10px" }}>Gerekli Pompa Adedi (5 L/h @ 5 Bar):</span>
-            <span className="fw-bold text-danger" style={{ fontSize: "11px" }}>
-              {hesaplananDegerler.pompaAdedi} <span style={{ fontSize: "9px" }}>Adet</span>
-            </span>
+            <div className="d-flex align-items-center gap-1 text-danger">
+              <input
+                type="number"
+                step="1"
+                style={{ ...inputStyle, color: "#dc3545" }}
+                value={formatValue(storeDozajSelections.pompaAdedi, hesaplananDegerler.pompaAdedi, true)}
+                onChange={(e) => handleInputChange("pompaAdedi", e.target.value)}
+              />
+              <span style={{ fontSize: "9px" }}>Adet</span>
+            </div>
           </div>
 
           {/* Tank Hacmi Kutusu */}
           <div className="p-2 rounded d-flex justify-content-between align-items-center" style={{ backgroundColor: "#1e293b", border: "1px solid #38bdf8" }}>
             <span className="text-white-50" style={{ fontSize: "10px" }}>Gerekli Tank Hacmi ({stokGunu} Gün):</span>
-            <span className="fw-bold text-info" style={{ fontSize: "11px" }}>
-              {hesaplananDegerler.tankHacmiLitre.toFixed(0)} <span style={{ fontSize: "9px" }}>Litre</span>
-              {hesaplananDegerler.standartTankHacmi > 0 && (
-                <span className="text-warning ms-1" style={{ fontSize: "10px" }}>(Seçilen: {hesaplananDegerler.standartTankHacmi} L)</span>
+            <div className="d-flex align-items-center gap-1 text-info">
+              <input
+                type="number"
+                step="0.01"
+                style={{ ...inputStyle, color: "#0dcaf0", width: "65px" }}
+                value={formatValue(storeDozajSelections.tankHacmiLitre, hesaplananDegerler.tankHacmiLitre)}
+                onChange={(e) => handleInputChange("tankHacmiLitre", e.target.value)}
+              />
+              <span style={{ fontSize: "9px" }}>Litre</span>
+              {((storeDozajSelections.standartTankHacmi ?? hesaplananDegerler.standartTankHacmi) > 0) && (
+                <span className="text-warning ms-1" style={{ fontSize: "10px", whiteSpace: "nowrap" }}>
+                  (Seçilen: {Number(storeDozajSelections.standartTankHacmi ?? hesaplananDegerler.standartTankHacmi).toFixed(2)} L)
+                </span>
               )}
-            </span>
+            </div>
           </div>
 
         </div>

@@ -24,7 +24,7 @@ const getPumpCurve = async (req, res) => {
             "SELECT * FROM pump_curve_points WHERE pump_id = ? ORDER BY flow_rate ASC",
             [pump_id]
         );
-        
+
         return res.json(rows);
     } catch (error) {
         console.error("getPumpCurve Error:", error.message);
@@ -85,4 +85,38 @@ const updatePumpCurve = async (req, res) => {
     }
 };
 
-module.exports = { getPumpCurve, updatePumpCurve };
+// models/pump_curve_data.js veya price_data.js içine ekleyebilirsin
+
+const getAllPumpCurves = async (req, res) => {
+    try {
+        const query = `
+            SELECT 
+                p.id,
+                p.pompa_adi AS name,
+                -- Eğri noktalarını "flow_rate: head_mss" key-value objesine dönüştürüyoruz
+                JSON_OBJECTAGG(c.flow_rate, c.head_mss) AS mssData
+            FROM submersible_pumps p
+            INNER JOIN pump_curve_points c ON p.id = c.pump_id
+            GROUP BY p.id, p.pompa_adi
+            ORDER BY p.id ASC
+        `;
+
+        const [rows] = await pool.execute(query);
+
+        // MySQL JSON_OBJECTAGG kullanınca string veya raw obje dönebilir, garantiye almak için parse kontrolü yapıyoruz
+        const formattedResult = rows.map(row => ({
+            id: row.id,
+            name: row.name,
+            mssData: typeof row.mssData === 'string' ? JSON.parse(row.mssData) : row.mssData
+        }));
+
+        return res.json(formattedResult);
+    } catch (error) {
+        console.error("getAllPumpCurves Error:", error.message);
+        return res.status(500).json({ message: "Teknik bir hata oluştu.", error: error.message });
+    }
+};
+
+// export kısmına getAllPumpCurves fonksiyonunu eklemeyi unutma!
+
+module.exports = { getPumpCurve, updatePumpCurve, getAllPumpCurves };

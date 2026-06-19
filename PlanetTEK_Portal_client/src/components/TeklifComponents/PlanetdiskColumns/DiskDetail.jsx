@@ -108,7 +108,7 @@ function DiskDetail() {
 
             if (giderilenAmonyum > 0 && !isNaN(nitrifikasyonEmperik) && nitrifikasyonEmperik !== 0) {
                 const amonyumYükü = (giderilenAmonyum * Q) / 1000; // kg/gün
-                
+
                 // Gerekli Alan = (Amonyum Yükü * 1000) / Nitrifikasyon Empirik Katsayısı
                 const nitrifikasyonAlani = (amonyumYükü * 1000) / nitrifikasyonEmperik;
 
@@ -130,19 +130,33 @@ function DiskDetail() {
     ]);
 
     // FIX: Optimized useEffect preventing deep update loops
+    // FIX: Diğer parametreleri ve emperikleri asla ezmeyen güvenli atomik useEffect
     useEffect(() => {
         if (!finalMetrekare || finalMetrekare.length === 0) return;
 
-        const currentFinalMetrekare = diskDetails.tasarim?.finalMetrekare;
+        const currentFinalMetrekare = useTeklifStore.getState().formData.planetDiskDetails?.tasarim?.finalMetrekare;
         if (JSON.stringify(currentFinalMetrekare) === JSON.stringify(finalMetrekare)) return;
 
-        updateSection("planetDiskDetails", {
-            tasarim: {
-                ...diskDetails.tasarim,
-                finalMetrekare: finalMetrekare 
-            }
+        // updateSection yerine doğrudan store'un o anki EN GÜNCEL halini (state) alıp sadece finalMetrekare'yi güncelliyoruz.
+        // Böylece aritmaParametreleri altındaki emperik değerine bu component dolaylı olarak bile dokunamıyor.
+        useTeklifStore.setState((state) => {
+            const diskDetails = state.formData.planetDiskDetails || {};
+            const tasarim = diskDetails.tasarim || {};
+
+            return {
+                formData: {
+                    ...state.formData,
+                    planetDiskDetails: {
+                        ...diskDetails,
+                        tasarim: {
+                            ...tasarim,
+                            finalMetrekare: finalMetrekare // Sadece bu alanı günceller, InputParameters'ın yazdığı emperik güvende kalır!
+                        }
+                    }
+                }
+            };
         });
-    }, [finalMetrekare, updateSection]); 
+    }, [finalMetrekare]);
 
     return (
         <div className="card border-0 text-white h-100" style={{ backgroundColor: "#1a1c1d", borderRadius: "12px", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)" }}>

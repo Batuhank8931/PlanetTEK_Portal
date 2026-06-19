@@ -23,7 +23,7 @@ const {
 const { getParamteters, updateParametersData } = require("../../models/parameters_data.js");
 
 // 📊 Pompa Eğrisi (Pump Curve) fonksiyonlarını dahil ediyoruz
-const { getPumpCurve, updatePumpCurve } = require("../../models/pump_curve_data.js"); // <--- Dosya yolunu kendi yapına göre revize edebilirsin
+const { getPumpCurve, updatePumpCurve, getAllPumpCurves } = require("../../models/pump_curve_data.js"); // <--- Dosya yolunu kendi yapına göre revize edebilirsin
 
 // ==========================================
 // 👥 KULLANICI CRUD ROTALARI
@@ -52,6 +52,7 @@ router.get('/price/sludge-dewatering-costs', verifyToken, getSludgeDewateringCos
 // 📈 Pompa Eğrisi (Pump Curve) Rotaları
 router.get('/price/pump-curve/:pump_id', verifyToken, getPumpCurve);       // Belirli bir pompanın eğrisini getirir
 router.put('/price/pump-curve/:pump_id', verifyToken, updatePumpCurve);    // Belirli bir pompanın eğrisini günceller
+router.get('/price/pumps-with-curves', verifyToken, getAllPumpCurves);
 
 // 🔄 1 Adet Dinamik POST İsteği (Tüm tablolardaki fiyat/parametre güncellemeleri için)
 router.post('/price/update', verifyToken, updatePriceData);

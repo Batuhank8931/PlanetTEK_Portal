@@ -1,45 +1,13 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useTeklifStore } from "../../../utils/teklifStore";
-
-// --- SABİT VERİTABANI MODELLEMELERİ ---
-const FILTRATION_DATABASE = [
-  { maxDebi: 1.0 }, { maxDebi: 1.5 }, { maxDebi: 2.0 }, { maxDebi: 4.0 },
-  { maxDebi: 6.0 }, { maxDebi: 6.3 }, { maxDebi: 6.5 }, { maxDebi: 7.0 },
-  { maxDebi: 7.7 }, { maxDebi: 8.0 }, { maxDebi: 9.0 }, { maxDebi: 10.0 },
-  { maxDebi: 12.0 }, { maxDebi: 15.0 }, { maxDebi: 17.0 }, { maxDebi: 20.0 },
-  { maxDebi: 24.5 }, { maxDebi: 26.7 }, { maxDebi: 30.0 }, { maxDebi: 33.0 },
-  { maxDebi: 38.5 }, { maxDebi: 40.0 }, { maxDebi: 45.0 }, { maxDebi: 52.3 }
-];
-
-const PUMP_DATABASE = {
-  besleme: [
-    { maxDebi: 1.0, kw: 2.2 }, { maxDebi: 1.15, kw: 2.2 }, { maxDebi: 2.0, kw: 2.2 }, { maxDebi: 3.5, kw: 2.2 },
-    { maxDebi: 4.0, kw: 2.2 }, { maxDebi: 6.0, kw: 2.2 }, { maxDebi: 6.5, kw: 2.2 }, { maxDebi: 7.0, kw: 2.2 },
-    { maxDebi: 7.3, kw: 2.2 }, { maxDebi: 7.5, kw: 2.2 }, { maxDebi: 8.0, kw: 2.2 }, { maxDebi: 9.4, kw: 2.2 },
-    { maxDebi: 10.0, kw: 3.0 }, { maxDebi: 14.0, kw: 3.0 }, { maxDebi: 16.0, kw: 3.0 },
-    { maxDebi: 20.0, kw: 4.0 }, { maxDebi: 23.0, kw: 4.0 }, { maxDebi: 25.0, kw: 4.0 },
-    { maxDebi: 30.0, kw: 5.5 }, { maxDebi: 33.0, kw: 5.5 }, { maxDebi: 36.2, kw: 5.5 },
-    { maxDebi: 37.0, kw: 11.0 }, { maxDebi: 40.0, kw: 11.0 }, { maxDebi: 49.3, kw: 11.0 }
-  ],
-  geriYikama: [
-    { maxDebi: 9.4, kw: 2.2 }, { maxDebi: 15.0, kw: 3.0 }, { maxDebi: 18.0, kw: 4.0 },
-    { maxDebi: 23.5, kw: 5.5 }, { maxDebi: 40.0, kw: 11.0 }, { maxDebi: 62.5, kw: 11.0 },
-    { maxDebi: 62.5, kw: 12.0 }, { maxDebi: 62.5, kw: 13.0 }, { maxDebi: 90.0, kw: 11.0 },
-    { maxDebi: 120.0, kw: 16.5 }
-  ]
-};
-
-// Yardımcı Tekli Seçim Fonksiyonları
-const findOptimalFiltreModel = (hatDebisi) => {
-  return FILTRATION_DATABASE.find(item => item.maxDebi >= hatDebisi) || FILTRATION_DATABASE[FILTRATION_DATABASE.length - 1];
-};
-
-const findOptimalPumpModel = (hatDebisi, type) => {
-  const db = PUMP_DATABASE[type];
-  return db.find(item => item.maxDebi >= hatDebisi) || db[db.length - 1];
-};
+import API from "../../../utils/utilRequest";
 
 function FiltrasyonDetail() {
+  const CALC_HOURS = 24;
+
+  // 🚀 API'den gelecek filtrasyon matrisi için state
+  const [filtrationDatabase, setFiltrationDatabase] = useState([]);
+
   const formData = useTeklifStore((state) => state.formData);
   const updateSection = useTeklifStore((state) => state.updateSection);
 
@@ -56,9 +24,37 @@ function FiltrasyonDetail() {
 
   const activeCalismaSaati = parseFloat(calismaSaatiInput) || 22;
 
-  // --- TOP YEKÜN SİSTEM VE MÜHENDİSLİK HESAPLARI ---
+  // 🚀 Bileşen yüklendiğinde filtrasyon maliyet/teknik tablosunu çek
+  useEffect(() => {
+    const fetchFiltrationData = async () => {
+      try {
+        const response = await API.getFiltrationCosts();
+        // Teknik hesaplama yapacağımız alanları sayı tipine garantiye alarak map'liyoruz
+        const formatted = (response.data || []).map(item => ({
+          id: item.id,
+          debi: parseFloat(item.debi) || 0,
+          besleme_kw: parseFloat(item.besleme_kw) || 0,
+          geri_yikama_debi: parseFloat(item.geri_yikama_debi) || 0,
+          geri_yikama_kw: parseFloat(item.geri_yikama_kw) || 0
+        }));
+        setFiltrationDatabase(formatted);
+      } catch (error) {
+        console.error("Filtrasyon teknik matrisi yüklenirken hata:", error);
+      }
+    };
+    fetchFiltrationData();
+  }, []);
+
+  // 🚀 Hat debisini karşılayan en uygun satırı dinamik DB içinden bulan yardımcı fonksiyon
+  const findOptimalRow = (hatSaatlikDebi, db) => {
+    if (!db || db.length === 0) return null;
+    return db.find(row => row.debi >= hatSaatlikDebi) || db[db.length - 1];
+  };
+
+  // --- HESAPLAMALAR ---
   const hesaplananDegerler = useMemo(() => {
-    if (anaGunlukDebi === 0) {
+    // Eğer veri henüz gelmediyse veya debi sıfırsa güvenli default objeyi dön
+    if (anaGunlukDebi === 0 || filtrationDatabase.length === 0) {
       return {
         toplamSaatlikDebi: 0, sistemAdet: 1, hatSaatlikDebi: 0, hatBackwashDebi: 0,
         filtreModel: 0, beslemeKw: 0, geriYikamaKw: 0, onKlorlamaDozaj: 0, onKlorlamaTank: 0
@@ -66,15 +62,22 @@ function FiltrasyonDetail() {
     }
 
     const toplamSaatlikDebi = anaGunlukDebi / activeCalismaSaati;
-    const maxKapasite = FILTRATION_DATABASE[FILTRATION_DATABASE.length - 1].maxDebi; // 52.3
+    
+    // 🚀 Maksimum kapasiteyi statik 52.3 yerine tablonun son satırından dinamik okuyoruz
+    const maxKapasite = filtrationDatabase[filtrationDatabase.length - 1].debi;
 
     const sistemAdet = Math.ceil(toplamSaatlikDebi / maxKapasite);
     const hatSaatlikDebi = toplamSaatlikDebi / sistemAdet;
-    const hatBackwashDebi = hatSaatlikDebi * 2;
 
-    const filtreSecim = findOptimalFiltreModel(hatSaatlikDebi);
-    const beslemePompa = findOptimalPumpModel(hatSaatlikDebi, "besleme");
-    const geriYikamaPompa = findOptimalPumpModel(hatBackwashDebi, "geriYikama");
+    // Hat debisine göre satırı dinamik DB'den buluyoruz
+    const secilenSatir = findOptimalRow(hatSaatlikDebi, filtrationDatabase);
+
+    if (!secilenSatir) {
+      return {
+        toplamSaatlikDebi, sistemAdet, hatSaatlikDebi, hatBackwashDebi: 0,
+        filtreModel: 0, beslemeKw: 0, geriYikamaKw: 0, onKlorlamaDozaj: 0, onKlorlamaTank: 0
+      };
+    }
 
     const onKlorlamaDozaj = hatSaatlikDebi * 0.04;
     const onKlorlamaTank = Math.ceil((onKlorlamaDozaj * 24 * 3) / 50) * 50;
@@ -83,44 +86,40 @@ function FiltrasyonDetail() {
       toplamSaatlikDebi,
       sistemAdet,
       hatSaatlikDebi,
-      hatBackwashDebi,
-      filtreModel: filtreSecim.maxDebi,
-      beslemeKw: beslemePompa.kw,
-      geriYikamaKw: geriYikamaPompa.kw,
+      hatBackwashDebi: secilenSatir.geri_yikama_debi,
+      filtreModel: secilenSatir.debi,                 
+      beslemeKw: secilenSatir.besleme_kw,             
+      geriYikamaKw: secilenSatir.geri_yikama_kw,       
       onKlorlamaDozaj,
       onKlorlamaTank
     };
-  }, [anaGunlukDebi, activeCalismaSaati]);
+  }, [anaGunlukDebi, activeCalismaSaati, filtrationDatabase]);
 
   // --- MERKEZİ STORE EŞZAMANLAMA ---
   useEffect(() => {
-    if (anaGunlukDebi === 0) return;
+    if (anaGunlukDebi === 0 || filtrationDatabase.length === 0) return;
 
-    // İstediğin filtre modelleri "SecilenFiltreler" yapısı altında store'a ekleniyor
     const filtrasyonOzeti = {
       calismaSaati: activeCalismaSaati,
       sistemAdet: hesaplananDegerler.sistemAdet,
 
-      // Dozaj Ünitesi
       onKlorlama: {
         debiLH: parseFloat(hesaplananDegerler.onKlorlamaDozaj.toFixed(2)),
         basincBar: 5,
         tankLitre: hesaplananDegerler.onKlorlamaTank
       },
 
-      // Pompalar
       pompalar: {
         besleme: {
           debiM3h: parseFloat(hesaplananDegerler.hatSaatlikDebi.toFixed(2)),
           kw: hesaplananDegerler.beslemeKw
         },
         geriYikama: {
-          debiM3h: parseFloat(hesaplananDegerler.hatBackwashDebi.toFixed(2)),
+          debiM3h: hesaplananDegerler.hatBackwashDebi,
           kw: hesaplananDegerler.geriYikamaKw
         }
       },
 
-      // İstenen Filtre Grubu Yapısı
       SecilenFiltreler: {
         seperatorFiltre: {
           isim: "SEPERATÖR FİLTRE",
@@ -136,7 +135,6 @@ function FiltrasyonDetail() {
         }
       },
 
-      // Geriye dönük uyumluluk bozulmasın diye eski tekil alan da korunuyor
       filtreler: {
         debiM3h: hesaplananDegerler.filtreModel
       }
@@ -150,7 +148,7 @@ function FiltrasyonDetail() {
       }
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [anaGunlukDebi, activeCalismaSaati, hesaplananDegerler]);
+  }, [anaGunlukDebi, activeCalismaSaati, hesaplananDegerler, filtrationDatabase]);
 
   const handleInputChange = (e) => {
     const { value } = e.target;
@@ -163,6 +161,16 @@ function FiltrasyonDetail() {
       }
     });
   };
+
+  // Veritabanı yüklenene kadar arayüz kilitlenmesin/hataya düşmesin diye koruma loader'ı
+  if (filtrationDatabase.length === 0) {
+    return (
+      <div className="d-flex flex-column gap-2 p-3 justify-content-center align-items-center" style={{ minHeight: "150px" }}>
+        <div className="spinner-border spinner-border-sm text-success" role="status"></div>
+        <span className="text-white-50" style={{ fontSize: "11px" }}>Filtrasyon Teknik Verileri Senkronize Ediliyor...</span>
+      </div>
+    );
+  }
 
   return (
     <div className="d-flex flex-column gap-3 text-white">
@@ -230,7 +238,7 @@ function FiltrasyonDetail() {
         </div>
       </div>
 
-      {/* --- EKİPMAN KRİTİK GÖRSEL PANELİ --- */}
+      {/* --- EKİPMAN PANELİ --- */}
       <div className="card-body d-flex flex-column gap-3" style={{ padding: 0 }}>
         
         {/* 2: ÖN KLORLAMA VE SOLÜSYON TANKI */}
@@ -290,7 +298,7 @@ function FiltrasyonDetail() {
                 <div>
                   <span className="text-white-50 d-block" style={{ fontSize: "9px" }}>GERI YIKAMA POMPASI</span>
                   <span className="fw-bold" style={{ fontSize: "11px", color: "#c084fc" }}>
-                    Q (2 Katı): {hesaplananDegerler.hatBackwashDebi.toFixed(2)} m³/h
+                    Q: {hesaplananDegerler.hatBackwashDebi} m³/h
                   </span>
                 </div>
                 <div className="text-end">

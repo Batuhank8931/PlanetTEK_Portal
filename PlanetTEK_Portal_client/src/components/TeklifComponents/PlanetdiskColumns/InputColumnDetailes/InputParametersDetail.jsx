@@ -5,7 +5,7 @@ import API from "../../../../utils/utilRequest";
 
 function InputParameters() {
     const [showInfoModal, setShowInfoModal] = useState(false);
-    const [loading, setLoading] = useState(true); 
+    const [loading, setLoading] = useState(true);
 
     const formData = useTeklifStore((state) => state.formData);
     const updateSection = useTeklifStore((state) => state.updateSection);
@@ -116,7 +116,7 @@ function InputParameters() {
                         nitrifikasyonEmperik: storeAritmaParametreleri.nitrifikasyonEmperik !== undefined
                             ? storeAritmaParametreleri.nitrifikasyonEmperik
                             : hesaplaNitrifikasyonEmperik(storeAritmaParametreleri.sicaklik ?? 19, yeniNitrifikasyon),
-                        isEmperikManual: storeAritmaParametreleri.isEmperikManual !== undefined ? storeAritmaParametreleri.isEmperikManual : false, // El müdahalesi bayrağı
+                        isEmperikManual: storeAritmaParametreleri.isEmperikManual !== undefined ? storeAritmaParametreleri.isEmperikManual : false,
                         kaynaklar: storeAritmaParametreleri.kaynaklar || [
                             { id: Date.now(), ad: "1. KAYNAK", kisiSayisi: 3000, organikYuk: 60, hidrolikYuk: 200 }
                         ],
@@ -151,29 +151,75 @@ function InputParameters() {
     useEffect(() => {
         if (loading || !storeAritmaParametreleri.sicaklik) return;
 
-        // 1. KRİTİK KONTROL: Eğer kullanıcı bu değeri elle girdiyse otomatik hesaplama formülü bunu asla EZMESİN.
-        if (storeAritmaParametreleri.isEmperikManual === true) return;
-
         const currentSicaklik = Number(storeAritmaParametreleri.sicaklik ?? 19);
         const currentCikisBoi = Number(storeAritmaParametreleri.cikisBoi ?? 40);
 
+        // 1. NORMAL EMPERİK HESAPLAMA & GÜNCELLEME
         const yeniEmperikRaw = hesaplaDiskKatsayisiDetayli(currentSicaklik, currentCikisBoi, Number(maksimumEmperik));
         const yeniEmperik = parseFloat(yeniEmperikRaw) || 0;
-        const yeniNitrifikasyonEmperik = hesaplaNitrifikasyonEmperik(currentSicaklik);
 
-        if (yeniEmperik !== storeAritmaParametreleri.emperik || yeniNitrifikasyonEmperik !== storeAritmaParametreleri.nitrifikasyonEmperik) {
-            updateSection("planetDiskDetails", {
-                tasarim: {
-                    ...storePlanetDisk.tasarim,
-                    aritmaParametreleri: {
-                        ...storeAritmaParametreleri,
-                        emperik: yeniEmperik,
-                        nitrifikasyonEmperik: yeniNitrifikasyonEmperik
+        if (yeniEmperik !== storeAritmaParametreleri.emperik) {
+
+            // updateSection yerine doğrudan ana store'u atomic olarak manipüle ediyoruz
+            useTeklifStore.setState((state) => {
+                const diskDetails = state.formData.planetDiskDetails || {};
+                const tasarim = diskDetails.tasarim || {};
+                const params = tasarim.aritmaParametreleri || {};
+
+                return {
+                    formData: {
+                        ...state.formData,
+                        planetDiskDetails: {
+                            ...diskDetails,
+                            tasarim: {
+                                ...tasarim,
+                                aritmaParametreleri: {
+                                    ...params,
+                                    emperik: yeniEmperik
+                                }
+                            }
+                        }
                     }
-                }
+                };
             });
         }
-    }, [storeAritmaParametreleri.sicaklik, storeAritmaParametreleri.cikisBoi, maksimumEmperik, loading, storeAritmaParametreleri.isEmperikManual]);
+
+        // 2. NİTRİFİKASYON EMPERİĞİ HESAPLAMA & GÜNCELLEME
+        const yeniNitrifikasyonEmperik = hesaplaNitrifikasyonEmperik(currentSicaklik);
+
+        if (!storeAritmaParametreleri.isEmperikManual && yeniNitrifikasyonEmperik !== storeAritmaParametreleri.nitrifikasyonEmperik) {
+            useTeklifStore.setState((state) => {
+                const diskDetails = state.formData.planetDiskDetails || {};
+                const tasarim = diskDetails.tasarim || {};
+                const params = tasarim.aritmaParametreleri || {};
+
+                return {
+                    formData: {
+                        ...state.formData,
+                        planetDiskDetails: {
+                            ...diskDetails,
+                            tasarim: {
+                                ...tasarim,
+                                aritmaParametreleri: {
+                                    ...params,
+                                    nitrifikasyonEmperik: yeniNitrifikasyonEmperik
+                                }
+                            }
+                        }
+                    }
+                };
+            });
+        }
+
+    }, [
+        storeAritmaParametreleri.sicaklik,
+        storeAritmaParametreleri.cikisBoi,
+        maksimumEmperik,
+        loading,
+        storeAritmaParametreleri.emperik,
+        storeAritmaParametreleri.nitrifikasyonEmperik,
+        storeAritmaParametreleri.isEmperikManual
+    ]);
 
     const currentParamData = storeAritmaParametreleri;
     const kaynaklarListesi = currentParamData.kaynaklar || [];
@@ -190,6 +236,7 @@ function InputParameters() {
         return { nihaiDebi, nihaiGirisBoi };
     };
 
+    // handleChange (GÜNCELLENDİ)
     const handleChange = (e) => {
         const rawValue = e.target.value;
         const val = rawValue === "" ? 0 : (!isNaN(Number(rawValue)) ? Number(rawValue) : rawValue);
@@ -197,8 +244,8 @@ function InputParameters() {
 
         let updatedParamData = { ...currentParamData, [name]: val };
 
-        // 2. KRİTİK KONTROL: Eğer kullanıcı Nitrifikasyon Emperiğini doğrudan inputtan değiştiriyorsa, el müdahalesi bayrağını true yapıyoruz.
-        if (name === "nitrifikasyonEmperik") {
+        // Normal BOİ ampirik katsayısı el ile değiştirilirse bayrağı kaldır/işaretle
+        if (name === "emperik" || name === "nitrifikasyonEmperik") {
             updatedParamData.isEmperikManual = true;
         }
 
@@ -242,10 +289,9 @@ function InputParameters() {
                 aritmaParametreleri: {
                     ...currentParamData,
                     nitrifikasyon: isChecked ? "nitrifikasyonVar" : "nitrifikasyonYok",
-                    // Nitrifikasyon kapatılıp açılırsa el müdahalesi sıfırlansın isterseniz burayı false yapabilirsiniz
                     isEmperikManual: isChecked ? currentParamData.isEmperikManual : false,
-                    nitrifikasyonEmperik: currentParamData.nitrifikasyonEmperik !== undefined 
-                        ? currentParamData.nitrifikasyonEmperik 
+                    nitrifikasyonEmperik: currentParamData.nitrifikasyonEmperik !== undefined
+                        ? currentParamData.nitrifikasyonEmperik
                         : hesaplaNitrifikasyonEmperik(currentParamData.sicaklik ?? 19)
                 }
             }
@@ -360,7 +406,6 @@ function InputParameters() {
 
     return (
         <div className="card-body p-4 d-flex flex-column gap-3" style={{ position: "relative" }}>
-            {/* JSX Yapısı Aynen Korundu */}
             <div className="d-flex align-items-center">
                 <span className="fw-bold text-uppercase pe-2" style={{ fontSize: "11px", letterSpacing: "0.7px", color: "#00874e" }}>
                     Arıtma Parametreleri
