@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import ExcelGrid from "./ExcelGrid";
 import API from "../../utils/utilRequest";
 import PriceChangeUpdateConfirmationModal from "../modals/PriceChangeUpdateConfirmationModal";
+import PumpCurveUpdateModal from "../modals/PumpCurveUpdateModal.jsx";
 
 function DalgicPompa() {
     const [pumpsData, setPumpsData] = useState([]);
@@ -14,8 +15,14 @@ function DalgicPompa() {
     const [showModal, setShowModal] = useState(false);
     const [pendingChanges, setPendingChanges] = useState([]);
 
-    const headers = ["Pompa Modeli", "Alış Fiyatı (€)", "Yurt İçi Satış Yİ (€)", "Yurt Dışı Satış YD (€)"];
-    const fields = ["pompa_adi", "alis_fiyati", "yi_satis", "yd_satis"];
+    // 📊 Pompa Eğrisi Modalı İçin State Tanımlamaları
+    const [curveModalOpen, setCurveModalOpen] = useState(false);
+    const [selectedPumpId, setSelectedPumpId] = useState(null);
+    const [selectedPumpName, setSelectedPumpName] = useState("");
+
+    // 🚀 En sola "@" kolonu ve field eşleşmesi için "curve_action" alanı eklendi
+    const headers = ["@", "Pompa Modeli", "Alış Fiyatı (€)", "Yurt İçi Satış Yİ (€)", "Yurt Dışı Satış YD (€)"];
+    const fields = ["curve_action", "pompa_adi", "alis_fiyati", "yi_satis", "yd_satis"];
     const duzenlenebilirFields = ["alis_fiyati"];
 
     const oranHeaders = ["Yurt İçi Satış Oranı (Yİ)", "Yurt Dışı Satış Oranı (YD)"];
@@ -58,15 +65,27 @@ function DalgicPompa() {
         fetchPumpsData();
     }, []);
 
+    // 📊 Eğri Düzenleme Modalını Açan Fonksiyon
+    const handleOpenCurveModal = (pumpId, pumpName) => {
+        const isNewPump = String(pumpId).startsWith("new_");
+        if (isNewPump) {
+            alert("Eğri yüklemek/düzenlemek için önce pompayı kaydetmelisiniz.");
+            return;
+        }
+        setSelectedPumpId(pumpId);
+        setSelectedPumpName(pumpName);
+        setCurveModalOpen(true);
+    };
+
     // ➕ Yeni Boş Satır Ekleme Fonksiyonu
     const handleAddNewRow = () => {
         const newRow = {
-            id: `new_${Date.now()}`, // Benzersiz geçici ID
-            name: "Yeni Pompa Modeli", // Kullanıcı grid üzerinde bunu değiştirebilecek
+            id: `new_${Date.now()}`,
+            name: "Yeni Pompa Modeli", 
             alis_fiyati: 0,
             yi_satis: 0,
             yd_satis: 0,
-            isNew: true // Yeni satır olduğunu belirtmek için flag
+            isNew: true
         };
         setPumpsData(prev => [...prev, newRow]);
     };
@@ -84,7 +103,6 @@ function DalgicPompa() {
             const alis = Number(item.alis_fiyati) || 0;
             return {
                 ...item,
-                // 🚀 KRİTİK DÜZELTME: Kullanıcı hücreye ne yazdıysa 'name' alanına da eşle!
                 name: item.pompa_adi !== undefined ? String(item.pompa_adi).trim() : item.name,
                 alis_fiyati: alis,
                 yi_satis: (alis * Number(currentOran.yi_katsayi)).toFixed(2),
@@ -95,17 +113,14 @@ function DalgicPompa() {
         setPumpsData([...recalculated]);
     };
 
-    // 🛠️ KAYDET BUTONU: Ekleme, Silme ve Güncelleme Farklarını Toplar
+    // 🛠️ KAYDET BUTONU
     const handleSaveClick = () => {
         const changes = [];
         const guncelOranRow = sabitOranlar[0] || {};
         const eskiOranRow = originalOranData[0] || {};
 
-        // --- 1. Ana Tablo Kontrolleri (INSERT, UPDATE, DELETE) ---
         pumpsData.forEach((item) => {
-            // ❌ DURUM A: Satır Silinmiş mi?
             if (item.isDeleted) {
-                // Eğer zaten client tarafında yeni eklenip henüz DB'ye kaydedilmeden silindiyse pas geç
                 if (String(item.id).startsWith("new_")) return;
 
                 changes.push({
@@ -120,29 +135,25 @@ function DalgicPompa() {
                 return;
             }
 
-            // ➕ DURUM B: Yeni Satır mı? (INSERT)
             if (String(item.id).startsWith("new_")) {
                 changes.push({
                     type: "INSERT",
                     tableName: "submersible_pumps",
-                    id: undefined, // Backend insert olarak algılasın diye undefined kalıyor
-                    columnName: "pompa_adi", // İlk zorunlu alan (İsim)
-                    newValue: item.name,     // Yeni eklenen pompanın adı (Örn: 'wilo')
+                    id: undefined,
+                    columnName: "pompa_adi",
+                    newValue: item.name,
                     rowName: item.name,
                     oldValue: 0,
                     additionalData: {
-                        // Diğer zorunlu alan olan alis_fiyati'ni de tam burada içeri paslıyoruz!
                         alis_fiyati: Number(item.alis_fiyati) || 0
                     }
                 });
                 return;
             }
 
-            // 🔄 DURUM C: Mevcut Satır Güncelleme mi? (UPDATE)
             const originalItem = originalData.find((o) => String(o.id) === String(item.id));
 
             if (originalItem) {
-                // İsim alanı değişti mi kontrolü (Eğer ismi de düzenlenebilir yaptıysanız)
                 if (originalItem.name !== item.name) {
                     changes.push({
                         type: "UPDATE",
@@ -155,7 +166,6 @@ function DalgicPompa() {
                     });
                 }
 
-                // Fiyat alanları kontrolü
                 duzenlenebilirFields.forEach((field) => {
                     const eskiDeger = parseFloat(originalItem[field] || 0).toFixed(2);
                     const yeniDeger = parseFloat(item[field] || 0).toFixed(2);
@@ -175,7 +185,6 @@ function DalgicPompa() {
             }
         });
 
-        // --- 2. Katsayı Tablosu Kontrolü ---
         oranFields.forEach((oranField) => {
             const eskiOran = parseFloat(eskiOranRow[oranField] || 0).toFixed(2);
             const guncelOran = parseFloat(guncelOranRow[oranField] || 0).toFixed(2);
@@ -245,7 +254,6 @@ function DalgicPompa() {
 
             const targetTableName = pendingChanges[0].tableName;
 
-            // Backend'in yeni beklediği payload yapısına map'liyoruz
             const updatesPayload = pendingChanges.map((change) => ({
                 id: change.id,
                 columnName: change.columnName,
@@ -258,7 +266,6 @@ function DalgicPompa() {
                 updates: updatesPayload
             });
 
-            // Başarılıysa verileri yeniden çekip sıfırla
             const response = await API.getSubmersibleCosts();
             const freshData = response.data.map(item => ({
                 ...item,
@@ -300,7 +307,6 @@ function DalgicPompa() {
         );
     }
 
-    // Ekrandaki listede isDeleted: true olanları göstermiyoruz (Arayüzde anlık silinme hissi)
     const visiblePumpsData = pumpsData.filter(p => !p.isDeleted);
 
     return (
@@ -308,10 +314,9 @@ function DalgicPompa() {
             <div className="d-flex justify-content-between align-items-center mb-3">
                 <div className="mb-2 d-flex align-items-center" style={{ color: "#94a3b8" }}>
                     <i className="bi bi-gear-fill me-2 text-success"></i>
-                    <span className="fw-semibold small">Dalgıç Pompa Yönetimi</span>
+                    <span className="fw-semibold small">Pompa Yönetimi</span>
                 </div>
                 <div className="d-flex gap-2">
-                    {/* ➕ Satır Ekleme Butonu */}
                     <button className="btn btn-outline-primary btn-sm px-3" onClick={handleAddNewRow}>
                         <i className="bi bi-plus-circle me-2"></i>Yeni Satır Ekle
                     </button>
@@ -350,15 +355,30 @@ function DalgicPompa() {
                     data={visiblePumpsData}
                     fields={fields}
                     onDataChange={handleGridDataChange}
-                    isMainTable={true} // Silme butonunu sadece ana tabloda göstermek için flag paslıyoruz
+                    isMainTable={true}
+                    // 🚀 ExcelGrid component'ine aksiyon tetikleyicisini paslıyoruz
+                    onActionClick={(row) => handleOpenCurveModal(row.id, row.name)}
                 />
             </div>
 
+            {/* Fiyat Onay Modalı */}
             <PriceChangeUpdateConfirmationModal
                 show={showModal}
                 onClose={() => setShowModal(false)}
                 onConfirm={handleConfirmSave}
                 changesList={pendingChanges}
+            />
+
+            {/* 📊 Pompa Eğrisi Güncelleme Modalı */}
+            <PumpCurveUpdateModal
+                show={curveModalOpen}
+                onClose={() => {
+                    setCurveModalOpen(false);
+                    setSelectedPumpId(null);
+                    setSelectedPumpName("");
+                }}
+                pumpId={selectedPumpId}
+                pumpName={selectedPumpName}
             />
         </div>
     );

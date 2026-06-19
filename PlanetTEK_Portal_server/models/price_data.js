@@ -40,8 +40,8 @@ const ALLOWED_TABLES = {
         "geri_yikama_kw"
     ],
 
-    screen_data: ["kapasite", "plakaYd", "plakaYi", "mKabaYd", "mKabaYi", "mInceYd", "mInceYi", "oKabaYd", "oKabaYi", "oInceYd", "oInceYi"],
-    lamella_data: ["tipi", "fiyat"],
+    screen_data: ["kapasite", "plakaboyut", "plakaYd", "plakaYi", "mKabaYd", "mKabaYi", "mInceYd", "mInceYi", "oKabaYd", "oKabaYi", "oInceYd", "oInceYi"],
+    lamella_data: ["tipi", "yd_fiyat", "yi_fiyat"],
     stainless_steel_data: ["fiyat"],
     flow_distribution: ["ad", "yd", "yi"],
     unit_labor_costs: ["mekKisi", "mekGun", "elkKisi", "elkGun", "gunlikMekMaliyet", "gunlukYemek", "digerGunluk", "toplamMaliyet"],

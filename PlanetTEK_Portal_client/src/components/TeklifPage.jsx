@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { motion, AnimatePresence } from "framer-motion"; // Animasyon için eklendi
+import { motion, AnimatePresence } from "framer-motion";
 import { useTeklifStore } from "../utils/teklifStore";
 
 import SelectCustomer from "./TeklifComponents/SelectCustomer_step_1";
@@ -10,11 +10,14 @@ import SelectFinal from "./TeklifComponents/SelectFinal";
 import SelectionsModal from "./TeklifComponents/SelectionsModal";
 
 function TeklifPage() {
+  // Store'dan verileri ve fonksiyonları çekiyoruz
   const formData = useTeklifStore((state) => state.formData);
-  const [currentStep, setCurrentStep] = useState(1);
-  const [showModal, setShowModal] = useState(false);
+  const currentStep = useTeklifStore((state) => state.currentStep); // Store'daki adım
+  const setCurrentStepStore = useTeklifStore((state) => state.setCurrentStepStore); // Adım değiştirme fonksiyonu
+  const resetForm = useTeklifStore((state) => state.resetForm);
 
-  // Animasyon yönünü kontrol etmek için state (Geri basınca sola, ileri basınca sağa kayma hissi için)
+  const [showModal, setShowModal] = useState(false);
+  // Animasyon yönü yerel state olarak kalabilir
   const [direction, setDirection] = useState(1);
 
   const steps = [
@@ -27,22 +30,30 @@ function TeklifPage() {
 
   const nextStep = () => {
     if (currentStep < steps.length) {
-      setDirection(1); // İleri yön
-      setCurrentStep((prev) => prev + 1);
+      setDirection(1); // İleri yön animasyonu
+      setCurrentStepStore(currentStep + 1); // Store'u günceller (Hafızaya yazar)
     }
   };
 
   const prevStep = () => {
     if (currentStep > 1) {
-      setDirection(-1); // Geri yön
-      setCurrentStep((prev) => prev - 1);
+      setDirection(-1); // Geri yön animasyonu
+      setCurrentStepStore(currentStep - 1); // Store'u günceller (Hafızaya yazar)
     }
   };
 
   const handleSubmit = () => {
     alert("Teklif başarıyla oluşturuldu! Veriler konsolda.");
-    console.log("Oluşturulan Teklif Verisi: ", formData);
   };
+
+  // FORM SIFIRLAMA FONKSİYONU
+  const handleResetForm = () => {
+    if (window.confirm("Formdaki tüm verileri sıfırlamak istediğinize emin misiniz?")) {
+      resetForm(); // Bu fonksiyon store'da hem formData'yı boşaltıyor hem de adımı 1 yapıyor.
+    }
+  };
+
+  const isFormDataNotEmpty = formData && Object.keys(formData).length > 0;
 
   const renderStepComponent = () => {
     switch (currentStep) {
@@ -55,20 +66,10 @@ function TeklifPage() {
     }
   };
 
-  // Framer Motion için slayt geçiş varyasyonları
   const slideVariants = {
-    enter: (direction) => ({
-      x: direction > 0 ? 30 : -30,
-      opacity: 0
-    }),
-    center: {
-      x: 0,
-      opacity: 1
-    },
-    exit: (direction) => ({
-      x: direction > 0 ? -30 : 30,
-      opacity: 0
-    })
+    enter: (direction) => ({ x: direction > 0 ? 30 : -30, opacity: 0 }),
+    center: { x: 0, opacity: 1 },
+    exit: (direction) => ({ x: direction > 0 ? -30 : 30, opacity: 0 })
   };
 
   return (
@@ -91,10 +92,7 @@ function TeklifPage() {
       </div>
 
       {/* PROGRESS STEP BAR & AKSİYON BUTONLARI */}
-      <div 
-        className="p-3 mb-4 rounded-3" 
-        style={{ backgroundColor: "#0f172a", borderColor: "#334155" }}
-      >
+      <div className="p-3 mb-4 rounded-3" style={{ backgroundColor: "#0f172a", borderColor: "#334155" }}>
         <div className="d-flex align-items-center justify-content-between flex-wrap gap-3">
 
           {/* GERİ BUTONU */}
@@ -128,7 +126,6 @@ function TeklifPage() {
 
               return (
                 <div key={step.id} className="d-flex align-items-center">
-                  {/* Adım Yuvarlağı ve onun animasyonu */}
                   <motion.div
                     animate={{
                       scale: isActive ? 1.1 : 1,
@@ -146,28 +143,18 @@ function TeklifPage() {
                   >
                     {isCompleted ? <i className="bi bi-check-lg"></i> : step.id}
                     
-                    {/* Aktif adımın arkasında hafif bir parlama efekti */}
                     {isActive && (
                       <motion.div
                         layoutId="activeStepGlow"
                         className="position-absolute rounded-circle w-100 h-100"
-                        style={{
-                          border: "2px solid #22c55e",
-                          scale: 1.2,
-                          opacity: 0.5,
-                          zIndex: -1
-                        }}
+                        style={{ border: "2px solid #22c55e", scale: 1.2, opacity: 0.5, zIndex: -1 }}
                       />
                     )}
                   </motion.div>
                   <div>
                     <span
                       className={`d-none d-md-inline ${isActive ? "fw-semibold" : "fw-medium"}`}
-                      style={{
-                        fontSize: "12px",
-                        color: textColor,
-                        transition: "color 0.3s"
-                      }}
+                      style={{ fontSize: "12px", color: textColor, transition: "color 0.3s" }}
                     >
                       {step.label}
                     </span>
@@ -179,7 +166,6 @@ function TeklifPage() {
 
           {/* SAĞ TARAF: AKSİYON + MODAL BUTON GRUBU */}
           <div className="d-flex align-items-center gap-2">
-            {/* İLERİ / BİTİR BUTONU */}
             {currentStep < steps.length ? (
               <button
                 type="button"
@@ -206,20 +192,34 @@ function TeklifPage() {
               className="btn btn-sm text-white py-2 px-2.5 d-flex align-items-center justify-content-center border-0 shadow-sm"
               onClick={() => setShowModal(true)}
               title="Anlık JSON Çıktısı"
-              style={{
-                backgroundColor: "#334155",
-                borderRadius: "6px",
-                fontSize: "14px"
-              }}
+              style={{ backgroundColor: "#334155", borderRadius: "6px", fontSize: "14px" }}
             >
               <i className="bi bi-file-earmark-code"></i>
             </button>
+
+            {/* FORM SIFIRLA BUTONU */}
+            {isFormDataNotEmpty && (
+              <button
+                type="button"
+                className="btn btn-sm text-white py-2 px-3 d-flex align-items-center border-0 shadow-sm fw-semibold"
+                onClick={handleResetForm}
+                title="Formu Temizle"
+                style={{
+                  backgroundColor: "#ef4444",
+                  borderRadius: "6px",
+                  fontSize: "13px",
+                  transition: "background-color 0.2s"
+                }}
+              >
+                <i className="bi bi-trash3 me-1.5"></i> Formu Sıfırla
+              </button>
+            )}
           </div>
 
         </div>
       </div>
 
-      {/* MERKEZİ BİLEŞEN KARTI VE GEÇİŞ ANİMASYONU */}
+      {/* MERKEZİ BİLEŞEN KARTI */}
       <div className="overflow-hidden position-relative" style={{ borderRadius: "8px" }}>
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div
@@ -238,9 +238,7 @@ function TeklifPage() {
         </AnimatePresence>
       </div>
 
-      {/* SELECTIONS MODAL */}
       <SelectionsModal show={showModal} onClose={() => setShowModal(false)} />
-
     </div>
   );
 }

@@ -83,24 +83,36 @@ function PriceChangeUpdateConfirmationModal({ show, onClose, onConfirm, changesL
                                             boxShadow: "0 1px 0 #475569"
                                         }}
                                     >
+                                        {/* 🛠️ Sütun Sayısı 6'ya Çıkarılarak Hizalandı */}
                                         <tr>
-                                            <th className="text-start py-2 ps-3 font-monospace" style={{ letterSpacing: "0.5px" }}>SATIR ADI</th>
-                                            <th className="py-2">PARAMETRE</th>
-                                            <th className="py-2">ESKİ DEĞER</th>
-                                            <th className="py-2"></th>
-                                            <th className="py-2">YENİ DEĞER</th>
+                                            <th className="text-start py-2 ps-3 font-monospace" style={{ letterSpacing: "0.5px", width: "20%" }}>SATIR ADI</th>
+                                            <th className="py-2" style={{ width: "15%" }}>İŞLEM</th>
+                                            <th className="py-2" style={{ width: "20%" }}>PARAMETRE</th>
+                                            <th className="py-2" style={{ width: "20%" }}>ESKİ DEĞER</th>
+                                            <th className="py-2" style={{ width: "5%" }}></th>
+                                            <th className="py-2" style={{ width: "20%" }}>YENİ DEĞER</th>
                                         </tr>
                                     </thead>
+                                    {/* Modal dosyanızdaki tbody içini bu şekilde güncelleyin */}
                                     <tbody>
-
                                         {changesList.map((change, index) => {
+                                            // Kolon adının text mi yoksa sayısal mı olduğunu anlıyoruz
+                                            const isTextField = change.columnName === "kapasite" || change.columnName === "plakaboyut";
+
                                             const isRateOrCoefficient =
                                                 change.columnName.toLowerCase().includes("katsayi") ||
                                                 change.columnName.toLowerCase().includes("oran");
 
-                                            const unit = isRateOrCoefficient ? "" : " €";
+                                            // Eğer text alanı ise yanına € koyma, sayısal ise koy
+                                            const unit = (isRateOrCoefficient || isTextField) ? "" : " €";
 
-                                            // 🎨 İşlem tipine göre badge renk şeması
+                                            // Değerleri formatlama fonksiyonu (Metin ise olduğu gibi bırak, sayı ise formatla)
+                                            const formatValue = (val) => {
+                                                if (isTextField) return val || "—";
+                                                if (val === undefined || val === null || isNaN(Number(val))) return "0,00";
+                                                return Number(val).toLocaleString('tr-TR', { minimumFractionDigits: 2 });
+                                            };
+
                                             let typeBadge = <span className="badge bg-warning text-dark px-2 py-1">UPDATE</span>;
                                             if (change.type === "INSERT") {
                                                 typeBadge = <span className="badge bg-success text-white px-2 py-1">INSERT</span>;
@@ -110,12 +122,15 @@ function PriceChangeUpdateConfirmationModal({ show, onClose, onConfirm, changesL
 
                                             return (
                                                 <tr key={index} style={{ borderBottom: "1px solid #1e293b" }} className="hover-row">
+                                                    {/* 1. Satır Adı */}
                                                     <td className="text-start fw-bold py-2 ps-3">
                                                         {change.rowName}
                                                     </td>
+                                                    {/* 2. İşlem Tipi */}
                                                     <td className="py-2">
                                                         {typeBadge}
                                                     </td>
+                                                    {/* 3. Değişen Parametre/Kolon Adı */}
                                                     <td className="py-2">
                                                         <span
                                                             className="badge font-monospace px-2 py-1"
@@ -124,16 +139,17 @@ function PriceChangeUpdateConfirmationModal({ show, onClose, onConfirm, changesL
                                                             {change.columnName.toUpperCase()}
                                                         </span>
                                                     </td>
-                                                    {/* Eski Değer */}
+                                                    {/* 4. Eski Değer */}
                                                     <td className="text-muted py-2 text-decoration-line-through" style={{ color: "#64748b" }}>
-                                                        {change.type === "INSERT" ? "—" : `${change.oldValue.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}${unit}`}
+                                                        {change.type === "INSERT" ? "—" : `${formatValue(change.oldValue)}${unit}`}
                                                     </td>
+                                                    {/* 5. Ok İşareti simgesi */}
                                                     <td className="py-2 text-success">
                                                         <i className="bi bi-chevron-right"></i>
                                                     </td>
-                                                    {/* Yeni Değer */}
+                                                    {/* 6. Yeni Değer */}
                                                     <td className="fw-bold py-2" style={{ color: change.type === "DELETE" ? "#ef4444" : "#4ade80" }}>
-                                                        {change.type === "DELETE" ? "SİLİNECEK" : `${change.newValue.toLocaleString('tr-TR', { minimumFractionDigits: 2 })}${unit}`}
+                                                        {change.type === "DELETE" ? "SİLİNECEK" : `${formatValue(change.newValue)}${unit}`}
                                                     </td>
                                                 </tr>
                                             );

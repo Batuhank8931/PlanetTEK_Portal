@@ -1,19 +1,12 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import KademeDetail from "./KademeDetail";
 import { useTeklifStore } from "../../../../utils/teklifStore";
-
-const DISK_SINIRLARI_MATRISI = {
-    MX: {
-        evsel: { minDisk: 100, maxDisk: 140 },
-        endustriyel: { minDisk: 90, maxDisk: 100 }
-    },
-    MINI: {
-        evsel: { minDisk: 50, maxDisk: 75 },
-        endustriyel: { minDisk: 45, maxDisk: 65 }
-    }
-};
+import API from "../../../../utils/utilRequest";
 
 function DiskParameters() {
+    const [loading, setLoading] = useState(true);
+    const [diskSinirlariMatrisi, setDiskSinirlariMatrisi] = useState({});
+
     const formData = useTeklifStore((state) => state.formData);
     const updateSection = useTeklifStore((state) => state.updateSection);
 
@@ -23,19 +16,106 @@ function DiskParameters() {
     const currentRBCUnite = aritmaParametreleri.RBCUnite || "MX";
     const currentAtiksutype = aritmaParametreleri.atiksutype || "evsel";
 
-    const getDiskSinirlari = (uniteType, wastewaterType) => {
-        const uniteSınırları = DISK_SINIRLARI_MATRISI[uniteType] || DISK_SINIRLARI_MATRISI["MX"];
-        return uniteSınırları[wastewaterType] || uniteSınırları["evsel"];
+    const getDiskSinirlari = (uniteType, wastewaterType, matris) => {
+        const aktifMatris = matris || diskSinirlariMatrisi;
+        if (!aktifMatris || Object.keys(aktifMatris).length === 0) {
+            return { minDisk: 0, maxDisk: 0 };
+        }
+        const uniteSinirlari = aktifMatris[uniteType] || aktifMatris["MX"];
+        if (!uniteSinirlari) return { minDisk: 0, maxDisk: 0 };
+        return uniteSinirlari[wastewaterType] || uniteSinirlari["evsel"];
     };
 
-    const varsayilanSinirlar = getDiskSinirlari(currentRBCUnite, currentAtiksutype);
+    // 1. API Çağrısı ve Store İlk Kurulumu (Geri gelindiğinde el değerlerini korur)
+    useEffect(() => {
+        const fetchAndInitParameters = async () => {
+            try {
+                const response = await API.getParamteters();
+                const data = response.data || [];
+                const paramMap = {};
+                data.forEach(item => {
+                    paramMap[item.parametre_key] = parseFloat(item.deger);
+                });
 
-    // Eğer store'da hiç değer yoksa varsayılan sınırları atıyoruz (Böylece ilk açılışta 0 kalmıyor)
+                const matris = {
+                    MX: {
+                        evsel: { minDisk: paramMap["MX_evsel_min"], maxDisk: paramMap["MX_evsel_max"] },
+                        endustriyel: { minDisk: paramMap["MX_endustriyel_min"], maxDisk: paramMap["MX_endustriyel_max"] }
+                    },
+                    MINI: {
+                        evsel: { minDisk: paramMap["MINI_evsel_min"], maxDisk: paramMap["MINI_evsel_max"] },
+                        endustriyel: { minDisk: paramMap["MINI_endustriyel_min"], maxDisk: paramMap["MINI_endustriyel_max"] }
+                    }
+                };
+
+                setDiskSinirlariMatrisi(matris);
+
+                const currentStore = useTeklifStore.getState().formData.planetDiskDetails || {};
+                const currentParams = currentStore.tasarim?.aritmaParametreleri || {};
+
+                // Eğer store'da hiç adet yoksa API'den gelen varsayılanları ata
+                if (currentParams.maxDisk === undefined || currentParams.minDisk === undefined) {
+                    const sinirlar = getDiskSinirlari(currentRBCUnite, currentAtiksutype, matris);
+                    
+                    updateSection("planetDiskDetails", {
+                        ...currentStore,
+                        tasarim: {
+                            ...currentStore?.tasarim,
+                            aritmaParametreleri: {
+                                ...currentParams,
+                                RBCUnite: currentRBCUnite,
+                                minDisk: sinirlar.minDisk,
+                                maxDisk: sinirlar.maxDisk,
+                                isDiskCountsManual: false // Başlangıçta manuel değil
+                            }
+                        }
+                    });
+                }
+
+                setLoading(false);
+            } catch (error) {
+                console.error("Parametre verileri yüklenirken hata oldu:", error);
+                setLoading(false);
+            }
+        };
+
+        fetchAndInitParameters();
+    }, []);
+
+    // 2. Takip Efekti (Sadece kullanıcı arayüzden Model veya Atıksu Tipi değiştirdiğinde otomatik kilitler)
+    useEffect(() => {
+        if (loading || !diskSinirlariMatrisi || Object.keys(diskSinirlariMatrisi).length === 0) return;
+
+        // KONTROL: Eğer kullanıcı el ile sayıları değiştirdiyse ve sayfa yenilenmiş/geri gelinmişse API değerleriyle EZME.
+        if (aritmaParametreleri.isDiskCountsManual === true) return;
+
+        const sinirlar = getDiskSinirlari(currentRBCUnite, currentAtiksutype);
+        
+        if (aritmaParametreleri.minDisk !== sinirlar.minDisk || aritmaParametreleri.maxDisk !== sinirlar.maxDisk) {
+            updateSection("planetDiskDetails", {
+                ...storePlanetDisk,
+                tasarim: {
+                    ...storePlanetDisk?.tasarim,
+                    aritmaParametreleri: {
+                        ...useTeklifStore.getState().formData.planetDiskDetails?.tasarim?.aritmaParametreleri,
+                        minDisk: sinirlar.minDisk,
+                        maxDisk: sinirlar.maxDisk
+                    }
+                }
+            });
+        }
+    }, [currentRBCUnite, currentAtiksutype, loading, aritmaParametreleri.isDiskCountsManual]);
+
+    const varsayilanSinirlar = getDiskSinirlari(currentRBCUnite, currentAtiksutype);
     const safeDiskData = {
         RBCUnite: currentRBCUnite,
         maxDisk: aritmaParametreleri.maxDisk !== undefined ? aritmaParametreleri.maxDisk : varsayilanSinirlar.maxDisk,
         minDisk: aritmaParametreleri.minDisk !== undefined ? aritmaParametreleri.minDisk : varsayilanSinirlar.minDisk,
     };
+
+    if (loading) {
+        return <div className="p-4 text-center text-white-50">Disk parametreleri yükleniyor...</div>;
+    }
 
     const updateStore = (updatedParamData) => {
         updateSection("planetDiskDetails", {
@@ -47,7 +127,7 @@ function DiskParameters() {
         });
     };
 
-    // Değişim yönetimini tek bir merkezden ve güvenli sınırlarla yapıyoruz
+    // Kullanıcı + / - butonlarına bastığında tetiklenir
     const handleStepChange = (name, type) => {
         let min = safeDiskData.minDisk;
         let max = safeDiskData.maxDisk;
@@ -55,36 +135,37 @@ function DiskParameters() {
         if (name === "minDisk") {
             if (type === "increment" && min < 150) min += 1;
             if (type === "decrement" && min > 50) min -= 1;
-            
-            // Çelişki kontrolü: Min artarken Max'ı geçerse Max'ı da beraberinde yukarı itsin
             if (min > max) max = min;
         }
 
         if (name === "maxDisk") {
             if (type === "increment" && max < 150) max += 1;
             if (type === "decrement" && max > 50) max -= 1;
-
-            // Çelişki kontrolü: Max azalırken Min'in altına düşerse Min'i de aşağı çeksin
             if (max < min) min = max;
         }
 
+        // Değişiklik el ile yapıldığı için kilidi aktif ediyoruz
         updateStore({
             ...aritmaParametreleri,
             minDisk: min,
-            maxDisk: max
+            maxDisk: max,
+            isDiskCountsManual: true 
         });
     };
 
-    // Dropdown değiştiğinde tetiklenen fonksiyon
+    // Kullanıcı dropdown listesinden seriyi değiştirdiğinde tetiklenir
     const handleModelChange = (e) => {
         const { value } = e.target;
         const yeniSinirlar = getDiskSinirlari(value, currentAtiksutype);
 
+        // Kullanıcı yeni bir model seçtiği için el kilidini (isDiskCountsManual) kaldırıyoruz 
+        // ki yeni modelin fabrika/API sınırları otomatik yüklenebilsin.
         updateStore({
             ...aritmaParametreleri,
             RBCUnite: value,
             minDisk: yeniSinirlar.minDisk,
-            maxDisk: yeniSinirlar.maxDisk
+            maxDisk: yeniSinirlar.maxDisk,
+            isDiskCountsManual: false 
         });
     };
 
@@ -118,7 +199,7 @@ function DiskParameters() {
                     <div className="col-4">
                         <label className="text-white-50 mb-1 d-block text-truncate" style={{ fontSize: "11px" }}>Max Disk Adedi</label>
                         <div className="d-flex align-items-center bg-dark rounded" style={{ height: "31px", overflow: "hidden" }}>
-                            <button 
+                            <button
                                 type="button"
                                 onClick={() => handleStepChange("maxDisk", "decrement")}
                                 className="btn btn-sm text-white-50 border-0 px-2 h-100"
@@ -129,7 +210,7 @@ function DiskParameters() {
                             <span className="flex-grow-1 text-white text-center fw-bold" style={{ fontSize: "12px", userSelect: "none" }}>
                                 {safeDiskData.maxDisk}
                             </span>
-                            <button 
+                            <button
                                 type="button"
                                 onClick={() => handleStepChange("maxDisk", "increment")}
                                 className="btn btn-sm text-white-50 border-0 px-2 h-100"
@@ -144,7 +225,7 @@ function DiskParameters() {
                     <div className="col-4">
                         <label className="text-white-50 mb-1 d-block text-truncate" style={{ fontSize: "11px" }}>Min Disk Adedi</label>
                         <div className="d-flex align-items-center bg-dark rounded" style={{ height: "31px", overflow: "hidden" }}>
-                            <button 
+                            <button
                                 type="button"
                                 onClick={() => handleStepChange("minDisk", "decrement")}
                                 className="btn btn-sm text-white-50 border-0 px-2 h-100"
@@ -155,7 +236,7 @@ function DiskParameters() {
                             <span className="flex-grow-1 text-white text-center fw-bold" style={{ fontSize: "12px", userSelect: "none" }}>
                                 {safeDiskData.minDisk}
                             </span>
-                            <button 
+                            <button
                                 type="button"
                                 onClick={() => handleStepChange("minDisk", "increment")}
                                 className="btn btn-sm text-white-50 border-0 px-2 h-100"

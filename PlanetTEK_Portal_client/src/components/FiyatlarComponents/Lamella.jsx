@@ -12,9 +12,9 @@ function Lamella() {
   const [showModal, setShowModal] = useState(false);
   const [pendingChanges, setPendingChanges] = useState([]);
 
-  // 📊 Kolon Yapısı: Başlıklar ve alanlar 1:1 eşleşiyor, sabit kolon yok!
-  const headers = ["Lamella Tipi Seçeneği", "Birim Fiyat (€)"];
-  const fields = ["tipi", "fiyat"]; // 'tipi' alanı grid'in ilk düzenlenebilir hücresi oldu
+  // 📊 Kolon Yapısı: Yeni veritabanı şemamıza göre yd_fiyat ve yi_fiyat olarak ayrıldı
+  const headers = ["Lamella Tipi Seçeneği", "Yurt Dışı Fiyatı (€)", "Yurt İçi Fiyatı (€)"];
+  const fields = ["tipi", "yd_fiyat", "yi_fiyat"]; 
 
   const fetchLamellaData = async () => {
     try {
@@ -36,12 +36,13 @@ function Lamella() {
   // ➕ Yeni Boş Lamella Satırı Ekleme Fonksiyonu
   const handleAddNewRow = () => {
     const nextNum = lamellaData.length + 1;
-    const defaultName = `Yeni Lamella Tipi - LS ${nextNum}`;
+    const defaultName = `LS ${nextNum}`; // Yeni şemamıza uygun sade isimlendirme
 
     const newRow = {
       id: `new_${Date.now()}`, // Benzersiz geçici ID
-      tipi: defaultName,       // Kullanıcı grid hüresinden bunu değiştirebilecek
-      fiyat: 0,
+      tipi: defaultName,       
+      yd_fiyat: 0,
+      yi_fiyat: 0,
       isNew: true
     };
     setLamellaData(prev => [...prev, newRow]);
@@ -60,7 +61,7 @@ function Lamella() {
           type: "DELETE",
           tableName: "lamella_data",
           id: item.id,
-          columnName: "tipi", // Güvenlik duvarı için geçerli placeholder kolon
+          columnName: "tipi", 
           newValue: null,
           rowName: item.tipi,
           oldValue: 0
@@ -74,12 +75,13 @@ function Lamella() {
           type: "INSERT",
           tableName: "lamella_data",
           id: undefined,
-          columnName: "tipi", // İlk zorunlu tetikleyici alanımız (Tip Adı)
+          columnName: "tipi", // İlk tetikleyici alanımız (Model Adı)
           newValue: item.tipi,
           rowName: item.tipi,
           oldValue: 0,
           additionalData: {
-            fiyat: Number(item.fiyat) || 0
+            yd_fiyat: Number(item.yd_fiyat) || 0,
+            yi_fiyat: Number(item.yi_fiyat) || 0
           }
         });
         return;
@@ -141,7 +143,7 @@ function Lamella() {
         updates: updatesPayload
       });
 
-      // Taptaze verileri DB'den yeniden çekip mühürle
+      // Güncel verileri veritabanından çek ve mühürle
       await fetchLamellaData();
       setPendingChanges([]); 
     } catch (error) {
@@ -169,7 +171,7 @@ function Lamella() {
       <div className="d-flex justify-content-between align-items-center mb-3">
         <div className="mb-2 d-flex align-items-center" style={{ color: "#94a3b8" }}>
           <i className="bi bi-layers-half me-2 text-success"></i>
-          <span className="fw-semibold small">Lamella Tipi ve Fiyat Yönetimi</span>
+          <span className="fw-semibold small">Lamella Tipi ve Bölgesel Fiyat Yönetimi</span>
         </div>
         <div className="d-flex gap-2">
           <button className="btn btn-outline-primary btn-sm px-3" onClick={handleAddNewRow}>
@@ -182,7 +184,8 @@ function Lamella() {
       </div>
 
       <div className="row justify-content-start">
-        <div className="col-12 col-md-7">
+        {/* Kolon genişliğini yeni sütunlar eklendiği için daha dengeli dursun diye col-md-9 yaptım */}
+        <div className="col-12 col-md-9">
           <ExcelGrid
             headers={headers}
             data={visibleLamellaData}

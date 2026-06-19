@@ -2,8 +2,9 @@ import React, { useState, useMemo, useEffect, useCallback } from "react";
 import GiderimDetail from "./GiderimDetail";
 import { useTeklifStore } from "../../../../utils/teklifStore";
 import { hesaplaIdealUniteAdedi } from "../../../../utils/UniteAdediHesaplama";
+import API from "../../../../utils/utilRequest";
 
-// Yeni eklediğimiz utils ve parçalanmış componentleri import ediyoruz
+// Utils ve parçalanmış componentler
 import {
     calculateKademeKartlari,
     calculateGlobalSistemOzet,
@@ -16,6 +17,10 @@ import SistemKontrolPaneli from "./YerleşimObjects/SistemKontrolPaneli";
 import SistemSemasi from "./YerleşimObjects/SistemSemasi";
 
 function YerlesimDetail() {
+    // 1. Akışı kilitlemek için loading state'i ekliyoruz
+    const [loading, setLoading] = useState(true);
+    const [uniteHacimCap, setUniteHacimCap] = useState({});
+
     const updateSection = useTeklifStore((state) => state.updateSection);
 
     // ZUSTAND STORE SEÇİCİLERİ
@@ -32,16 +37,9 @@ function YerlesimDetail() {
     const lamellaData = diskDetails.tasarim?.lamella || {};
     const Q = Number(diskDetails.debi) || 0;
 
-    const kaydedilenUnite = aritmaParametreleri?.RBCUnite ?? "MX"
-    const kaydedilenMaxDisk = aritmaParametreleri?.maxDisk ?? 130
-    const kaydedilenMinDisk = aritmaParametreleri?.minDisk ?? 100
-
-    const diskcapi = kaydedilenUnite === "MX" ? 2.05 : 1.35;
-    const hacim = kaydedilenUnite === "MX" ? 4.5 : 2.00;
-    const maxDiskAdedi = kaydedilenMaxDisk;
-    const minDiskAdedi = kaydedilenMinDisk;
-
-    const tekDiskAlani = useMemo(() => 2 * (Math.PI * Math.pow(diskcapi, 2) / 4), [diskcapi]);
+    const kaydedilenUnite = aritmaParametreleri?.RBCUnite;
+    const maxDiskAdedi = aritmaParametreleri?.maxDisk;
+    const minDiskAdedi = aritmaParametreleri?.minDisk;
 
     // LOCAL STATELER
     const [secilenUnite, setSecilenUnite] = useState(kaydedilmisTasarim.secilenUnite || 1);
@@ -50,8 +48,44 @@ function YerlesimDetail() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedKademeData, setSelectedKademeData] = useState(null);
     const [hrtInputStr, setHrtInputStr] = useState(minimumBeklemeSuresi.toString());
-
     const [manuelSiraDiskleri, setManuelSiraDiskleri] = useState([]);
+
+    // API Verilerini Çekme ve Sıralı Akış Başlatma
+    useEffect(() => {
+        const fetchParameters = async () => {
+            try {
+                const response = await API.getParamteters();
+                const data = response.data || [];
+                const paramMap = {};
+                data.forEach(item => {
+                    paramMap[item.parametre_key] = parseFloat(item.deger);
+                });
+
+                setUniteHacimCap({
+                    MX: {
+                        Hacim: paramMap["mx1Hacim"],
+                        Cap: paramMap["mx1Cap"]
+                    },
+                    MINI: {
+                        Hacim: paramMap["miniHacim"],
+                        Cap: paramMap["miniCap"]
+                    }
+                });
+
+                setLoading(false);
+            } catch (error) {
+                console.error("Parametre verileri yüklenirken hata oldu:", error);
+                setLoading(false);
+            }
+        };
+        fetchParameters();
+    }, []);
+
+    // Gelen API datasına göre güvenli değer okuma (loading bittiğinde kesinlikle API'den beslenir)
+    const diskcapi = kaydedilenUnite === "MX" ? (uniteHacimCap.MX?.Cap ?? 2.02) : (uniteHacimCap.MINI?.Cap ?? 1.45);
+    const hacim = kaydedilenUnite === "MX" ? (uniteHacimCap.MX?.Hacim ?? 4.5) : (uniteHacimCap.MINI?.Hacim ?? 2.5);
+
+    const tekDiskAlani = useMemo(() => 2 * (Math.PI * Math.pow(diskcapi, 2) / 4), [diskcapi]);
 
     useEffect(() => {
         if (minimumBeklemeSuresi !== "" && parseFloat(hrtInputStr) !== minimumBeklemeSuresi) {
@@ -63,7 +97,7 @@ function YerlesimDetail() {
         setManuelSiraDiskleri(Array(secilenSira).fill(null));
     }, [secilenSira]);
 
-    // HESAPLAMA UTILS KULLANIMLARI (Temiz useMemo'lar)
+    // HESAPLAMA UTILS KULLANIMLARI
     const kademeKartlariVerisi = useMemo(() =>
         calculateKademeKartlari(finalMetrekare, tekDiskAlani),
         [finalMetrekare, tekDiskAlani]
@@ -74,9 +108,9 @@ function YerlesimDetail() {
         [finalMetrekare, tekDiskAlani]
     );
 
-    // İdeal ünite adedi tetikleyicisi
+    // İdeal ünite adedi tetikleyicisi (Sadece loading bittiğinde ve gerçek hacim geldiğinde çalışır)
     useEffect(() => {
-        if (globalSistemOzet.toplamGerekliDisk === 0) return;
+        if (loading || globalSistemOzet.toplamGerekliDisk === 0) return;
 
         const idealUniteSayisi = hesaplaIdealUniteAdedi({
             toplamGerekliDisk: globalSistemOzet.toplamGerekliDisk,
@@ -86,34 +120,30 @@ function YerlesimDetail() {
         setSecilenUnite(idealUniteSayisi);
         setSecilenSira(1);
         setYerlesimDuzeni([]);
-    }, [globalSistemOzet.toplamGerekliDisk, maxDiskAdedi, minDiskAdedi, Q, hacim, minimumBeklemeSuresi]);
+    }, [globalSistemOzet.toplamGerekliDisk, maxDiskAdedi, minDiskAdedi, Q, hacim, minimumBeklemeSuresi, loading]);
 
-    // 2. useMemo hesaplamasına parametre olarak ulaştır:
-    const sistemHesabi = useMemo(() =>
-        calculateSistemHesabi({
+    const sistemHesabi = useMemo(() => {
+        if (loading) return null;
+        return calculateSistemHesabi({
             globalSistemOzet,
             maxDiskAdedi,
             minDiskAdedi,
             secilenUnite,
             secilenSira,
             yerlesimDuzeni,
-            manuelSiraDiskleri // Yeni eklenen state
-        }),
-        [globalSistemOzet, minDiskAdedi, maxDiskAdedi, secilenUnite, secilenSira, yerlesimDuzeni, manuelSiraDiskleri]
-    );
+            manuelSiraDiskleri
+        });
+    }, [globalSistemOzet, minDiskAdedi, maxDiskAdedi, secilenUnite, secilenSira, yerlesimDuzeni, manuelSiraDiskleri, loading]);
 
-    const tumSiralar = useMemo(() =>
-        calculateTumSiralar({ sistemHesabi, Q, hacim, lamellaData }),
-        [sistemHesabi, hacim, Q, lamellaData]
-    );
+    const tumSiralar = useMemo(() => {
+        if (loading || !sistemHesabi) return [];
+        return calculateTumSiralar({ sistemHesabi, Q, hacim, lamellaData });
+    }, [sistemHesabi, hacim, Q, lamellaData, loading]);
 
-    // 3. Sıradaki input değiştikçe tetiklenecek handler fonksiyonu:
     const handleMilDiskChange = useCallback((siraTipi, yeniDeger) => {
         setManuelSiraDiskleri(prev => {
             const yeniArray = [...prev];
             const sayi = parseInt(yeniDeger, 10);
-
-            // Eğer input temizlendiyse (boşsa) o sıranın kilidini kaldır (null yap) otomatik hesaplasın
             yeniArray[siraTipi] = isNaN(sayi) ? null : sayi;
             return yeniArray;
         });
@@ -121,7 +151,7 @@ function YerlesimDetail() {
 
     // STORE SENKRONİZASYONU
     useEffect(() => {
-        if (!tumSiralar || tumSiralar.length === 0) return;
+        if (loading || !tumSiralar || tumSiralar.length === 0) return;
 
         const guncelTasarimState = {
             ...useTeklifStore.getState().formData?.planetDiskDetails?.tasarim,
@@ -131,9 +161,8 @@ function YerlesimDetail() {
         if (JSON.stringify(useTeklifStore.getState().formData?.planetDiskDetails?.tasarim) === JSON.stringify(guncelTasarimState)) return;
 
         updateSection("planetDiskDetails", { tasarim: guncelTasarimState });
-    }, [tumSiralar, secilenUnite, secilenSira, yerlesimDuzeni, minimumBeklemeSuresi, updateSection]);
+    }, [tumSiralar, secilenUnite, secilenSira, yerlesimDuzeni, minimumBeklemeSuresi, updateSection, loading]);
 
-    // HANDLERS (useCallback ile optimize edildi, alt componentlere güvenle geçilebilir)
     const handleUniteChange = useCallback((adet) => {
         setSecilenUnite(parseInt(adet, 10));
         setYerlesimDuzeni([]);
@@ -170,7 +199,6 @@ function YerlesimDetail() {
         setIsModalOpen(true);
     }, []);
 
-    // DRAG & DROP HANDLERS
     const handleDragStart = useCallback((e, kaynakSiraTipi) => {
         e.dataTransfer.setData("kaynakSiraTipi", kaynakSiraTipi);
     }, []);
@@ -194,20 +222,22 @@ function YerlesimDetail() {
         setYerlesimDuzeni(yeniDagilim);
     }, [sistemHesabi]);
 
+    // 2. ASENKRON SÜREÇ BİTENE KADAR UI VE HESAPLAMALARI KORU
+    if (loading) {
+        return <div className="text-white p-4 text-center">Yerleşim parametreleri yükleniyor...</div>;
+    }
+
     if (!sistemHesabi) {
         return <div className="text-white p-3 text-center">Tasarım verisi hesaplanamadı veya eksik.</div>;
     }
 
     return (
         <div className="p-1 rounded" style={{ backgroundColor: "#1e293b", display: "flex", flexDirection: "column" }}>
-
-            {/* ÜST KISIM: KADEME KARTLARI */}
             <KademeKartlari
                 kademeKartlariVerisi={kademeKartlariVerisi}
                 openDetailModal={openDetailModal}
             />
 
-            {/* ORTA KISIM: KONTROL PANELİ */}
             <SistemKontrolPaneli
                 sistemHesabi={sistemHesabi}
                 hrtInputStr={hrtInputStr}
@@ -216,19 +246,17 @@ function YerlesimDetail() {
                 handleBeklemeSuresiChange={handleBeklemeSuresiChange}
             />
 
-            {/* ALT KISIM: SÜRÜKLENEBİLİR ŞEMA */}
             <SistemSemasi
                 tumSiralar={tumSiralar}
                 minimumBeklemeSuresi={minimumBeklemeSuresi}
                 handleDragStart={handleDragStart}
                 handleDragOver={handleDragOver}
                 handleDrop={handleDrop}
-                handleMilDiskChange={handleMilDiskChange} // Yeni prop
+                handleMilDiskChange={handleMilDiskChange}
                 maxDiskAdedi={maxDiskAdedi}
                 minDiskAdedi={minDiskAdedi}
             />
 
-            {/* DETAY MODALI */}
             {isModalOpen && (
                 <GiderimDetail
                     isOpen={isModalOpen}

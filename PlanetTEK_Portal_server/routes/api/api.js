@@ -16,9 +16,14 @@ const {
     updatePriceData,
     getFiltrationCosts,
     getSubmersibleCosts,
-    getSludgeDewateringCosts,
-    syncUniversalTableData
+    getSludgeDewateringCosts
 } = require("../../models/price_data.js");
+
+// 🚀 Parametre fonksiyonlarını buraya dahil ediyoruz (İsim hatasını önlemek için getParamteters ve updateParametersData olarak çekildi)
+const { getParamteters, updateParametersData } = require("../../models/parameters_data.js");
+
+// 📊 Pompa Eğrisi (Pump Curve) fonksiyonlarını dahil ediyoruz
+const { getPumpCurve, updatePumpCurve } = require("../../models/pump_curve_data.js"); // <--- Dosya yolunu kendi yapına göre revize edebilirsin
 
 // ==========================================
 // 👥 KULLANICI CRUD ROTALARI
@@ -44,8 +49,17 @@ router.get('/price/submersible-pumps-costs', verifyToken, getSubmersibleCosts);
 router.get('/price/filtration-costs', verifyToken, getFiltrationCosts);
 router.get('/price/sludge-dewatering-costs', verifyToken, getSludgeDewateringCosts);
 
+// 📈 Pompa Eğrisi (Pump Curve) Rotaları
+router.get('/price/pump-curve/:pump_id', verifyToken, getPumpCurve);       // Belirli bir pompanın eğrisini getirir
+router.put('/price/pump-curve/:pump_id', verifyToken, updatePumpCurve);    // Belirli bir pompanın eğrisini günceller
+
 // 🔄 1 Adet Dinamik POST İsteği (Tüm tablolardaki fiyat/parametre güncellemeleri için)
 router.post('/price/update', verifyToken, updatePriceData);
+
+
+router.get('/parameters', verifyToken, getParamteters);
+router.post('/parameters/update', verifyToken, updateParametersData);
+
 
 
 module.exports = router;

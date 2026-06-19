@@ -1,28 +1,10 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useTeklifStore } from "../../../utils/teklifStore";
+import API from "../../../utils/utilRequest";
 
 const IZGARA_OPTIONS = ["Otomatik Mekanik Izgara", "Manuel Izgara"];
 
-const YAG_TUTUCU_OPTIONS = [
-  "1000 x 1000 mm",
-  "1500 x 1000 mm",
-  "1500 x 1500 mm",
-  "1500 x 2000 mm",
-  "2000 x 2000 mm",
-  "2500 x 2000 mm",
-  "2500 x 2500 mm"
-];
-
-const YAG_TUTUCU_KAPASITE_MAP = {
-  100: "1000 x 1000 mm",
-  300: "1500 x 1000 mm",
-  400: "1500 x 1500 mm",
-  500: "1500 x 2000 mm",
-  600: "1500 x 2000 mm",
-  700: "2000 x 2000 mm",
-  900: "2500 x 2000 mm",
-  99999: "2500 x 2500 mm"
-};
+// NOT: Yukarıdaki eski sabit yagTutucuOptions, state ile çakışmaması için kaldırıldı.
 
 function OnAritmaDetail() {
   const formData = useTeklifStore((state) => state.formData);
@@ -32,54 +14,100 @@ function OnAritmaDetail() {
   const equipmentsCache = formData.equipments || {};
   const storeOnAritma = equipmentsCache.onAritma || {};
 
-  // --- ANA DEBİ DEĞİŞİM KONTROLÜ (Pompa Sayfasındakiyle Aynı Mantık) ---
+  // --- LOCAL STATELER ---
+  const [yagTutucuOptions, setYagTutucuOptions] = useState([]);
+  const [yagTutucuKapasiteOptions, setYagTutucuKapasiteOptions] = useState({});
+  const [isLoading, setIsLoading] = useState(true); // Loading state'i eklendi
+
+  // --- ANA DEBİ DEĞİŞİM KONTROLÜ ---
   const lastCalculatedMainDebi = storeOnAritma.calculatedMainDebi !== undefined ? storeOnAritma.calculatedMainDebi : null;
   const isMainDebiChanged = lastCalculatedMainDebi !== null && lastCalculatedMainDebi !== günlükDebi;
 
-  // Eğer ana debi değiştiyse offsetleri sıfır kabul et, değişmediyse store'dan oku
   const izgaraOffset = !isMainDebiChanged ? (storeOnAritma.izgaraOffset || 0) : 0;
   const yagTutucuOffset = !isMainDebiChanged ? (storeOnAritma.yagTutucuOffset || 0) : 0;
   const isInputsChanged = !isMainDebiChanged ? (storeOnAritma.isManualUserControl || false) : false;
 
-  // İdeal indeks hesaplayıcılar (useMemo ile optimize edildi)
+  // İdeal indeks hesaplayıcılar
   const idealIzgaraIndex = useMemo(() => {
     if (!günlükDebi) return 0;
     return günlükDebi < 50 ? 0 : 1;
   }, [günlükDebi]);
 
+  // FETCH PARAMETERS
+  const fetchParameters = async () => {
+    try {
+      setIsLoading(true); // İstek başlarken loading aktif
+      const response = await API.getScreenData();
+      const data = response.data || [];
+
+      const uniqueBoyutlar = new Set();
+      const kapasiteMap = {};
+
+      data.forEach(item => {
+        if (item.plakaboyut) {
+          uniqueBoyutlar.add(item.plakaboyut.trim());
+        }
+
+        if (item.kapasite && item.plakaboyut) {
+          const kapasiteSayi = parseInt(item.kapasite.replace(/[^\d]/g, ''), 10);
+          if (!isNaN(kapasiteSayi)) {
+            kapasiteMap[kapasiteSayi] = item.plakaboyut.trim();
+          }
+        }
+      });
+
+      setYagTutucuOptions(Array.from(uniqueBoyutlar));
+      setYagTutucuKapasiteOptions(kapasiteMap);
+
+    } catch (error) {
+      console.error("Parametre verileri yüklenirken hata oldu:", error);
+    } finally {
+      setIsLoading(false); // İstek bittiğinde (başarılı veya başarısız) loading kapanır
+    }
+  };
+
+  useEffect(() => {
+    fetchParameters();
+  }, []);
+
   const idealYagTutucuIndex = useMemo(() => {
-    if (!günlükDebi) return 0;
-    const kapasiteler = Object.keys(YAG_TUTUCU_KAPASITE_MAP).map(Number).sort((a, b) => a - b);
+    if (!günlükDebi || isLoading) return 0; // Veri yüklenirken hesaplamayı durdur
+    const kapasiteler = Object.keys(yagTutucuKapasiteOptions).map(Number).sort((a, b) => a - b);
     const uygunKapasite = kapasiteler.find((k) => günlükDebi <= k) || 99999;
-    const boyutMetni = YAG_TUTUCU_KAPASITE_MAP[uygunKapasite];
-    return YAG_TUTUCU_OPTIONS.indexOf(boyutMetni);
-  }, [günlükDebi]);
+    const boyutMetni = yagTutucuKapasiteOptions[uygunKapasite];
+    const index = yagTutucuOptions.indexOf(boyutMetni);
+    return index !== -1 ? index : 0;
+  }, [günlükDebi, yagTutucuKapasiteOptions, yagTutucuOptions, isLoading]);
 
   // Offset değerlerine göre nihai seçilen opsiyonlar
   const { currentIzgaraTipi, currentYagTutucuBoyut } = useMemo(() => {
+    if (isLoading) return { currentIzgaraTipi: "", currentYagTutucuBoyut: "" };
+
     let finalIzgaraIdx = idealIzgaraIndex + izgaraOffset;
     if (finalIzgaraIdx < 0) finalIzgaraIdx = 0;
     if (finalIzgaraIdx >= IZGARA_OPTIONS.length) finalIzgaraIdx = IZGARA_OPTIONS.length - 1;
 
     let finalYagIdx = idealYagTutucuIndex + yagTutucuOffset;
     if (finalYagIdx < 0) finalYagIdx = 0;
-    if (finalYagIdx >= YAG_TUTUCU_OPTIONS.length) finalYagIdx = YAG_TUTUCU_OPTIONS.length - 1;
+    if (finalYagIdx >= yagTutucuOptions.length) finalYagIdx = yagTutucuOptions.length - 1;
 
     return {
       currentIzgaraTipi: IZGARA_OPTIONS[finalIzgaraIdx],
-      currentYagTutucuBoyut: YAG_TUTUCU_OPTIONS[finalYagIdx]
+      currentYagTutucuBoyut: yagTutucuOptions[finalYagIdx]
     };
-  }, [idealIzgaraIndex, idealYagTutucuIndex, izgaraOffset, yagTutucuOffset]);
+  }, [idealIzgaraIndex, idealYagTutucuIndex, izgaraOffset, yagTutucuOffset, yagTutucuOptions, isLoading]);
 
   // Merkezi Store Güncelleme Fonksiyonu
   const updateOnAritmaStore = (nextIzgaraOffset, nextYagOffset, isManual = true) => {
+    if (isLoading) return; // Veri yoksa store'a hatalı yazım yapmasını engelle
+
     let finalIzgaraIdx = idealIzgaraIndex + nextIzgaraOffset;
     if (finalIzgaraIdx < 0) finalIzgaraIdx = 0;
     if (finalIzgaraIdx >= IZGARA_OPTIONS.length) finalIzgaraIdx = IZGARA_OPTIONS.length - 1;
 
     let finalYagIdx = idealYagTutucuIndex + nextYagOffset;
     if (finalYagIdx < 0) finalYagIdx = 0;
-    if (finalYagIdx >= YAG_TUTUCU_OPTIONS.length) finalYagIdx = YAG_TUTUCU_OPTIONS.length - 1;
+    if (finalYagIdx >= yagTutucuOptions.length) finalYagIdx = yagTutucuOptions.length - 1;
 
     updateSection("equipments", {
       ...equipmentsCache,
@@ -88,7 +116,7 @@ function OnAritmaDetail() {
         izgaraOffset: nextIzgaraOffset,
         yagTutucuOffset: nextYagOffset,
         izgaraTipi: IZGARA_OPTIONS[finalIzgaraIdx],
-        yagTutucuBoyut: YAG_TUTUCU_OPTIONS[finalYagIdx],
+        yagTutucuBoyut: yagTutucuOptions[finalYagIdx],
         isManualUserControl: isManual,
         calculatedMainDebi: günlükDebi
       }
@@ -97,14 +125,13 @@ function OnAritmaDetail() {
 
   // Ana debi değiştiğinde veya ilk kurulumda tetiklenen useEffect
   useEffect(() => {
-    if (günlükDebi === 0) return;
+    if (günlükDebi === 0 || isLoading) return;
 
     if (!storeOnAritma.izgaraTipi || isMainDebiChanged || !isInputsChanged) {
-      // Debi değiştiğinde offsetleri sıfırlayarak otomatik hesaplama moduna alıyoruz
       updateOnAritmaStore(0, 0, false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [günlükDebi, isMainDebiChanged]);
+  }, [günlükDebi, isMainDebiChanged, isLoading]);
 
   const handleIzgaraChange = (newTipi) => {
     const selectedIndex = IZGARA_OPTIONS.indexOf(newTipi);
@@ -114,11 +141,23 @@ function OnAritmaDetail() {
   };
 
   const handleYagTutucuChange = (newBoyut) => {
-    const selectedIndex = YAG_TUTUCU_OPTIONS.indexOf(newBoyut);
+    const selectedIndex = yagTutucuOptions.indexOf(newBoyut);
     if (selectedIndex === -1) return;
     const nextOffset = selectedIndex - idealYagTutucuIndex;
     updateOnAritmaStore(izgaraOffset, nextOffset, true);
   };
+
+  // --- BARIYER: YÜKLENİYOR EKRANI ---
+  if (isLoading) {
+    return (
+      <div className="d-flex flex-column align-items-center justify-content-center p-4 gap-2 text-white-50">
+        <div className="spinner-border spinner-border-sm text-warning" role="status">
+          <span className="visually-hidden">Yükleniyor...</span>
+        </div>
+        <div style={{ fontSize: "11px" }}>Ön Arıtma Parametreleri Yükleniyor...</div>
+      </div>
+    );
+  }
 
   return (
     <div className="d-flex flex-column gap-3">
@@ -185,7 +224,7 @@ function OnAritmaDetail() {
             {günlükDebi === 0 ? (
               <option value="">---</option>
             ) : (
-              YAG_TUTUCU_OPTIONS.map((option, idx) => (
+              yagTutucuOptions.map((option, idx) => (
                 <option key={idx} value={option} style={{ backgroundColor: "#1e293b" }}>
                   {option}
                 </option>
@@ -195,7 +234,7 @@ function OnAritmaDetail() {
         </div>
       </div>
 
-      {/* Eğer herhangi biri manuel değiştirildiyse geri dönme butonu (Pompa sayfasındaki gibi opsiyonel konfor) */}
+      {/* Eğer herhangi biri manuel değiştirildiyse geri dönme butonu */}
       {(izgaraOffset !== 0 || yagTutucuOffset !== 0) && (
         <div className="d-flex justify-content-end mt-1">
           <button

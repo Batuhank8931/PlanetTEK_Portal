@@ -14,12 +14,12 @@ function FiyatlarPage() {
 
   // Sekme verilerini bir array haline getirerek kodu daha temiz hale getirdik
   const tabs = [
-    { id: "anaUniteler", label: "Ana Üniteler & Panolar" },
-    { id: "izgaralar", label: "Kapasite & Izgaralar" },
-    { id: "lamellalar", label: "Lamella Grupları" },
-    { id: "debiDagitim", label: "Debi Dağıtım (Çıkışlar)" },
+    { id: "anaUniteler", label: "Ana Ünite" },
+    { id: "izgaralar", label: "Izgara & Yağ Tutucu" },
+    { id: "lamellalar", label: "Lamella" },
+    { id: "debiDagitim", label: "Debi Dağıtım" },
     { id: "iscilik", label: "İşçilik Maliyetleri" },
-    { id: "dalgicpompa", label: "Dalgıç Pompa" },
+    { id: "dalgicpompa", label: "Pompalar" },
     { id: "filtration", label: "Filtrasyon" },
     { id: "camursusuzlastirma", label: "Çamur Susuzlaştırma" },
   ];

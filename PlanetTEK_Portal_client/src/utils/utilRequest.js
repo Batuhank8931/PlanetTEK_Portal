@@ -90,17 +90,68 @@ const API = {
         return crudClient.get("api/price/unit-labor-costs");
     },
 
-    // 🔍 Unit Labor Costs Listesi Getir
+    // 🔍 Submersible Costs Listesi Getir
     getSubmersibleCosts: async () => {
         return crudClient.get("api/price/submersible-pumps-costs");
     },
 
-    // 🔍 Unit Labor Costs Listesi Getir
+    // 🔍 Filtration Costs Listesi Getir
     getFiltrationCosts: async () => {
         return crudClient.get("api/price/filtration-costs");
     },
+
+    // 🔍 Sludge Dewatering Costs Listesi Getir
     getSludgeDewateringCosts: async () => {
         return crudClient.get("api/price/sludge-dewatering-costs");
+    },
+
+    // 📊 1. Belirli Bir Pompanın Eğrisini Getir (GET api/price/pump-curve/:pump_id)
+    getPumpCurve: async (pumpId) => {
+        try {
+            const res = await crudClient.get(`api/price/pump-curve/${pumpId}`);
+            return res;
+        } catch (err) {
+            console.error(`❌ [API.getPumpCurve] Pompa eğrisi (ID: ${pumpId}) çekilirken hata oluştu:`, {
+                status: err.response?.status,
+                message: err.message,
+                responseData: err.response?.data
+            });
+            throw err;
+        }
+    },
+
+    // 📊 2. Belirli Bir Pompanın Eğrisini Güncelle (PUT api/price/pump-curve/:pump_id)
+    // payload yapısı: { points: [ { flow_rate: 1.5, head_mss: 14.5 }, ... ] }
+    updatePumpCurve: async (pumpId, payload) => {
+        try {
+            const res = await crudClient.put(`api/price/pump-curve/${pumpId}`, payload);
+            return res;
+        } catch (err) {
+            console.error(`❌ [API.updatePumpCurve] Pompa eğrisi (ID: ${pumpId}) güncellenirken hata oluştu:`, {
+                status: err.response?.status,
+                message: err.message,
+                responseData: err.response?.data
+            });
+            throw err;
+        }
+    },
+
+    getParamteters: async () => {
+        return crudClient.get("api/parameters");
+    },
+
+    updateParametersData: async (payload) => {
+        try {
+            const res = await crudClient.post("api/parameters/update", payload);
+            return res;
+        } catch (err) {
+            console.error("❌ [API.updateParametersData] Parametreler güncellenirken hata oluştu:", {
+                status: err.response?.status,
+                message: err.message,
+                responseData: err.response?.data
+            });
+            throw err;
+        }
     },
 
 

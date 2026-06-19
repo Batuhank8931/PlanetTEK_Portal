@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from "react";
 
-const ExcelGrid = ({ headers, data, fields, onDataChange, isMainTable = false }) => {
+const ExcelGrid = ({ headers, data, fields, onDataChange, isMainTable = false, onActionClick }) => {
   const tableRef = useRef(null);
 
   const [selection, setSelection] = useState({ start: null, end: null });
@@ -10,12 +10,12 @@ const ExcelGrid = ({ headers, data, fields, onDataChange, isMainTable = false })
   // 🛠️ TÜRKÇE/AVRUPA SAYI FORMATI DOSTU BİÇİMLENDİRİCİ
   const formatCellValue = (value, fieldName) => {
     if (value === undefined || value === null || value === "") return "";
-    
+
     // sale_amount bir adettir, küsuratsız tam sayı bas
     if (fieldName === "sale_amount") return parseInt(value, 10) || 0;
 
     // 🚀 Metinsel kolon kontrolü ('tipi' listeye eklendi)
-    if (["model", "pompa_adi", "ad", "ekipman_tipi", "kapasite_birimi", "tipi", "kapasite"].includes(fieldName)) return String(value);
+    if (["model", "pompa_adi", "ad", "ekipman_tipi", "kapasite_birimi", "tipi", "kapasite", "parametre_adi", "parametre_key", "plakaboyut"].includes(fieldName)) return String(value);
     if (typeof value === "string" && isNaN(value)) return value;
 
     // Fiyat verilerini HER ZAMAN virgülden sonra 2 basamak garanti ederek bas (Örn: 223,00)
@@ -30,25 +30,22 @@ const ExcelGrid = ({ headers, data, fields, onDataChange, isMainTable = false })
   // 🛠️ SAYI PARSERI (Hücreden çıkarken sayıların uçmasını engeller)
   const parseCellValue = (str, fieldName) => {
     if (str === undefined || str === null || str === "") {
-      return ["model", "pompa_adi", "ad", "ekipman_tipi", "kapasite_birimi", "tipi", "kapasite"].includes(fieldName) ? "" : 0;
+      return ["model", "pompa_adi", "ad", "ekipman_tipi", "kapasite_birimi", "tipi", "kapasite", "parametre_adi", "parametre_key", "plakaboyut"].includes(fieldName) ? "" : 0;
     }
-    
+
     // 🚀 Metinsel kolon kontrolü ('tipi' listeye eklendi)
-    if (["model", "pompa_adi", "ad", "ekipman_tipi", "kapasite_birimi", "tipi", "kapasite"].includes(fieldName)) {
+    if (["model", "pompa_adi", "ad", "ekipman_tipi", "kapasite_birimi", "tipi", "kapasite", "parametre_adi", "parametre_key", "plakaboyut"].includes(fieldName)) {
       return String(str).trim();
     }
-    
-    // Arayüzde "223,00" veya "32.036,00" gibi görünen dizeyi JS'in anlayacağı saf float'a çevirir
+
     let cleanStr = str.toString().trim();
-    
-    // Nokta binlik, virgül ondalık ayracı ise (tr-TR): Noktaları sil, virgülü noktaya çevir
+
     if (cleanStr.includes(",") && cleanStr.includes(".")) {
       cleanStr = cleanStr.replace(/\./g, "").replace(",", ".");
     } else if (cleanStr.includes(",")) {
-      // Sadece virgül varsa (Ondalık kısmıdır)
       cleanStr = cleanStr.replace(",", ".");
     }
-    
+
     const num = parseFloat(cleanStr);
     return isNaN(num) ? 0 : num;
   };
@@ -93,7 +90,7 @@ const ExcelGrid = ({ headers, data, fields, onDataChange, isMainTable = false })
         const updated = [...prev];
         cells.forEach(({ row, col }) => {
           const key = fields[col];
-          if (key) {
+          if (key && key !== "curve_action") { // Aksiyon butonu hücresi silinmesin
             updated[row] = { ...updated[row], [key]: ["model", "pompa_adi", "ad", "ekipman_tipi", "tipi", "kapasite"].includes(key) ? "" : 0 };
           }
         });
@@ -117,6 +114,7 @@ const ExcelGrid = ({ headers, data, fields, onDataChange, isMainTable = false })
       cells.forEach(({ row, col }) => {
         if (!rowGroups[row]) rowGroups[row] = [];
         const key = fields[col];
+        if (key === "curve_action") return; // Aksiyon sütununu kopyalamaya dahil etme
         const val = data[row][key] || "";
         rowGroups[row].push({ col, val });
       });
@@ -131,46 +129,15 @@ const ExcelGrid = ({ headers, data, fields, onDataChange, isMainTable = false })
       e.preventDefault();
     };
 
-    const onPaste = (e) => {
-      if (document.activeElement.getAttribute("contenteditable") === "true") return;
-      const text = e.clipboardData.getData("text/plain");
-      if (!text) return;
-
-      const start = selection.start;
-      if (!start) return;
-
-      const rows = text.split(/\r?\n/).map(r => r.split("\t"));
-
-      onDataChange(prev => {
-        const updated = [...prev];
-        rows.forEach((rowVals, i) => {
-          const rIndex = start.row + i;
-          if (rIndex >= updated.length) return;
-
-          rowVals.forEach((val, j) => {
-            const cIndex = start.col + j;
-            const key = fields[cIndex];
-            if (key) {
-              updated[rIndex] = { ...updated[rIndex], [key]: parseCellValue(val, key) };
-            }
-          });
-        });
-        return updated;
-      });
-      e.preventDefault();
-    };
-
     document.addEventListener("copy", onCopy);
-    document.addEventListener("paste", onPaste);
     return () => {
       document.removeEventListener("copy", onCopy);
-      document.removeEventListener("paste", onPaste);
     };
-  }, [selection, data, fields, onDataChange]);
+  }, [selection, data, fields]);
 
   const handleCellBlur = (rowIndex, colIndex, textValue) => {
-    const columnKey = fields[colIndex]; 
-    if (!columnKey) return;
+    const columnKey = fields[colIndex];
+    if (!columnKey || columnKey === "curve_action") return;
 
     onDataChange(prev => {
       const updated = [...prev];
@@ -184,27 +151,26 @@ const ExcelGrid = ({ headers, data, fields, onDataChange, isMainTable = false })
     borderCollapse: "separate",
     borderSpacing: 0,
     width: "100%",
-    backgroundColor: "#0f172a", 
-    color: "#cbd5e1", 
+    backgroundColor: "#0f172a",
+    color: "#cbd5e1",
     fontFamily: "Inter, -apple-system, BlinkMacSystemFont, sans-serif",
-    fontSize: "11.5px", 
+    fontSize: "11.5px",
     userSelect: "none"
   };
 
   const thStyle = {
-    backgroundColor: "#1e293b", 
+    backgroundColor: "#1e293b",
     borderBottom: "2px solid #334155",
     borderRight: "1px solid #1e293b",
-    padding: "6px 10px", 
+    padding: "6px 10px",
     fontWeight: "600",
     textAlign: "center",
-    color: "#94a3b8", 
+    color: "#94a3b8",
     letterSpacing: "0.3px"
   };
 
   return (
     <>
-      {/* 🎨 Scrollbar'ları modernleştirmek için dinamik CSS enjekte ediyoruz */}
       <style>{`
         .custom-excel-container::-webkit-scrollbar {
           width: 8px;
@@ -234,9 +200,20 @@ const ExcelGrid = ({ headers, data, fields, onDataChange, isMainTable = false })
           <thead style={{ position: "sticky", top: 0, zIndex: 10 }}>
             <tr>
               <th style={{ ...thStyle, width: "35px", backgroundColor: "#020617", color: "#475569", borderRight: "1px solid #1e293b" }}>#</th>
-              {headers.map((h, i) => (
-                <th key={i} style={thStyle}>{h}</th>
-              ))}
+              {headers.map((h, i) => {
+                const isActionHeader = h === "@";
+                return (
+                  <th 
+                    key={i} 
+                    style={{ 
+                      ...thStyle, 
+                      ...(isActionHeader ? { width: "35px", minWidth: "35px", maxWidth: "35px" } : {}) 
+                    }}
+                  >
+                    {h}
+                  </th>
+                );
+              })}
               {isMainTable && <th style={{ ...thStyle, width: "50px" }}>İşlem</th>}
             </tr>
           </thead>
@@ -248,11 +225,45 @@ const ExcelGrid = ({ headers, data, fields, onDataChange, isMainTable = false })
                 </td>
 
                 {fields.map((field, colIndex) => {
+                  // 🚀 1. KRİTİK EKLEME: Eğer bu bir eğri aksiyon kolonu ise buton render et
+                  if (field === "curve_action") {
+                    const isNewPump = String(row.id).startsWith("new_");
+                    return (
+                      <td
+                        key={field}
+                        className="text-center align-middle p-0"
+                        style={{
+                          borderRight: "1px solid #1e293b",
+                          borderBottom: "1px solid #1e293b",
+                          width: "35px",
+                          minWidth: "35px",
+                          maxWidth: "35px",
+                          backgroundColor: "#131c2e"
+                        }}
+                      >
+                        <button
+                          type="button"
+                          className={`btn btn-sm p-0 border-0 bg-transparent ${isNewPump ? 'text-secondary opacity-25' : 'text-info'}`}
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            if (!isNewPump && onActionClick) {
+                              onActionClick(row);
+                            }
+                          }}
+                          disabled={isNewPump}
+                          title={isNewPump ? "Önce pompayı kaydetmelisiniz." : "Pompa eğrisini düzenle"}
+                          style={{ cursor: isNewPump ? "not-allowed" : "pointer" }}
+                        >
+                          <i className="bi bi-activity" style={{ fontSize: "14px" }}></i>
+                        </button>
+                      </td>
+                    );
+                  }
+
                   const isSelected = isCellSelected(rowIndex, colIndex);
                   const isEditing = editingCell.row === rowIndex && editingCell.col === colIndex;
-                  
-                  // 🚀 'tipi' ve 'kapasite' alanları da dize olarak algılansın
-                  const isStringField = ["model", "pompa_adi", "ad", "ekipman_tipi", "kapasite_birimi", "tipi", "kapasite"].includes(field) || (typeof row[field] === "string" && isNaN(row[field]));
+
+                  const isStringField = ["model", "pompa_adi", "ad", "ekipman_tipi", "kapasite_birimi", "tipi", "kapasite", "parametre_adi", "parametre_key", "plakaboyut"].includes(field) || (typeof row[field] === "string" && isNaN(row[field]));
 
                   const getEditText = () => {
                     if (row[field] === undefined || row[field] === null) return "";
@@ -286,8 +297,8 @@ const ExcelGrid = ({ headers, data, fields, onDataChange, isMainTable = false })
                         borderLeft: isSelected ? "1px solid #00874e" : "transparent",
                         outline: isSelected ? "1px solid #00874e" : "none",
                         backgroundColor: isEditing ? "#00663a" : isSelected ? "rgba(0, 135, 78, 0.15)" : "#131c2e",
-                        color: isEditing ? "#ffffff" : isStringField ? "#94a3b8" : "#22c55e", // Seçili alanlar dışındakiler de okunabilir yeşil/gri kalsın diye düzenlendi
-                        padding: "5px 8px", 
+                        color: isEditing ? "#ffffff" : isStringField ? "#94a3b8" : "#22c55e",
+                        padding: "5px 8px",
                         textAlign: isStringField ? "center" : "right",
                         fontWeight: isStringField ? "600" : "500",
                         minWidth: isStringField ? "100px" : "115px"
@@ -300,8 +311,8 @@ const ExcelGrid = ({ headers, data, fields, onDataChange, isMainTable = false })
 
                 {isMainTable && (
                   <td style={{ borderBottom: "1px solid #1e293b", borderRight: "1px solid #1e293b", textAlign: "center", padding: "2px" }}>
-                    <button 
-                      type="button" 
+                    <button
+                      type="button"
                       className="btn btn-sm text-danger p-0 shadow-none border-0 bg-transparent"
                       onClick={() => handleRowDeleteClick(rowIndex)}
                       style={{ opacity: 0.7, transition: "opacity 0.2s" }}

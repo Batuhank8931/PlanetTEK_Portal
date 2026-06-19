@@ -12,9 +12,10 @@ function Izgara() {
   const [showModal, setShowModal] = useState(false);
   const [pendingChanges, setPendingChanges] = useState([]);
 
-  // 📊 Kolon Yapısı: 11 Başlık ve 11 Field tam 1:1 senkronize edildi!
+  // 📊 Kolon Yapısı: 12 Başlık ve 12 Field tam 1:1 senkronize edildi!
   const headers = [
     "Kapasite",
+    "Yağ Tutucu Boyut",
     "Yağ Tutucu YD", "Yağ Tutucu YI",
     "M. Kaba YD", "M. Kaba YI",
     "M. İnce YD", "M. İnce YI",
@@ -22,9 +23,8 @@ function Izgara() {
     "Oto İnce YD", "Oto İnce YI"
   ];
 
-  // 'kapasite' kolonunu field listesinin en başına yerleştirdik
   const fields = [
-    "kapasite",
+    "kapasite", "plakaboyut",
     "plakaYd", "plakaYi",
     "mKabaYd", "mKabaYi",
     "mInceYd", "mInceYi",
@@ -57,6 +57,7 @@ function Izgara() {
     const newRow = {
       id: `new_${Date.now()}`, // Benzersiz geçici ID
       kapasite: defaultKapasite,
+      plakaboyut: "", // 🌟 EKLEME: Yeni satır için default boş text değeri
       plakaYd: 0, plakaYi: 0,
       mKabaYd: 0, mKabaYi: 0,
       mInceYd: 0, mInceYi: 0,
@@ -72,15 +73,15 @@ function Izgara() {
     const changes = [];
 
     izgaraData.forEach((item) => {
-      // ❌ DURUM A: Satır Silinmiş mi? (DELETE)
+      // ❌ DURUM A: Satır Silinmiş mi? (DELETE) - Burası kapasite üzerinden yürüdüğü için değişiklik istemez
       if (item.isDeleted) {
-        if (String(item.id).startsWith("new_")) return; // DB'ye yazılmadan silindiyse pas geç
+        if (String(item.id).startsWith("new_")) return;
 
         changes.push({
           type: "DELETE",
           tableName: "screen_data",
           id: item.id,
-          columnName: "kapasite", // Güvenlik duvarı için geçerli placeholder kolon
+          columnName: "kapasite", 
           newValue: null,
           rowName: item.kapasite,
           oldValue: 0
@@ -94,11 +95,12 @@ function Izgara() {
           type: "INSERT",
           tableName: "screen_data",
           id: undefined,
-          columnName: "kapasite", // Tetikleyici ana kolonumuz
+          columnName: "kapasite", 
           newValue: item.kapasite,
           rowName: item.kapasite,
           oldValue: 0,
           additionalData: {
+            plakaboyut: String(item.plakaboyut || ""), // 🌟 EKLEME: INSERT için payload'a eklendi
             plakaYd: Number(item.plakaYd) || 0, plakaYi: Number(item.plakaYi) || 0,
             mKabaYd: Number(item.mKabaYd) || 0, mKabaYi: Number(item.mKabaYi) || 0,
             mInceYd: Number(item.mInceYd) || 0, mInceYi: Number(item.mInceYi) || 0,
@@ -114,8 +116,11 @@ function Izgara() {
 
       if (originalItem) {
         fields.forEach((field) => {
-          const esitMi = field === "kapasite"
-            ? String(originalItem[field]).trim() === String(item[field]).trim()
+          // 🌟 GÜNCELLEME: Alan 'kapasite' VEYA 'plakaboyut' ise text olarak karşılaştırıyoruz
+          const isTextField = field === "kapasite" || field === "plakaboyut";
+
+          const esitMi = isTextField
+            ? String(originalItem[field] || "").trim() === String(item[field] || "").trim()
             : Number(originalItem[field] || 0) === Number(item[field] || 0);
 
           if (!esitMi) {
@@ -124,9 +129,10 @@ function Izgara() {
               tableName: "screen_data",
               id: originalItem.id,
               columnName: field,
-              newValue: field === "kapasite" ? item[field] : Number(item[field]),
+              // 🌟 GÜNCELLEME: Eğer text alanı ise text, sayı alanı ise Number formatında kaydet
+              newValue: isTextField ? item[field] : Number(item[field]),
               rowName: item.kapasite,
-              oldValue: originalItem[field] || 0
+              oldValue: originalItem[field] || (isTextField ? "" : 0)
             });
           }
         });
@@ -166,7 +172,6 @@ function Izgara() {
         updates: updatesPayload
       });
 
-      // Taptaze verileri DB'den tekrar çekip mühürle
       await fetchIzgaraData();
       setPendingChanges([]); 
     } catch (error) {
@@ -211,7 +216,7 @@ function Izgara() {
         data={visibleIzgaraData}
         fields={fields}
         onDataChange={setIzgaraData}
-        isMainTable={true} // Aksiyon silme butonu aktif
+        isMainTable={true}
       />
 
       <PriceChangeUpdateConfirmationModal

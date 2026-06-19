@@ -3,7 +3,7 @@
  * Dönen Biyolojik Disk Yüzey Yükü Hesaplama Fonksiyonu
  * (Maksimum 22 sınırı eklenmiştir)
  */
-export default function hesaplaDiskKatsayisiDetayli(sicaklik, hedefBoi) {
+export default function hesaplaDiskKatsayisiDetayli(sicaklik, hedefBoi, maxemperik) {
     const katsayilar = {
         15: [{ a: 1.67270000, b: 5.39959839 }, { a: 1.98652158, b: 2.26104418 }],
         20: [{ a: 1.12247379, b: 4.20883534 }, { a: 2.48608563, b: -17.30722892 }],
@@ -37,9 +37,9 @@ export default function hesaplaDiskKatsayisiDetayli(sicaklik, hedefBoi) {
         let ustBoi = mevcutBoiler[mevcutBoiler.length - 1];
 
         for (let i = 0; i < mevcutBoiler.length - 1; i++) {
-            if (hedefBoi >= mevcutBoiler[i] && hedefBoi <= mevcutBoiler[i+1]) {
+            if (hedefBoi >= mevcutBoiler[i] && hedefBoi <= mevcutBoiler[i + 1]) {
                 altBoi = mevcutBoiler[i];
-                ustBoi = mevcutBoiler[i+1];
+                ustBoi = mevcutBoiler[i + 1];
                 break;
             }
         }
@@ -53,8 +53,8 @@ export default function hesaplaDiskKatsayisiDetayli(sicaklik, hedefBoi) {
     }
 
     // Maksimum 22 çiti (22'den büyükse direkt 22 döndürür)
-    if (sonucX > 22.00) {
-        return 22.0000;
+    if (sonucX > maxemperik) {
+        return maxemperik;
     }
 
     return parseFloat(sonucX.toFixed(4));

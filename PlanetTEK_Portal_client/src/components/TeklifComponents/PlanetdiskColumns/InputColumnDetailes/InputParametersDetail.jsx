@@ -1,136 +1,211 @@
 import React, { useEffect, useState } from "react";
 import hesaplaDiskKatsayisiDetayli from "../../../../utils/hesaplaDiskKatsayisiDetayli";
 import { useTeklifStore } from "../../../../utils/teklifStore";
-
-// 1. DİNAMİK DİSK SINIRLARI MATRİSİ
-const DISK_SINIRLARI_MATRISI = {
-    MX: {
-        evsel: { minDisk: 100, maxDisk: 140 },
-        endustriyel: { minDisk: 90, maxDisk: 100 }
-    },
-    MINI: {
-        evsel: { minDisk: 50, maxDisk: 75 },
-        endustriyel: { minDisk: 45, maxDisk: 65 }
-    }
-};
-
-// 2. YENİ: DİNAMİK NİTRİFİKASYON MATRİSİ
-const NITRIFIKASYON_KATSAYILARI = [
-    { min: 23.01, max: Infinity, katsayi: 1.7, etiket: "☀️ Sıcaklık > 23 °C", renk: "text-success" },
-    { min: 17,    max: 23,       katsayi: 1.4, etiket: "⛅ Sıcaklık 17 - 23 °C", renk: "text-info" },
-    { min: 13,    max: 16.99,    katsayi: 1.0, etiket: "🌤️ Sıcaklık 13 - 16 °C", renk: "text-warning" },
-    { min: -Infinity, max: 12.99,katsayi: 0.6, etiket: "❄️ Sıcaklık < 13 °C", renk: "text-danger" }
-];
+import API from "../../../../utils/utilRequest";
 
 function InputParameters() {
     const [showInfoModal, setShowInfoModal] = useState(false);
+    const [loading, setLoading] = useState(true); 
 
     const formData = useTeklifStore((state) => state.formData);
     const updateSection = useTeklifStore((state) => state.updateSection);
 
-    // Yenilenen Dinamik Fonksiyon
-    const hesaplaNitrifikasyonEmperik = (sicaklik) => {
+    const [diskSinirlariMatrisi, setDiskSinirlariMatrisi] = useState({});
+    const [nitrifikasyonKatsayilari, setNitrifikasyonKatsayilari] = useState([]);
+    const [maksimumEmperik, setMaksimumEmperik] = useState(0);
+
+    const hesaplaNitrifikasyonEmperik = (sicaklik, katsayilarListesi) => {
         const s = Number(sicaklik);
-        const uygunKural = NITRIFIKASYON_KATSAYILARI.find(
+        const liste = katsayilarListesi || nitrifikasyonKatsayilari;
+        const uygunKural = liste.find(
             (kural) => s >= kural.min && s <= kural.max
         );
         return uygunKural ? uygunKural.katsayi : 1.0;
     };
 
-    const getDiskSinirlari = (uniteType, wastewaterType) => {
-        const uniteSınırları = DISK_SINIRLARI_MATRISI[uniteType] || DISK_SINIRLARI_MATRISI["MX"];
-        return uniteSınırları[wastewaterType] || uniteSınırları["evsel"];
+    const getDiskSinirlari = (uniteType, wastewaterType, matris) => {
+        const aktifMatris = matris || diskSinirlariMatrisi;
+        if (!aktifMatris || Object.keys(aktifMatris).length === 0) {
+            return { minDisk: 0, maxDisk: 0 };
+        }
+        const uniteSinirlari = aktifMatris[uniteType] || aktifMatris["MX"];
+        if (!uniteSinirlari) return { minDisk: 0, maxDisk: 0 };
+        return uniteSinirlari[wastewaterType] || uniteSinirlari["evsel"];
     };
-
-    // DEFAULT DEĞERLERİ OLUŞTURMA
-    const storePlanetDisk = formData.planetDiskDetails || {};
-    const storeAritmaParametreleri = storePlanetDisk.tasarim?.aritmaParametreleri || {};
-
-    const defaultKaynaklar = [
-        { id: Date.now(), ad: "1. KAYNAK", kisiSayisi: 3000, organikYuk: 60, hidrolikYuk: 200 }
-    ];
-
-    const currentAtiksutype = storeAritmaParametreleri.atiksutype || "evsel";
-    const currentRBCUnite = storeAritmaParametreleri.RBCUnite || "MX";
-    const varsayilanSinirlar = getDiskSinirlari(currentRBCUnite, currentAtiksutype);
-
-    const currentParamData = {
-        hesapYontemi: storeAritmaParametreleri.hesapYontemi !== undefined ? storeAritmaParametreleri.hesapYontemi : "",
-        atiksutype: currentAtiksutype,
-        RBCUnite: currentRBCUnite,
-        minDisk: storeAritmaParametreleri.minDisk !== undefined ? storeAritmaParametreleri.minDisk : varsayilanSinirlar.minDisk,
-        maxDisk: storeAritmaParametreleri.maxDisk !== undefined ? storeAritmaParametreleri.maxDisk : varsayilanSinirlar.maxDisk,
-        girisBoi: storeAritmaParametreleri.girisBoi !== undefined ? storeAritmaParametreleri.girisBoi : 350,
-        debi: storeAritmaParametreleri.debi !== undefined ? storeAritmaParametreleri.debi : 70,
-        cikisBoi: storeAritmaParametreleri.cikisBoi !== undefined ? storeAritmaParametreleri.cikisBoi : 40,
-        sicaklik: storeAritmaParametreleri.sicaklik !== undefined ? storeAritmaParametreleri.sicaklik : 19,
-        giderimVerimi: storeAritmaParametreleri.giderimVerimi !== undefined ? storeAritmaParametreleri.giderimVerimi : 33,
-        emperik: storeAritmaParametreleri.emperik !== undefined ? storeAritmaParametreleri.emperik : 22.00,
-        nitrifikasyon: storeAritmaParametreleri.nitrifikasyon || "nitrifikasyonYok",
-        girisAmonyum: storeAritmaParametreleri.girisAmonyum !== undefined ? storeAritmaParametreleri.girisAmonyum : 48,
-        cikisAmonyum: storeAritmaParametreleri.cikisAmonyum !== undefined ? storeAritmaParametreleri.cikisAmonyum : 8,
-        nitrifikasyonEmperik: storeAritmaParametreleri.nitrifikasyonEmperik !== undefined
-            ? storeAritmaParametreleri.nitrifikasyonEmperik
-            : hesaplaNitrifikasyonEmperik(storeAritmaParametreleri.sicaklik ?? 19),
-        kaynaklar: storeAritmaParametreleri.kaynaklar || defaultKaynaklar
-    };
-
-    const rootDebi = storePlanetDisk.debi !== undefined ? storePlanetDisk.debi : 70;
 
     useEffect(() => {
-        if (!storePlanetDisk.tasarim || !storePlanetDisk.tasarim.aritmaParametreleri) {
+        const fetchParameters = async () => {
+            try {
+                const response = await API.getParamteters();
+                const data = response.data || [];
+
+                const paramMap = {};
+                data.forEach(item => {
+                    paramMap[item.parametre_key] = parseFloat(item.deger);
+                });
+
+                const matris = {
+                    MX: {
+                        evsel: { minDisk: paramMap["MX_evsel_min"], maxDisk: paramMap["MX_evsel_max"] },
+                        endustriyel: { minDisk: paramMap["MX_endustriyel_min"], maxDisk: paramMap["MX_endustriyel_max"] }
+                    },
+                    MINI: {
+                        evsel: { minDisk: paramMap["MINI_evsel_min"], maxDisk: paramMap["MINI_evsel_max"] },
+                        endustriyel: { minDisk: paramMap["MINI_endustriyel_min"], maxDisk: paramMap["MINI_endustriyel_max"] }
+                    }
+                };
+                setDiskSinirlariMatrisi(matris);
+
+                const renkler = { nit_1: "text-success", nit_2: "text-info", nit_3: "text-warning", nit_4: "text-danger" };
+                const ikonlar = { nit_1: "☀️ ", nit_2: "⛅ ", nit_3: "🌤️ ", nit_4: "❄️ " };
+                const etiketEkleri = { nit_1: "Sıcaklık > 23 °C", nit_2: "Sıcaklık 17 - 23 °C", nit_3: "Sıcaklık 13 - 16 °C", nit_4: "Sıcaklık < 13 °C" };
+
+                const yeniNitrifikasyon = data
+                    .filter(item => item.parametre_key.startsWith("nit_"))
+                    .map(item => {
+                        const key = item.parametre_key;
+                        const tanim = item.parametre_adi.trim();
+                        let min = -Infinity;
+                        let max = Infinity;
+
+                        if (tanim.startsWith(">")) {
+                            min = parseFloat(tanim.replace(">", "").trim());
+                        } else if (tanim.startsWith("<")) {
+                            max = parseFloat(tanim.replace("<", "").trim());
+                        } else if (tanim.includes("-")) {
+                            const parcalar = tanim.split("-");
+                            min = parseFloat(parcalar[0].trim());
+                            max = parseFloat(parcalar[1].trim());
+                        }
+
+                        return {
+                            min: min,
+                            max: max,
+                            katsayi: parseFloat(item.deger),
+                            etiket: `${ikonlar[key] || ""}${etiketEkleri[key] || tanim}`,
+                            renk: renkler[key] || "text-primary"
+                        };
+                    });
+
+                yeniNitrifikasyon.sort((a, b) => b.min - a.min);
+                setNitrifikasyonKatsayilari(yeniNitrifikasyon);
+
+                const maxEmp = parseFloat(paramMap["boiEmperik"]) || 0;
+                setMaksimumEmperik(maxEmp);
+
+                const storePlanetDisk = useTeklifStore.getState().formData.planetDiskDetails || {};
+                if (!storePlanetDisk.tasarim || !storePlanetDisk.tasarim.aritmaParametreleri) {
+                    const storeAritmaParametreleri = storePlanetDisk.tasarim?.aritmaParametreleri || {};
+                    const currentAtiksutype = storeAritmaParametreleri.atiksutype || "evsel";
+                    const currentRBCUnite = storeAritmaParametreleri.RBCUnite || "MX";
+                    const varsayilanSinirlar = getDiskSinirlari(currentRBCUnite, currentAtiksutype, matris);
+
+                    const defaultParamData = {
+                        hesapYontemi: storeAritmaParametreleri.hesapYontemi !== undefined ? storeAritmaParametreleri.hesapYontemi : "hidrolik",
+                        atiksutype: currentAtiksutype,
+                        RBCUnite: currentRBCUnite,
+                        girisBoi: storeAritmaParametreleri.girisBoi !== undefined ? storeAritmaParametreleri.girisBoi : 350,
+                        debi: storeAritmaParametreleri.debi !== undefined ? storeAritmaParametreleri.debi : 70,
+                        cikisBoi: storeAritmaParametreleri.cikisBoi !== undefined ? storeAritmaParametreleri.cikisBoi : 40,
+                        sicaklik: storeAritmaParametreleri.sicaklik !== undefined ? storeAritmaParametreleri.sicaklik : 19,
+                        giderimVerimi: storeAritmaParametreleri.giderimVerimi !== undefined ? storeAritmaParametreleri.giderimVerimi : 33,
+                        emperik: storeAritmaParametreleri.emperik !== undefined ? storeAritmaParametreleri.emperik : maxEmp,
+                        nitrifikasyon: storeAritmaParametreleri.nitrifikasyon || "nitrifikasyonYok",
+                        girisAmonyum: storeAritmaParametreleri.girisAmonyum !== undefined ? storeAritmaParametreleri.girisAmonyum : 48,
+                        cikisAmonyum: storeAritmaParametreleri.cikisAmonyum !== undefined ? storeAritmaParametreleri.cikisAmonyum : 8,
+                        nitrifikasyonEmperik: storeAritmaParametreleri.nitrifikasyonEmperik !== undefined
+                            ? storeAritmaParametreleri.nitrifikasyonEmperik
+                            : hesaplaNitrifikasyonEmperik(storeAritmaParametreleri.sicaklik ?? 19, yeniNitrifikasyon),
+                        isEmperikManual: storeAritmaParametreleri.isEmperikManual !== undefined ? storeAritmaParametreleri.isEmperikManual : false, // El müdahalesi bayrağı
+                        kaynaklar: storeAritmaParametreleri.kaynaklar || [
+                            { id: Date.now(), ad: "1. KAYNAK", kisiSayisi: 3000, organikYuk: 60, hidrolikYuk: 200 }
+                        ],
+                        minDisk: varsayilanSinirlar.minDisk,
+                        maxDisk: varsayilanSinirlar.maxDisk
+                    };
+
+                    updateSection("planetDiskDetails", {
+                        debi: storePlanetDisk.debi !== undefined ? storePlanetDisk.debi : 70,
+                        tasarim: {
+                            ...storePlanetDisk.tasarim,
+                            aritmaParametreleri: defaultParamData
+                        }
+                    });
+                }
+
+                setLoading(false);
+            } catch (error) {
+                console.error("Parametre verileri yüklenirken hata oldu:", error);
+                setLoading(false);
+            }
+        };
+
+        fetchParameters();
+    }, []);
+
+    const storePlanetDisk = formData.planetDiskDetails || {};
+    const storeAritmaParametreleri = storePlanetDisk.tasarim?.aritmaParametreleri || {};
+    const rootDebi = storePlanetDisk.debi !== undefined ? storePlanetDisk.debi : 70;
+
+    // Dinamik otomatik hesaplama yapan useEffect
+    useEffect(() => {
+        if (loading || !storeAritmaParametreleri.sicaklik) return;
+
+        // 1. KRİTİK KONTROL: Eğer kullanıcı bu değeri elle girdiyse otomatik hesaplama formülü bunu asla EZMESİN.
+        if (storeAritmaParametreleri.isEmperikManual === true) return;
+
+        const currentSicaklik = Number(storeAritmaParametreleri.sicaklik ?? 19);
+        const currentCikisBoi = Number(storeAritmaParametreleri.cikisBoi ?? 40);
+
+        const yeniEmperikRaw = hesaplaDiskKatsayisiDetayli(currentSicaklik, currentCikisBoi, Number(maksimumEmperik));
+        const yeniEmperik = parseFloat(yeniEmperikRaw) || 0;
+        const yeniNitrifikasyonEmperik = hesaplaNitrifikasyonEmperik(currentSicaklik);
+
+        if (yeniEmperik !== storeAritmaParametreleri.emperik || yeniNitrifikasyonEmperik !== storeAritmaParametreleri.nitrifikasyonEmperik) {
             updateSection("planetDiskDetails", {
-                debi: rootDebi,
                 tasarim: {
                     ...storePlanetDisk.tasarim,
-                    aritmaParametreleri: currentParamData
+                    aritmaParametreleri: {
+                        ...storeAritmaParametreleri,
+                        emperik: yeniEmperik,
+                        nitrifikasyonEmperik: yeniNitrifikasyonEmperik
+                    }
                 }
             });
         }
-    }, []);
+    }, [storeAritmaParametreleri.sicaklik, storeAritmaParametreleri.cikisBoi, maksimumEmperik, loading, storeAritmaParametreleri.isEmperikManual]);
 
-    const recalculateNihaiDegerler = (kaynaklarListesi) => {
-        const toplamLitreGun = kaynaklarListesi.reduce((acc, k) => acc + (Number(k.kisiSayisi || 0) * Number(k.hidrolikYuk || 0)), 0);
-        const nihaiDebi = toplamLitreGun / 1000;
-        const toplamGramBoiGun = kaynaklarListesi.reduce((acc, k) => acc + (Number(k.kisiSayisi || 0) * Number(k.organikYuk || 0)), 0);
-        const nihaiGirisBoi = nihaiDebi > 0 ? Math.round((toplamGramBoiGun / nihaiDebi)) : 0;
-        return { nihaiDebi, nihaiGirisBoi };
-    };
-
-    // JSX için anlık hesaplamalar (m3/gün cinsine çevrildi)
+    const currentParamData = storeAritmaParametreleri;
     const kaynaklarListesi = currentParamData.kaynaklar || [];
     const toplamLitreGun = kaynaklarListesi.reduce((acc, k) => acc + (Number(k.kisiSayisi || 0) * Number(k.hidrolikYuk || 0)), 0);
     const toplamM3Gun = toplamLitreGun / 1000;
-    
     const toplamOrganikYukGram = kaynaklarListesi.reduce((acc, k) => acc + (Number(k.kisiSayisi || 0) * Number(k.organikYuk || 0)), 0);
     const hesaplananGirisBoi = toplamM3Gun > 0 ? Math.round((toplamOrganikYukGram / toplamM3Gun)) : 0;
+
+    const recalculateNihaiDegerler = (kaynaklarListesi) => {
+        const tLitre = kaynaklarListesi.reduce((acc, k) => acc + (Number(k.kisiSayisi || 0) * Number(k.hidrolikYuk || 0)), 0);
+        const nihaiDebi = tLitre / 1000;
+        const tGram = kaynaklarListesi.reduce((acc, k) => acc + (Number(k.kisiSayisi || 0) * Number(k.organikYuk || 0)), 0);
+        const nihaiGirisBoi = nihaiDebi > 0 ? Math.round((tGram / nihaiDebi)) : 0;
+        return { nihaiDebi, nihaiGirisBoi };
+    };
 
     const handleChange = (e) => {
         const rawValue = e.target.value;
         const val = rawValue === "" ? 0 : (!isNaN(Number(rawValue)) ? Number(rawValue) : rawValue);
         const name = e.target.name;
 
-        let updatedParamData = {
-            ...currentParamData,
-            [name]: val
-        };
+        let updatedParamData = { ...currentParamData, [name]: val };
+
+        // 2. KRİTİK KONTROL: Eğer kullanıcı Nitrifikasyon Emperiğini doğrudan inputtan değiştiriyorsa, el müdahalesi bayrağını true yapıyoruz.
+        if (name === "nitrifikasyonEmperik") {
+            updatedParamData.isEmperikManual = true;
+        }
 
         if (name === "RBCUnite") {
             const yeniSinirlar = getDiskSinirlari(val, currentParamData.atiksutype);
             updatedParamData.minDisk = yeniSinirlar.minDisk;
             updatedParamData.maxDisk = yeniSinirlar.maxDisk;
-        }
-
-        if (name === "sicaklik" || name === "cikisBoi") {
-            const yeniEmperik = hesaplaDiskKatsayisiDetayli(
-                Number(updatedParamData.sicaklik ?? 19),
-                Number(updatedParamData.cikisBoi ?? 40)
-            );
-            updatedParamData.emperik = parseFloat(yeniEmperik) || 0;
-        }
-
-        if (name === "sicaklik") {
-            updatedParamData.nitrifikasyonEmperik = hesaplaNitrifikasyonEmperik(val);
         }
 
         updateSection("planetDiskDetails", {
@@ -161,15 +236,17 @@ function InputParameters() {
 
     const handleNitroToggle = (e) => {
         const isChecked = e.target.checked;
-        const selectedType = isChecked ? "nitrifikasyonVar" : "nitrifikasyonYok";
-
         updateSection("planetDiskDetails", {
             tasarim: {
                 ...storePlanetDisk.tasarim,
                 aritmaParametreleri: {
                     ...currentParamData,
-                    nitrifikasyon: selectedType,
-                    nitrifikasyonEmperik: hesaplaNitrifikasyonEmperik(currentParamData.sicaklik ?? 19)
+                    nitrifikasyon: isChecked ? "nitrifikasyonVar" : "nitrifikasyonYok",
+                    // Nitrifikasyon kapatılıp açılırsa el müdahalesi sıfırlansın isterseniz burayı false yapabilirsiniz
+                    isEmperikManual: isChecked ? currentParamData.isEmperikManual : false,
+                    nitrifikasyonEmperik: currentParamData.nitrifikasyonEmperik !== undefined 
+                        ? currentParamData.nitrifikasyonEmperik 
+                        : hesaplaNitrifikasyonEmperik(currentParamData.sicaklik ?? 19)
                 }
             }
         });
@@ -283,6 +360,7 @@ function InputParameters() {
 
     return (
         <div className="card-body p-4 d-flex flex-column gap-3" style={{ position: "relative" }}>
+            {/* JSX Yapısı Aynen Korundu */}
             <div className="d-flex align-items-center">
                 <span className="fw-bold text-uppercase pe-2" style={{ fontSize: "11px", letterSpacing: "0.7px", color: "#00874e" }}>
                     Arıtma Parametreleri
@@ -302,11 +380,7 @@ function InputParameters() {
             </div>
 
             <div className="rounded p-2.5" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
-                {currentParamData.hesapYontemi === "" ? (
-                    <div className="text-center py-4 text-white-50" style={{ fontSize: "12px" }}>
-                        <i className="bi bi-exclamation-circle me-1.5 text-warning"></i>Lütfen yukarıdan bir hesaplama yöntemi seçiniz.
-                    </div>
-                ) : currentParamData.hesapYontemi === "hidrolik" ? (
+                {currentParamData.hesapYontemi === "hidrolik" ? (
                     <div className="row g-2 p-1">
                         <div className="col-6">
                             <label className="text-white-50 mb-1" style={{ fontSize: "11px" }}>Giriş BOİ (mg/l)</label>
@@ -349,8 +423,6 @@ function InputParameters() {
                                 </div>
                             ))}
                         </div>
-
-                        {/* YENİ: M3/GÜN VE MG/L ÖZET PANELİ */}
                         <div className="mt-2 p-2 rounded row g-0 border border-dashed" style={{ backgroundColor: "rgba(16, 185, 129, 0.05)", borderColor: "rgba(16, 185, 129, 0.2)" }}>
                             <div className="col-6 border-end border-secondary border-opacity-25 d-flex flex-column align-items-center justify-content-center">
                                 <span className="text-white-50" style={{ fontSize: "9px" }}>TOPLAM HİDROLİK YÜK</span>
@@ -425,13 +497,12 @@ function InputParameters() {
                             <label className="text-white-50 d-flex align-items-center justify-content-center gap-1 mb-1" style={{ fontSize: "9px" }}>
                                 Nit. Emperiği <i className="bi bi-info-circle-fill text-info cursor-pointer" style={{ fontSize: "10px" }} onClick={() => setShowInfoModal(true)}></i>
                             </label>
-                            <input type="number" step="0.1" name="nitrifikasyonEmperik" value={currentParamData.nitrifikasyonEmperik === 0 ? "" : currentParamData.nitrifikasyonEmperik} onChange={handleChange} className="form-control form-control-sm text-center fw-bold border-0 py-1 text-warning" style={{ backgroundColor: "rgba(255, 193, 7, 0.15)", fontSize: "11px", borderRadius: "4px" }} />
+                            <input type="number" middle step="0.1" name="nitrifikasyonEmperik" value={currentParamData.nitrifikasyonEmperik === 0 ? "" : currentParamData.nitrifikasyonEmperik} onChange={handleChange} className="form-control form-control-sm text-center fw-bold border-0 py-1 text-warning" style={{ backgroundColor: "rgba(255, 193, 7, 0.15)", fontSize: "11px", borderRadius: "4px" }} />
                         </div>
                     </div>
                 )}
             </div>
 
-            {/* YENİLENEN DİNAMİK INFO MODAL */}
             {showInfoModal && (
                 <div style={{
                     position: "absolute", top: "80%", left: "5%", right: "5%",
@@ -447,7 +518,7 @@ function InputParameters() {
                     <div className="text-white-50" style={{ fontSize: "11px", lineHeight: "1.6" }}>
                         <p className="mb-2">Sıcaklık kademelerine göre uygulanan <b>gr/m²·gün</b> katsayı kriterleri:</p>
                         <ul className="list-unstyled d-flex flex-column gap-1 m-0 ps-1">
-                            {DISK_SINIRLARI_MATRISI && NITRIFIKASYON_KATSAYILARI.map((kural, idx) => (
+                            {nitrifikasyonKatsayilari.map((kural, idx) => (
                                 <li key={idx}>
                                     <span className={`${kural.renk} fw-bold`}>{kural.etiket} :</span>{" "}
                                     <span className="text-white">{kural.katsayi} gr/m².gün</span>
