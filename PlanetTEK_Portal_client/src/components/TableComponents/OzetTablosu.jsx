@@ -1,14 +1,12 @@
 import React, { useState } from "react";
 
 function OzetTablosu() {
-  // 1. Genel Bilgiler
   const [generalInfo, setGeneralInfo] = useState({
     offerNo: "2026 / 3500",
     refNo: "YİD R0 01 01 2026 8 MX 1 70 25 0",
     clientName: "İSKİ",
   });
 
-  // 2. Tasarım Kabul Parametreleri
   const [params, setParams] = useState([
     { id: 1, label: "- Atıksu Kaynağı", value: "Yalnızca kişisel kullanımdan kaynaklanan evsel atıksulara göre tasarım yapılmış olup, hayvanlardan kaynaklanan atıksular, klorlu havuz suları ve yağmur suları hesaba dahil edilmemiştir.", unit: "", isLongText: true },
     { id: 2, label: "- Nihai Kullanım Amacı", value: "Deşarj Amaçlı", unit: "" },
@@ -29,7 +27,6 @@ function OzetTablosu() {
     { id: 17, label: "- Lamella Seperatör LS 45 Son Çöktürme Tankı Toplam Yüzey Alanı", value: "45", unit: "m²" }
   ]);
 
-  // 3. Teklif İçeriği
   const [content, setContent] = useState([
     { id: 1, isChecked: true, qty: "1", unit: "set", desc: "Elle Temizlemeli Kaba Izgara" },
     { id: 2, isChecked: true, qty: "1", unit: "set", desc: "Elle Temizlemeli İnce Izgara" },
@@ -55,7 +52,6 @@ function OzetTablosu() {
 
   const [history, setHistory] = useState([]);
 
-  // --- HİSTORY (UNDO) YÖNETİMİ ---
   const saveToHistory = () => {
     setHistory([...history, JSON.stringify({ generalInfo, params, content })]);
   };
@@ -69,13 +65,11 @@ function OzetTablosu() {
     setHistory(history.slice(0, -1));
   };
 
-  // --- GENEL BİLGİLER GÜNCELLEME ---
   const handleGeneralChange = (field, val) => {
     saveToHistory();
     setGeneralInfo({ ...generalInfo, [field]: val });
   };
 
-  // --- TASARIM PARAMETRELERİ YÖNETİMİ ---
   const handleParamChange = (id, field, val) => {
     saveToHistory();
     setParams(params.map(p => p.id === id ? { ...p, [field]: val } : p));
@@ -95,7 +89,6 @@ function OzetTablosu() {
     setParams(params.filter(p => p.id !== id));
   };
 
-  // --- TEKLİF İÇERİĞİ YÖNETİMİ ---
   const handleContentChange = (id, field, val) => {
     saveToHistory();
     setContent(content.map(c => c.id === id ? { ...c, [field]: val } : c));
@@ -168,7 +161,6 @@ function OzetTablosu() {
         .check-box-custom:hover { border-color: #60a5fa; }
       `}</style>
 
-      {/* GERİ AL BUTONU */}
       <div className="d-flex justify-content-end align-items-center mb-1">
         <button
           onClick={handleUndo}
@@ -176,145 +168,129 @@ function OzetTablosu() {
           className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1"
           style={{ backgroundColor: history.length === 0 ? "#334155" : "#1e3a8a", fontSize: "11px", borderRadius: "6px", opacity: history.length === 0 ? 0.4 : 1 }}
         >
-          ↶ Değişikliği Geri Al ({history.length})
+          ↶
         </button>
       </div>
 
-      {/* ANA ÇERÇEVE */}
-      <div className="d-flex flex-column rounded-3 overflow-hidden" style={{ border: "1px solid #334155", backgroundColor: "#151f32" }}>
-        
-        {/* ==========================================
-            BÖLÜM 1: ÜST GENEL BİLGİLER 
-           ========================================== */}
-        <div className="d-flex flex-column border-bottom" style={{ borderColor: "#334155", backgroundColor: "#0f172a" }}>
-          <div className="d-flex align-items-stretch border-bottom ozet-row" style={{ borderColor: "#334155" }}>
-            <div className="p-2 px-3 fw-bold text-white-50" style={{ width: "25%", fontSize: "12px", backgroundColor: "#1e293b" }}>Teklif No</div>
-            <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-            <div className="p-2 px-3 fw-bold" style={{ width: "75%" }}>
-              <input type="text" className="ozet-input fw-bold" value={generalInfo.offerNo} onChange={(e) => handleGeneralChange("offerNo", e.target.value)} />
-            </div>
-          </div>
-          <div className="d-flex align-items-stretch border-bottom ozet-row" style={{ borderColor: "#334155" }}>
-            <div className="p-2 px-3 fw-bold text-white-50" style={{ width: "25%", fontSize: "12px", backgroundColor: "#1e293b" }}>Teklif Referans No</div>
-            <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-            <div className="p-2 px-3 fw-bold" style={{ width: "75%" }}>
-              <input type="text" className="ozet-input fw-bold" value={generalInfo.refNo} onChange={(e) => handleGeneralChange("refNo", e.target.value)} />
-            </div>
-          </div>
-          <div className="d-flex align-items-stretch ozet-row">
-            <div className="p-2 px-3 fw-bold text-white-50" style={{ width: "25%", fontSize: "12px", backgroundColor: "#1e293b" }}>İşveren Adı</div>
-            <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-            <div className="p-2 px-3 fw-bold" style={{ width: "75%" }}>
-              <input type="text" className="ozet-input fw-bold" value={generalInfo.clientName} onChange={(e) => handleGeneralChange("clientName", e.target.value)} />
-            </div>
-          </div>
-        </div>
-
-        {/* ==========================================
-            BÖLÜM 2: TASARIM KABUL PARAMETRELERİ 
-           ========================================== */}
-        <div className="p-2 px-3 header-main-title border-bottom" style={{ borderColor: "#334155" }}>
-          TASARIM KABUL PARAMETRELERİ
-        </div>
-        
-        <div className="d-flex flex-column border-bottom" style={{ borderColor: "#334155" }}>
-          {params.map((p, index) => (
-            <div key={p.id} className="d-flex align-items-stretch ozet-row">
-              
-              {/* Sol Label */}
-              <div className="p-2 px-3 d-flex align-items-center" style={{ width: "45%" }}>
-                <input type="text" className="ozet-input text-white-50" value={p.label} onChange={(e) => handleParamChange(p.id, "label", e.target.value)} />
-              </div>
+      <div className="w-100" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+        <div className="d-flex flex-column rounded-3 overflow-hidden" style={{ border: "1px solid #334155", backgroundColor: "#151f32", minWidth: "950px" }}>
+          
+          <div className="d-flex flex-column border-bottom" style={{ borderColor: "#334155", backgroundColor: "#0f172a" }}>
+            <div className="d-flex align-items-stretch border-bottom ozet-row" style={{ borderColor: "#334155" }}>
+              <div className="p-2 px-3 fw-bold text-white-50" style={{ width: "25%", fontSize: "12px", backgroundColor: "#1e293b" }}>Teklif No</div>
               <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-
-              {/* Sağ Value ve Birim Alanı */}
-              <div className="p-2 px-3 d-flex align-items-center" style={{ width: "49%" }}>
-                {p.isLongText ? (
-                  <textarea 
-                    rows={4} 
-                    className="ozet-input fw-medium" 
-                    style={{ resize: "none" }} 
-                    value={p.value} 
-                    onChange={(e) => handleParamChange(p.id, "value", e.target.value)} 
-                  />
-                ) : (
-                  <div className="d-flex w-100 align-items-center justify-content-between">
-                    <input type="text" className="ozet-input fw-bold text-center" style={{ width: "50%" }} value={p.value} onChange={(e) => handleParamChange(p.id, "value", e.target.value)} />
-                    <input type="text" className="ozet-input text-white-50 text-end" style={{ width: "40%" }} value={p.unit} onChange={(e) => handleParamChange(p.id, "unit", e.target.value)} />
-                  </div>
-                )}
+              <div className="p-2 px-3 fw-bold" style={{ width: "75%" }}>
+                <input type="text" className="ozet-input fw-bold" value={generalInfo.offerNo} onChange={(e) => handleGeneralChange("offerNo", e.target.value)} />
               </div>
-              <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-
-              {/* Aksiyon Paneli */}
-              <div className="p-1 d-flex align-items-center justify-content-center gap-2" style={{ width: "6%" }}>
-                <button onClick={() => insertParamRow(index)} className="btn btn-sm p-0 border-0 text-success opacity-50 hover-opacity-100 fw-bold" style={{ fontSize: "16px" }}>+</button>
-                <button onClick={() => deleteParamRow(p.id)} className="btn btn-sm p-0 border-0 text-danger opacity-40 hover-opacity-100" style={{ fontSize: "17px" }}>&times;</button>
-              </div>
-
             </div>
-          ))}
-        </div>
+            <div className="d-flex align-items-stretch border-bottom ozet-row" style={{ borderColor: "#334155" }}>
+              <div className="p-2 px-3 fw-bold text-white-50" style={{ width: "25%", fontSize: "12px", backgroundColor: "#1e293b" }}>Teklif Referans No</div>
+              <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+              <div className="p-2 px-3 fw-bold" style={{ width: "75%" }}>
+                <input type="text" className="ozet-input fw-bold" value={generalInfo.refNo} onChange={(e) => handleGeneralChange("refNo", e.target.value)} />
+              </div>
+            </div>
+            <div className="d-flex align-items-stretch ozet-row">
+              <div className="p-2 px-3 fw-bold text-white-50" style={{ width: "25%", fontSize: "12px", backgroundColor: "#1e293b" }}>İşveren Adı</div>
+              <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+              <div className="p-2 px-3 fw-bold" style={{ width: "75%" }}>
+                <input type="text" className="ozet-input fw-bold" value={generalInfo.clientName} onChange={(e) => handleGeneralChange("clientName", e.target.value)} />
+              </div>
+            </div>
+          </div>
 
-        {/* ==========================================
-            BÖLÜM 3: TEKLİF İÇERİĞİ
-           ========================================== */}
-        <div className="p-2 px-3 header-main-title border-bottom" style={{ borderColor: "#334155" }}>
-          TEKLİF İÇERİĞİ
-        </div>
-
-        <div className="d-flex flex-column">
-          {content.map((c, index) => {
-            const isZero = c.qty === "0";
-            const textColor = isZero ? "#ef4444" : "white";
-            const rowBg = c.isHeaderStyle ? "#1e293b" : isZero ? "rgba(239, 68, 68, 0.05)" : "transparent";
-
-            return (
-              <div key={c.id} className="d-flex align-items-stretch ozet-row" style={{ backgroundColor: rowBg }}>
+          <div className="p-2 px-3 header-main-title border-bottom" style={{ borderColor: "#334155" }}>
+            TASARIM KABUL PARAMETRELERİ
+          </div>
+          
+          <div className="d-flex flex-column border-bottom" style={{ borderColor: "#334155" }}>
+            {params.map((p, index) => (
+              <div key={p.id} className="d-flex align-items-stretch ozet-row">
                 
-                {/* 1. Checkbox */}
-                <div className="p-2 d-flex align-items-center justify-content-center" style={{ width: "5%" }}>
-                  <div className="check-box-custom" onClick={() => toggleCheck(c.id)}>
-                    {c.isChecked ? "✓" : ""}
-                  </div>
+                <div className="p-2 px-3 d-flex align-items-center" style={{ width: "45%" }}>
+                  <input type="text" className="ozet-input text-white-50" value={p.label} onChange={(e) => handleParamChange(p.id, "label", e.target.value)} />
                 </div>
                 <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
 
-                {/* 2. Adet */}
-                <div className="p-2 d-flex align-items-center justify-content-center" style={{ width: "6%" }}>
-                  <input type="text" className="ozet-input text-center fw-bold" style={{ color: textColor }} value={c.qty} onChange={(e) => handleContentChange(c.id, "qty", e.target.value)} />
+                <div className="p-2 px-3 d-flex align-items-center" style={{ width: "49%" }}>
+                  {p.isLongText ? (
+                    <textarea 
+                      rows={4} 
+                      className="ozet-input fw-medium" 
+                      style={{ resize: "none" }} 
+                      value={p.value} 
+                      onChange={(e) => handleParamChange(p.id, "value", e.target.value)} 
+                    />
+                  ) : (
+                    <div className="d-flex w-100 align-items-center justify-content-between">
+                      <input type="text" className="ozet-input fw-bold text-center" style={{ width: "50%" }} value={p.value} onChange={(e) => handleParamChange(p.id, "value", e.target.value)} />
+                      <input type="text" className="ozet-input text-white-50 text-end" style={{ width: "40%" }} value={p.unit} onChange={(e) => handleParamChange(p.id, "unit", e.target.value)} />
+                    </div>
+                  )}
                 </div>
                 <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
 
-                {/* 3. Birim */}
-                <div className="p-2 d-flex align-items-center justify-content-center" style={{ width: "8%" }}>
-                  <input type="text" className="ozet-input text-center text-white-50" value={c.unit} onChange={(e) => handleContentChange(c.id, "unit", e.target.value)} />
-                </div>
-                <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-
-                {/* 4. Tanım (Description) */}
-                <div className="p-2 px-3 d-flex align-items-center" style={{ width: "75%" }}>
-                  <input 
-                    type="text" 
-                    className={`ozet-input ${c.isHeaderStyle ? 'fw-bold text-white-50 font-italic' : 'fw-medium'}`} 
-                    style={{ color: textColor }} 
-                    value={c.desc} 
-                    onChange={(e) => handleContentChange(c.id, "desc", e.target.value)} 
-                  />
-                </div>
-                <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-
-                {/* 5. Aksiyon Paneli */}
                 <div className="p-1 d-flex align-items-center justify-content-center gap-2" style={{ width: "6%" }}>
-                  <button onClick={() => insertContentRow(index)} className="btn btn-sm p-0 border-0 text-success opacity-50 hover-opacity-100 fw-bold" style={{ fontSize: "16px" }}>+</button>
-                  <button onClick={() => deleteContentRow(c.id)} className="btn btn-sm p-0 border-0 text-danger opacity-40 hover-opacity-100" style={{ fontSize: "17px" }}>&times;</button>
+                  <button onClick={() => insertParamRow(index)} className="btn btn-sm p-0 border-0 text-success opacity-50 hover-opacity-100 fw-bold" style={{ fontSize: "16px" }}>+</button>
+                  <button onClick={() => deleteParamRow(p.id)} className="btn btn-sm p-0 border-0 text-danger opacity-40 hover-opacity-100" style={{ fontSize: "17px" }}>&times;</button>
                 </div>
 
               </div>
-            );
-          })}
-        </div>
+            ))}
+          </div>
 
+          <div className="p-2 px-3 header-main-title border-bottom" style={{ borderColor: "#334155" }}>
+            TEKLİF İÇERİĞİ
+          </div>
+
+          <div className="d-flex flex-column">
+            {content.map((c, index) => {
+              const isZero = c.qty === "0";
+              const textColor = isZero ? "#ef4444" : "white";
+              const rowBg = c.isHeaderStyle ? "#1e293b" : isZero ? "rgba(239, 68, 68, 0.05)" : "transparent";
+
+              return (
+                <div key={c.id} className="d-flex align-items-stretch ozet-row" style={{ backgroundColor: rowBg }}>
+                  
+                  <div className="p-2 d-flex align-items-center justify-content-center" style={{ width: "5%" }}>
+                    <div className="check-box-custom" onClick={() => toggleCheck(c.id)}>
+                      {c.isChecked ? "✓" : ""}
+                    </div>
+                  </div>
+                  <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+
+                  <div className="p-2 d-flex align-items-center justify-content-center" style={{ width: "6%" }}>
+                    <input type="text" className="ozet-input text-center fw-bold" style={{ color: textColor }} value={c.qty} onChange={(e) => handleContentChange(c.id, "qty", e.target.value)} />
+                  </div>
+                  <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+
+                  <div className="p-2 d-flex align-items-center justify-content-center" style={{ width: "8%" }}>
+                    <input type="text" className="ozet-input text-center text-white-50" value={c.unit} onChange={(e) => handleContentChange(c.id, "unit", e.target.value)} />
+                  </div>
+                  <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+
+                  <div className="p-2 px-3 d-flex align-items-center" style={{ width: "75%" }}>
+                    <input 
+                      type="text" 
+                      className={`ozet-input ${c.isHeaderStyle ? 'fw-bold text-white-50 font-italic' : 'fw-medium'}`} 
+                      style={{ color: textColor }} 
+                      value={c.desc} 
+                      onChange={(e) => handleContentChange(c.id, "desc", e.target.value)} 
+                    />
+                  </div>
+                  <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+
+                  <div className="p-1 d-flex align-items-center justify-content-center gap-2" style={{ width: "6%" }}>
+                    <button onClick={() => insertContentRow(index)} className="btn btn-sm p-0 border-0 text-success opacity-50 hover-opacity-100 fw-bold" style={{ fontSize: "16px" }}>+</button>
+                    <button onClick={() => deleteContentRow(c.id)} className="btn btn-sm p-0 border-0 text-danger opacity-40 hover-opacity-100" style={{ fontSize: "17px" }}>&times;</button>
+                  </div>
+
+                </div>
+              );
+            })}
+          </div>
+
+        </div>
       </div>
     </div>
   );

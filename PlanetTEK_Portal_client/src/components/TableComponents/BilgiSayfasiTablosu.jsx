@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 
 function BilgiSayfasiTablosu() {
-  // Tüm sayfa içeriğini barındıran devasa ve esnek state yapısı
   const [data, setData] = useState({
     title1: "İSKİ",
     title2: "70 m³/gün Kapasiteli - Deşarj Niteliği",
@@ -34,7 +33,6 @@ function BilgiSayfasiTablosu() {
 
   const [history, setHistory] = useState([]);
 
-  // --- AKSİYON YÖNETİMİ ---
   const saveToHistory = (currentState) => {
     setHistory([...history, JSON.stringify(currentState)]);
   };
@@ -45,13 +43,11 @@ function BilgiSayfasiTablosu() {
     setHistory(history.slice(0, -1));
   };
 
-  // Serbest metinleri (başlıklar, paragraflar) güncelleyen fonksiyon
   const handleTextChange = (field, value) => {
     saveToHistory(data);
     setData({ ...data, [field]: value });
   };
 
-  // Tablo satırlarını güncelleyen fonksiyon
   const handleRowChange = (id, field, value) => {
     saveToHistory(data);
     const updatedRows = data.projectDetails.map(row => row.id === id ? { ...row, [field]: value } : row);
@@ -117,7 +113,6 @@ function BilgiSayfasiTablosu() {
         }
       `}</style>
 
-      {/* ÜST PANEL: GERİ AL BUTONU */}
       <div className="d-flex justify-content-end align-items-center mb-1">
         <button
           onClick={handleUndo}
@@ -125,14 +120,12 @@ function BilgiSayfasiTablosu() {
           className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1"
           style={{ backgroundColor: history.length === 0 ? "#334155" : "#1e3a8a", fontSize: "11px", borderRadius: "6px", opacity: history.length === 0 ? 0.4 : 1 }}
         >
-          ↶ Geri Al ({history.length})
+          ↶ 
         </button>
       </div>
 
-      {/* SAYFA İÇERİĞİ KAPSAYICISI (Görseldeki beyaz sayfa efekti için hafif belirgin bir kart) */}
       <div className="d-flex flex-column p-4 rounded-3 border" style={{ backgroundColor: "#0f172a", borderColor: "#334155" }}>
         
-        {/* ==================== 1. ANA BAŞLIKLAR (Titles) ==================== */}
         <div className="d-flex flex-column align-items-center gap-1 mb-5">
           <input 
             type="text" 
@@ -157,7 +150,6 @@ function BilgiSayfasiTablosu() {
           />
         </div>
 
-        {/* ==================== 2. PROJE DETAYLARI TABLOSU ==================== */}
         <div className="mb-4">
           <input 
             type="text" 
@@ -166,43 +158,41 @@ function BilgiSayfasiTablosu() {
             onChange={(e) => handleTextChange("detailsHeader", e.target.value)} 
           />
           
-          <div className="d-flex flex-column rounded-3 overflow-hidden border" style={{ borderColor: "#334155" }}>
-            {data.projectDetails.map((row, index) => (
-              <div key={row.id} className={`d-flex align-items-stretch detail-row ${row.isUrgent ? 'bg-urgent' : 'bg-normal'}`}>
-                
-                {/* Parametre Adı */}
-                <div className="p-2 px-3 d-flex align-items-center" style={{ width: "45%" }}>
-                  <input
-                    type="text"
-                    className="info-input fw-bold"
-                    style={{ fontSize: "12px" }}
-                    value={row.label}
-                    onChange={(e) => handleRowChange(row.id, "label", e.target.value)}
-                  />
-                </div>
-                
-                {/* Parametre Değeri */}
-                <div className="p-2 px-3 d-flex align-items-center" style={{ width: "45%" }}>
-                  <input
-                    type="text"
-                    className="info-input"
-                    style={{ fontSize: "12px" }}
-                    value={row.value}
-                    onChange={(e) => handleRowChange(row.id, "value", e.target.value)}
-                  />
-                </div>
+          <div className="w-100" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+            <div className="d-flex flex-column rounded-3 overflow-hidden border" style={{ borderColor: "#334155", minWidth: "600px" }}>
+              {data.projectDetails.map((row, index) => (
+                <div key={row.id} className={`d-flex align-items-stretch detail-row ${row.isUrgent ? 'bg-urgent' : 'bg-normal'}`}>
+                  
+                  <div className="p-2 px-3 d-flex align-items-center" style={{ width: "45%" }}>
+                    <input
+                      type="text"
+                      className="info-input fw-bold"
+                      style={{ fontSize: "12px" }}
+                      value={row.label}
+                      onChange={(e) => handleRowChange(row.id, "label", e.target.value)}
+                    />
+                  </div>
+                  
+                  <div className="p-2 px-3 d-flex align-items-center" style={{ width: "45%" }}>
+                    <input
+                      type="text"
+                      className="info-input"
+                      style={{ fontSize: "12px" }}
+                      value={row.value}
+                      onChange={(e) => handleRowChange(row.id, "value", e.target.value)}
+                    />
+                  </div>
 
-                {/* Aksiyon Paneli (Renk Değiştir, Ekle, Sil) */}
-                <div className="p-1 d-flex align-items-center justify-content-center gap-2 border-start" style={{ width: "10%", borderColor: "rgba(255,255,255,0.1) !important" }}>
-                  <button onClick={() => toggleRowUrgent(row.id)} className="btn btn-sm p-0 border-0 text-warning opacity-50 hover-opacity-100" title="Kırmızı Vurgu (Aç/Kapat)">★</button>
-                  <button onClick={() => insertAfterRow(index)} className="btn btn-sm p-0 border-0 text-success opacity-50 hover-opacity-100 fw-bold" style={{ fontSize: "15px", lineHeight: "1" }} title="Altına Satır Ekle">+</button>
-                  <button onClick={() => deleteRow(row.id)} className="btn btn-sm p-0 border-0 text-danger opacity-50 hover-opacity-100" style={{ fontSize: "16px", lineHeight: "1" }} title="Satırı Sil">&times;</button>
+                  <div className="p-1 d-flex align-items-center justify-content-center gap-2 border-start" style={{ width: "10%", borderColor: "rgba(255,255,255,0.1) !important" }}>
+                    <button onClick={() => toggleRowUrgent(row.id)} className="btn btn-sm p-0 border-0 text-warning opacity-50 hover-opacity-100" title="Kırmızı Vurgu (Aç/Kapat)">★</button>
+                    <button onClick={() => insertAfterRow(index)} className="btn btn-sm p-0 border-0 text-success opacity-50 hover-opacity-100 fw-bold" style={{ fontSize: "15px", lineHeight: "1" }} title="Altına Satır Ekle">+</button>
+                    <button onClick={() => deleteRow(row.id)} className="btn btn-sm p-0 border-0 text-danger opacity-50 hover-opacity-100" style={{ fontSize: "16px", lineHeight: "1" }} title="Satırı Sil">&times;</button>
+                  </div>
                 </div>
-              </div>
-            ))}
+              ))}
+            </div>
           </div>
 
-          {/* Kırmızı Alt Not */}
           <div className="mt-3 text-center">
             <input 
               type="text" 
@@ -214,7 +204,6 @@ function BilgiSayfasiTablosu() {
           </div>
         </div>
 
-        {/* ==================== 3. ATIKSU KAYNAĞI ==================== */}
         <div className="mb-4">
           <input 
             type="text" 
@@ -231,7 +220,6 @@ function BilgiSayfasiTablosu() {
           />
         </div>
 
-        {/* ==================== 4. ÖNERİLEN SİSTEM ==================== */}
         <div className="mb-4">
           <input 
             type="text" 
@@ -248,7 +236,6 @@ function BilgiSayfasiTablosu() {
           />
         </div>
 
-        {/* ==================== 5. DİSK YÜZEY ALANI HESAPLAMASI ==================== */}
         <div className="mb-2">
           <input 
             type="text" 

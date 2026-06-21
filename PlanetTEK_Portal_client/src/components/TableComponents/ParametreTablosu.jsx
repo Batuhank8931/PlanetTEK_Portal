@@ -23,7 +23,6 @@ function ParametreTablosu() {
 
   const storeParametre = formData?.tables?.parametretablosu;
 
-  // Tasarım verilerini şablona göre eşleştiren jeneratör fonksiyonu
   const generateRowsFromDesign = () => {
     const pDetails = formData?.planetDiskDetails?.tasarim?.aritmaParametreleri || {};
     const ileriAritmaData = formData?.equipments?.ileriAritma?.IleriAritmaInputSelections;
@@ -44,7 +43,6 @@ function ParametreTablosu() {
       }));
   };
 
-  // BASAMAK 1: Eğer store'da veri varsa onu render et, yoksa sıfırdan hesapla
   const [rows, setRows] = useState(() => {
     if (storeParametre && storeParametre.length > 0) {
       return storeParametre;
@@ -54,7 +52,6 @@ function ParametreTablosu() {
 
   const [history, setHistory] = useState([]);
 
-  // Form girdilerindeki değişimleri reaktif dinleyen motor
   useEffect(() => {
     const freshRows = generateRowsFromDesign();
     setRows(prevRows => {
@@ -70,7 +67,6 @@ function ParametreTablosu() {
     formData?.equipments?.modulesState?.ileriAritma?.checked
   ]);
 
-  // Güncelleme yapıldığında yeni dizi klon referansı ile store'u tetikle
   useEffect(() => {
     updateSection("tables", {
       ...formData?.tables,
@@ -78,10 +74,8 @@ function ParametreTablosu() {
     });
   }, [rows]);
 
-  // BASAMAK 2: YENİLEME FONKSİYONU
-  // Store datalarını temizleyip, tasarımdan ham verileri anlık re-render eder
   const handleRefresh = () => {
-    setHistory([]); // Geçmişi temizle
+    setHistory([]);
     const freshRows = generateRowsFromDesign();
     setRows(freshRows);
   };
@@ -136,139 +130,144 @@ function ParametreTablosu() {
         .opacity-hover:hover { opacity: 1 !important; }
       `}</style>
 
-      <div className="d-flex flex-column rounded-3 overflow-hidden" style={{ border: "1px solid #334155" }}>
+      {/* 1. ADIM: overflow-hidden class'ını overflow-x-auto olarak değiştirdik */}
+      <div className="d-flex flex-column rounded-3 overflow-x-auto" style={{ border: "1px solid #334155", width: "100%" }}>
         
-        {/* ÜST PANEL */}
-        <div className="d-flex justify-content-between align-items-center p-3" style={{ backgroundColor: "#1e293b", borderBottom: "1px solid #334155" }}>
-          <div className="fw-semibold text-white" style={{ fontSize: "14px" }}>
-            Tasarım Giriş / Çıkış Parametreleri Tablosu
-          </div>
+        {/* 2. ADIM: Tüm içeriği saran ve mobilde ezilmeyi önleyen 650px'lik yeni kapsayıcı */}
+        <div style={{ minWidth: "650px" }}>
           
-          {/* YENİLE VE GERİ AL BUTON GRUBU */}
-          <div className="d-flex align-items-center gap-2">
-            {/* Yenileme Butonu */}
-            <button
-              onClick={handleRefresh}
-              className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
-              style={{
-                backgroundColor: "#d97706",
-                fontSize: "11px",
-                borderRadius: "6px",
-                transition: "0.2s",
-                cursor: "pointer"
-              }}
-              title="Tabloyu İlk Tasarım Ayarlarına Döndür"
-            >
-              🔄 Yenile
-            </button>
-
-            {/* Geri Al Butonu */}
-            <button
-              onClick={handleUndo}
-              disabled={history.length === 0}
-              className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
-              style={{
-                backgroundColor: history.length === 0 ? "#334155" : "#1e3a8a",
-                fontSize: "11px",
-                borderRadius: "6px",
-                transition: "0.2s",
-                opacity: history.length === 0 ? 0.4 : 1,
-                cursor: history.length === 0 ? "not-allowed" : "pointer"
-              }}
-            >
-              ↶ Geri Al
-            </button>
-          </div>
-        </div>
-
-        <div className="d-flex align-items-stretch border-bottom" style={{ borderColor: "#334155" }}>
-          <div className="p-2 px-3 header-cell" style={{ width: "40%" }}>Parametre</div>
-          <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-          <div className="p-2 px-3 header-cell text-center" style={{ width: "15%" }}>Birim</div>
-          <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-          <div className="p-2 px-3 header-cell text-end" style={{ width: "20%" }}>Atıksu Giriş</div>
-          <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-          <div className="p-2 px-3 header-cell text-end" style={{ width: "20%" }}>Atıksu Çıkış</div>
-          <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-          <div className="p-2 text-center header-cell" style={{ width: "5%" }}>Aksiyon</div>
-        </div>
-
-        <div style={{ overflowY: "auto" }}>
-          {rows.map((row, index) => (
-            <div key={row.id} className="d-flex align-items-stretch table-row-param bg-normal-param">
-              
-              <div className="p-1 px-3 d-flex align-items-center" style={{ width: "40%" }}>
-                <input
-                  type="text"
-                  className="form-control form-control-sm text-start text-white bg-transparent border-0 fw-medium p-1 param-input rounded"
-                  style={{ fontSize: "12px", boxShadow: "none", width: "100%" }}
-                  value={row.label}
-                  onChange={(e) => handleCellChange(row.id, "label", e.target.value)}
-                />
-              </div>
-
-              <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-
-              <div className="p-1 px-2 d-flex align-items-center justify-content-center" style={{ width: "15%" }}>
-                <input
-                  type="text"
-                  className="form-control form-control-sm text-center text-white-50 bg-transparent border-0 p-1 param-input rounded"
-                  style={{ fontSize: "12px", boxShadow: "none", width: "100%" }}
-                  value={row.unit}
-                  onChange={(e) => handleCellChange(row.id, "unit", e.target.value)}
-                />
-              </div>
-
-              <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-
-              <div className="p-1 px-3 d-flex align-items-center justify-content-end" style={{ width: "20%" }}>
-                <input
-                  type="text"
-                  className="form-control form-control-sm text-end fw-bold text-white bg-transparent border-0 p-1 param-input rounded"
-                  style={{ fontSize: "12px", boxShadow: "none", width: "100%" }}
-                  value={row.giriş}
-                  onChange={(e) => handleCellChange(row.id, "giriş", e.target.value)}
-                />
-              </div>
-
-              <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-
-              <div className="p-1 px-3 d-flex align-items-center justify-content-end" style={{ width: "20%" }}>
-                <input
-                  type="text"
-                  className="form-control form-control-sm text-end fw-bold text-white bg-transparent border-0 p-1 param-input rounded"
-                  style={{ fontSize: "12px", boxShadow: "none", width: "100%" }}
-                  value={row.çıkış}
-                  onChange={(e) => handleCellChange(row.id, "çıkış", e.target.value)}
-                />
-              </div>
-
-              <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-
-              <div className="p-1 d-flex align-items-center justify-content-center gap-2" style={{ width: "5%" }}>
-                <button
-                  onClick={() => insertAfterRow(index)}
-                  className="btn btn-sm p-0 border-0 text-success opacity-50 opacity-hover fw-bold"
-                  style={{ fontSize: "15px", lineHeight: "1" }}
-                  title="Altına Yeni Satır Ekle"
-                  type="button"
-                >
-                  +
-                </button>
-                <button
-                  onClick={() => deleteRow(row.id)}
-                  className="btn btn-sm p-0 border-0 text-danger opacity-50 opacity-hover"
-                  style={{ fontSize: "16px", lineHeight: "1" }}
-                  title="Satırı Sil"
-                  type="button"
-                >
-                  &times;
-                </button>
-              </div>
-
+          {/* ÜST PANEL */}
+          <div className="d-flex justify-content-between align-items-center p-3" style={{ backgroundColor: "#1e293b", borderBottom: "1px solid #334155" }}>
+            <div className="fw-semibold text-white" style={{ fontSize: "14px" }}>
+              Tasarım Giriş / Çıkış Parametreleri Tablosu
             </div>
-          ))}
-        </div>
+            
+            <div className="d-flex align-items-center gap-2">
+              <button
+                onClick={handleRefresh}
+                className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
+                style={{
+                  backgroundColor: "#d97706",
+                  fontSize: "11px",
+                  borderRadius: "6px",
+                  transition: "0.2s",
+                  cursor: "pointer"
+                }}
+                title="Tabloyu İlk Tasarım Ayarlarına Döndür"
+              >
+                🔄 Yenile
+              </button>
+
+              <button
+                onClick={handleUndo}
+                disabled={history.length === 0}
+                className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
+                style={{
+                  backgroundColor: history.length === 0 ? "#334155" : "#1e3a8a",
+                  fontSize: "11px",
+                  borderRadius: "6px",
+                  transition: "0.2s",
+                  opacity: history.length === 0 ? 0.4 : 1,
+                  cursor: history.length === 0 ? "not-allowed" : "pointer"
+                }}
+              >
+                ↶ 
+              </button>
+            </div>
+          </div>
+
+          {/* TABLO BAŞLIKLARI */}
+          <div className="d-flex align-items-stretch border-bottom" style={{ borderColor: "#334155" }}>
+            <div className="p-2 px-3 header-cell" style={{ width: "40%" }}>Parametre</div>
+            <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+            <div className="p-2 px-3 header-cell text-center" style={{ width: "15%" }}>Birim</div>
+            <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+            <div className="p-2 px-3 header-cell text-end" style={{ width: "20%" }}>Atıksu Giriş</div>
+            <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+            <div className="p-2 px-3 header-cell text-end" style={{ width: "20%" }}>Atıksu Çıkış</div>
+            <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+            <div className="p-2 text-center header-cell" style={{ width: "5%" }}>Aksiyon</div>
+          </div>
+
+          {/* TABLO SATIRLARI */}
+          <div style={{ overflowY: "auto" }}>
+            {rows.map((row, index) => (
+              <div key={row.id} className="d-flex align-items-stretch table-row-param bg-normal-param">
+                
+                <div className="p-1 px-3 d-flex align-items-center" style={{ width: "40%" }}>
+                  <input
+                    type="text"
+                    className="form-control form-control-sm text-start text-white bg-transparent border-0 fw-medium p-1 param-input rounded"
+                    style={{ fontSize: "12px", boxShadow: "none", width: "100%" }}
+                    value={row.label}
+                    onChange={(e) => handleCellChange(row.id, "label", e.target.value)}
+                  />
+                </div>
+
+                <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+
+                <div className="p-1 px-2 d-flex align-items-center justify-content-center" style={{ width: "15%" }}>
+                  <input
+                    type="text"
+                    className="form-control form-control-sm text-center text-white-50 bg-transparent border-0 p-1 param-input rounded"
+                    style={{ fontSize: "12px", boxShadow: "none", width: "100%" }}
+                    value={row.unit}
+                    onChange={(e) => handleCellChange(row.id, "unit", e.target.value)}
+                  />
+                </div>
+
+                <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+
+                <div className="p-1 px-3 d-flex align-items-center justify-content-end" style={{ width: "20%" }}>
+                  <input
+                    type="text"
+                    className="form-control form-control-sm text-end fw-bold text-white bg-transparent border-0 p-1 param-input rounded"
+                    style={{ fontSize: "12px", boxShadow: "none", width: "100%" }}
+                    value={row.giriş}
+                    onChange={(e) => handleCellChange(row.id, "giriş", e.target.value)}
+                  />
+                </div>
+
+                <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+
+                <div className="p-1 px-3 d-flex align-items-center justify-content-end" style={{ width: "20%" }}>
+                  <input
+                    type="text"
+                    className="form-control form-control-sm text-end fw-bold text-white bg-transparent border-0 p-1 param-input rounded"
+                    style={{ fontSize: "12px", boxShadow: "none", width: "100%" }}
+                    value={row.çıkış}
+                    onChange={(e) => handleCellChange(row.id, "çıkış", e.target.value)}
+                  />
+                </div>
+
+                <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+
+                <div className="p-1 d-flex align-items-center justify-content-center gap-2" style={{ width: "5%" }}>
+                  <button
+                    onClick={() => insertAfterRow(index)}
+                    className="btn btn-sm p-0 border-0 text-success opacity-50 opacity-hover fw-bold"
+                    style={{ fontSize: "15px", lineHeight: "1" }}
+                    title="Altına Yeni Satır Ekle"
+                    type="button"
+                  >
+                    +
+                  </button>
+                  <button
+                    onClick={() => deleteRow(row.id)}
+                    className="btn btn-sm p-0 border-0 text-danger opacity-50 opacity-hover"
+                    style={{ fontSize: "16px", lineHeight: "1" }}
+                    title="Satırı Sil"
+                    type="button"
+                  >
+                    &times;
+                  </button>
+                </div>
+
+              </div>
+            ))}
+          </div>
+
+        </div> {/* 2. Adımın Kapanışı */}
       </div>
     </div>
   );

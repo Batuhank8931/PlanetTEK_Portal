@@ -98,7 +98,7 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
                             🔄 Yenile
                         </button>
 
-                        {/* Geri Al Butonu */}
+                        {/*  Butonu */}
                         <button
                             onClick={handleUndo}
                             disabled={!handleUndo || historyLength === 0}
@@ -112,7 +112,7 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
                                 cursor: historyLength === 0 ? "not-allowed" : "pointer"
                             }}
                         >
-                            ↶ Geri Al
+                            ↶ 
                         </button>
                     </div>
                 </div>

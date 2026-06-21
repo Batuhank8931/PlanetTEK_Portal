@@ -35,11 +35,9 @@ function CapexTablosu() {
     const teklifDili = formData?.customerInfo?.teklifDili || "Yerli";
     const storeCapex = formData?.tables?.capextablosu;
 
-    // --- REVIZYON: Loading ve Local Satır State'leri ---
     const [loading, setLoading] = useState(false);
     const [localRows, setLocalRows] = useState([]);
 
-    // 1. priceData Yapısı
     const priceData = useMemo(() => {
         return {
             screens: [], 
@@ -48,29 +46,24 @@ function CapexTablosu() {
         };
     }, [teklifDili]);
 
-    // 2. Ortak Store Güncelleyici Fonksiyonu
     const updateStore = useCallback((updatedRows) => {
         const finalRowsWithNumbers = generateWBSNumbers(updatedRows);
-        setLocalRows(finalRowsWithNumbers); // local'i de eşzamanlı güncelle
+        setLocalRows(finalRowsWithNumbers);
         updateSection("tables", {
             ...formData?.tables,
             capextablosu: finalRowsWithNumbers
         });
     }, [formData?.tables, updateSection]);
 
-    // --- REVIZYON: Asenkron Veri Hesaplama ve Efekt Katmanı ---
     useEffect(() => {
-        // Eğer store'da halihazırda veri varsa direkt onu local state'e bas, API'ye tekrar gitme
         if (storeCapex && storeCapex.length > 0) {
             setLocalRows(storeCapex);
             return;
         }
 
-        // Store boşsa asenkron olarak hesaplama motorunu tetikle
         async function fetchAndCalculateCapex() {
             setLoading(true);
             try {
-                // Hesaplama motoru artık asenkron, await ile bekliyoruz
                 const rawInitialData = await capexHesapFonksiyonu(formData, priceData);
                 const initialDataWithNo = generateWBSNumbers(rawInitialData);
                 
@@ -87,11 +80,8 @@ function CapexTablosu() {
         }
 
         fetchAndCalculateCapex();
-        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [storeCapex, priceData]); 
-    // formData'yı bağımlılığa eklemiyoruz, değişiklikleri "Yenile" (handleRefresh) butonu yönetsin diye
 
-    // --- REVIZYON: Yenileme Fonksiyonu da Asenkron Oldu ---
     const handleRefresh = async () => {
         setLoading(true);
         try {
@@ -109,7 +99,6 @@ function CapexTablosu() {
         }
     };
 
-    // Hücre Değişim Yönetimi (Senkron kalabilir çünkü manuel elle girilen değerleri değiştiriyor)
     const handleCellChange = (id, field, val) => {
         const activeRows = storeCapex && storeCapex.length > 0 ? storeCapex : localRows;
         const updated = activeRows.map(row => {
@@ -129,7 +118,6 @@ function CapexTablosu() {
         updateStore(updated);
     };
 
-    // Satır / Başlık Ekleme
     const insertAfterRow = (index, selectedType) => {
         const activeRows = storeCapex && storeCapex.length > 0 ? storeCapex : localRows;
         const newRow = {
@@ -149,7 +137,6 @@ function CapexTablosu() {
         updateStore(updated);
     };
 
-    // Satır / Başlık Silme
     const deleteRow = (id) => {
         const activeRows = storeCapex && storeCapex.length > 0 ? storeCapex : localRows;
         const updated = activeRows.filter(row => String(row.id) !== String(id));
@@ -157,7 +144,11 @@ function CapexTablosu() {
     };
 
     return (
-        <div className="w-100" style={{ position: "relative" }}>
+        /* 🚀 DEĞİŞİKLİK: 
+          w-100 yanına "overflow-x: 'auto'" eklendi. 
+          Böylece tablo ekran dışına taşarsa telefonda otomatik kaydırma çubuğu çıkacak.
+        */
+        <div className="w-100" style={{ position: "relative", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
             {/* Loading Arayüzü */}
             {loading && (
                 <div style={{
@@ -172,15 +163,21 @@ function CapexTablosu() {
                 </div>
             )}
 
-            <CapexTableView
-                numberedRows={storeCapex && storeCapex.length > 0 ? storeCapex : localRows}
-                handleCellChange={handleCellChange}
-                insertAfterRow={insertAfterRow}
-                deleteRow={deleteRow}
-                handleRefresh={handleRefresh}
-                teklifDili={teklifDili}
-                historyLength={0}
-            />
+            {/* 🚀 TAVSİYE/DÜZENLEME:
+              Tablonun geniş ekranda normal, mobilde ise sıkışmadan minimum 900px genişlikte 
+              kalması ve düzgün scroll edilebilmesi için sarmalayıcı bir div daha ekledik.
+            */}
+            <div style={{ minWidth: "950px" }}>
+                <CapexTableView
+                    numberedRows={storeCapex && storeCapex.length > 0 ? storeCapex : localRows}
+                    handleCellChange={handleCellChange}
+                    insertAfterRow={insertAfterRow}
+                    deleteRow={deleteRow}
+                    handleRefresh={handleRefresh}
+                    teklifDili={teklifDili}
+                    historyLength={0}
+                />
+            </div>
         </div>
     );
 }

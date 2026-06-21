@@ -45,7 +45,7 @@ const updatePumpCurve = async (req, res) => {
         return res.status(400).json({ message: "Eğri noktaları (points) bir dizi (array) olmalıdır." });
     }
 
-    // Transaction başlatıyoruz çünkü eski veriyi silip yenisini eklerken hata oluşursa geri alabilelim (Rollback)
+    // Transaction başlatıyoruz çünkü eski veriyi silip yenisini eklerken hata oluşursa abilelim (Rollback)
     const connection = await pool.getConnection();
     try {
         await connection.beginTransaction();
@@ -75,7 +75,7 @@ const updatePumpCurve = async (req, res) => {
 
         return res.json({ message: "Pompa eğrisi başarıyla güncellendi." });
     } catch (error) {
-        // Hata durumunda yapılan değişiklikleri geri al
+        // Hata durumunda yapılan değişiklikleri 
         await connection.rollback();
         console.error("updatePumpCurve Error:", error.message);
         return res.status(500).json({ message: "Eğri güncellenirken teknik bir hata oluştu.", error: error.message });

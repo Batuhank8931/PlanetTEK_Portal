@@ -36,45 +36,51 @@ function SelectTables() {
   const currentTable = tablesList.find((t) => t.id === activeTab);
 
   return (
-    <div 
-      className="container-fluid p-4 d-flex flex-column" 
+    <div
+      className="container-fluid py-4 d-flex flex-column text-start align-items-stretch"
       style={{ minHeight: "100vh", backgroundColor: "#0b0c0c", overflow: "visible" }}
     >
-      
+
       {/* ÜST SABİT BAŞLIK SATIRI */}
-      <div className="d-flex align-items-center mb-4">
+      <div className="d-flex align-items-center mb-0 mb-md-4">
         <span className="fw-bold text-uppercase pe-2" style={{ fontSize: "11px", letterSpacing: "0.8px", color: "#4ade80" }}>
           Teklif Tabloları
         </span>
         <div className="flex-grow-1 border-bottom" style={{ borderColor: "rgba(255,255,255,0.1)", borderWidth: "1px" }}></div>
       </div>
 
-      {/* DİNAMİK DOĞAL PANEL GÖVDESİ */}
-      <div className="row g-3 flex-grow-1">
+      {/* KRİTİK DEĞİŞİKLİK: align-content-start eklenerek mobilde aradaki boşluk tamamen yok edildi */}
+      <div className="row g-3 flex-grow-1 align-items-start align-content-start">
 
         {/* SOL YAN MENÜ */}
-        <div className="col-md-3">
-          <div 
-            className="card border-0 text-white sticky-top" 
+        <div className="col-12 col-md-2">
+          <div
+            className="card border-0 text-white sticky-md-top"
             style={{ backgroundColor: "#141617", borderRadius: "12px", top: "24px" }}
           >
-            <div className="card-body p-3">
-              <div className="list-group list-group-flush">
+            <div className="card-body p-2">
+              <div className="row g-1 m-0">
                 {tablesList.map((table) => (
-                  <button
-                    key={table.id}
-                    type="button"
-                    className="list-group-item list-group-item-action border-0 text-start py-2.5 px-3 my-1 rounded-3 text-white"
-                    style={{
-                      backgroundColor: activeTab === table.id ? "#2e7d32" : "transparent",
-                      fontSize: "13px",
-                      fontWeight: activeTab === table.id ? "600" : "400",
-                      transition: "all 0.15s ease"
-                    }}
-                    onClick={() => setActiveTab(table.id)}
-                  >
-                    {table.name}
-                  </button>
+                  <div key={table.id} className="col-4 col-md-12 p-1">
+                    <button
+                      type="button"
+                      className="w-100 border-0 text-center text-md-start py-1.5 py-md-2.5 px-2 rounded-3 text-white"
+                      style={{
+                        backgroundColor: activeTab === table.id ? "#2e7d32" : "transparent",
+                        fontSize: "11px",
+                        fontWeight: activeTab === table.id ? "600" : "400",
+                        transition: "all 0.15s ease",
+                        whiteSpace: "nowrap",
+                        overflow: "hidden",
+                        textOverflow: "ellipsis",
+                        display: "block"
+                      }}
+                      onClick={() => setActiveTab(table.id)}
+                      title={table.name}
+                    >
+                      {table.name}
+                    </button>
+                  </div>
                 ))}
               </div>
             </div>
@@ -82,14 +88,12 @@ function SelectTables() {
         </div>
 
         {/* SAĞ PANEL: TABLONUN DOĞAL UZAMA ALANI */}
-        <div className="col-md-9">
-          <div 
-            className="card border-0 text-white" 
+        <div className="col-12 col-md-10">
+          <div
+            className="card border-0 text-white"
             style={{ backgroundColor: "#141617", borderRadius: "12px" }}
           >
-            <div className="card-body p-4 d-flex flex-column gap-3">
-
-              {/* DİNAMİK İÇ BAŞLIK BÖLÜMÜ */}
+            <div className="card-body py-4 d-flex flex-column gap-3">
               <div className="d-flex align-items-center w-100 mb-2">
                 <span className="fw-bold text-uppercase pe-2" style={{ fontSize: "11px", letterSpacing: "0.8px", color: "#4ade80", whiteSpace: "nowrap" }}>
                   {currentTable ? currentTable.name.toUpperCase() : "TABLO SEÇİMİ"}
@@ -97,11 +101,10 @@ function SelectTables() {
                 <div className="flex-grow-1 border-bottom" style={{ borderColor: "rgba(255,255,255,0.1)", borderWidth: "1px" }}></div>
               </div>
 
-              {/* ARTIK LİMİTSİZ İÇ ALAN (Yükseklik kısıtlamaları kaldırıldı) */}
-              <div 
-                className=" rounded-3" 
-                style={{ 
-                  backgroundColor: "#0d0e0f", 
+              <div
+                className="rounded-3"
+                style={{
+                  backgroundColor: "#0d0e0f",
                   border: "1px solid rgba(255,255,255,0.03)",
                   height: "auto",
                   overflow: "visible"
@@ -109,7 +112,6 @@ function SelectTables() {
               >
                 {currentTable ? currentTable.component : <span className="text-white-50" style={{ fontSize: "12px" }}>Lütfen listeden bir tablo seçin.</span>}
               </div>
-
             </div>
           </div>
         </div>

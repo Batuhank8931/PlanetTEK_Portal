@@ -63,97 +63,105 @@ function OpexTablosu() {
         }
       `}</style>
 
-            {/* Blok Tablo Yapısı */}
-            <div
-                className="d-flex flex-column rounded-3 overflow-hidden"
-                style={{ border: "1px solid #334155", height: "auto" }}
-            >
-                {/* TABLO BAŞLIĞI (HEADER) */}
-                <div className="d-flex align-items-stretch border-bottom" style={{ borderColor: "#334155" }}>
-                    <div className="p-2 px-3 header-cell-opex" style={{ width: "60%" }}>Giderlerin Tanımları</div>
-                    <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                    <div className="p-2 px-3 header-cell-opex text-end" style={{ width: "35%" }}>Toplam Fiyat</div>
-                    <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                    <div className="p-2 header-cell-opex text-center" style={{ width: "5%" }}>Aksiyon</div>
-                </div>
-
-                {/* TABLO SATIRLARI */}
-                {rows.map((row, index) => (
-                    <div
-                        key={row.id}
-                        className="d-flex align-items-stretch table-row-opex"
-                    >
-                        {/* 1. KOLON: Gider Tanımı */}
-                        <div className="p-2.5 px-3 d-flex align-items-center" style={{ width: "60%" }}>
-                            <input
-                                type="text"
-                                className="form-control form-control-sm text-start text-white bg-transparent border-0 fw-medium p-1 opex-input rounded"
-                                style={{ fontSize: "12px", boxShadow: "none", width: "100%" }}
-                                value={row.label}
-                                onChange={(e) => handleInputChange(row.id, "label", e.target.value)}
-                            />
-                        </div>
-
-                        {/* ORTAK DİKEY ÇİZGİ */}
+            {/* 🚀 DEĞİŞİKLİK: 
+              En dışa taşmayı kontrol eden ve mobilde akıcı (touch) scroll sağlayan bir div eklendi.
+            */}
+            <div className="w-100" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+                
+                {/* 🚀 DEĞİŞİKLİK: 
+                  Tablonun mobilde tamamen büzüşüp kırılmasını önlemek için minWidth: "650px" uygulandı.
+                */}
+                <div
+                    className="d-flex flex-column rounded-3 overflow-hidden"
+                    style={{ border: "1px solid #334155", height: "auto", minWidth: "650px" }}
+                >
+                    {/* TABLO BAŞLIĞI (HEADER) */}
+                    <div className="d-flex align-items-stretch border-bottom" style={{ borderColor: "#334155" }}>
+                        <div className="p-2 px-3 header-cell-opex" style={{ width: "60%" }}>Giderlerin Tanımları</div>
                         <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-
-                        {/* 2. KOLON: Değer ve Birim */}
-                        <div className="p-2.5 px-3 d-flex align-items-center justify-content-end gap-2" style={{ width: "35%" }}>
-                            <input
-                                type="number"
-                                className="form-control form-control-sm text-end fw-bold text-white bg-transparent border-0 p-1 opex-input rounded"
-                                style={{ fontSize: "12px", boxShadow: "none", width: "65%" }}
-                                value={row.value}
-                                onChange={(e) => handleInputChange(row.id, "value", e.target.value)}
-                            />
-
-                            {/* Birim Alanı */}
-                            <span className="text-white-50 text-start ps-1" style={{ fontSize: "11px", minWidth: "50px" }}>
-                                {row.unit}
-                            </span>
-                        </div>
-
-                        {/* ORTAK DİKEY ÇİZGİ */}
+                        <div className="p-2 px-3 header-cell-opex text-end" style={{ width: "35%" }}>Toplam Fiyat</div>
                         <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+                        <div className="p-2 header-cell-opex text-center" style={{ width: "5%" }}>Aksiyon</div>
+                    </div>
 
-                        {/* 3. KOLON: AKSİYON PANELİ */}
-                        <div className="p-1 d-flex align-items-center justify-content-center gap-2" style={{ width: "5%" }}>
-                            <button
-                                onClick={() => insertAfterRow(index)}
-                                className="btn btn-sm p-0 border-0 text-success opacity-50 hover-opacity-100 fw-bold"
-                                style={{ fontSize: "15px", lineHeight: "1" }}
-                                title="Altına Yeni Gider Ekle"
-                            >
-                                +
-                            </button>
-                            <button
-                                onClick={() => deleteRow(row.id)}
-                                className="btn btn-sm p-0 border-0 text-danger opacity-50 hover-opacity-100"
-                                style={{ fontSize: "16px", lineHeight: "1" }}
-                                title="Satırı Sil"
-                            >
-                                &times;
-                            </button>
+                    {/* TABLO SATIRLARI */}
+                    {rows.map((row, index) => (
+                        <div
+                            key={row.id}
+                            className="d-flex align-items-stretch table-row-opex"
+                        >
+                            {/* 1. KOLON: Gider Tanımı */}
+                            <div className="p-2.5 px-3 d-flex align-items-center" style={{ width: "60%" }}>
+                                <input
+                                    type="text"
+                                    className="form-control form-control-sm text-start text-white bg-transparent border-0 fw-medium p-1 opex-input rounded"
+                                    style={{ fontSize: "12px", boxShadow: "none", width: "100%" }}
+                                    value={row.label}
+                                    onChange={(e) => handleInputChange(row.id, "label", e.target.value)}
+                                />
+                            </div>
+
+                            {/* ORTAK DİKEY ÇİZGİ */}
+                            <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+
+                            {/* 2. KOLON: Değer ve Birim */}
+                            <div className="p-2.5 px-3 d-flex align-items-center justify-content-end gap-2" style={{ width: "35%" }}>
+                                <input
+                                    type="number"
+                                    className="form-control form-control-sm text-end fw-bold text-white bg-transparent border-0 p-1 opex-input rounded"
+                                    style={{ fontSize: "12px", boxShadow: "none", width: "65%" }}
+                                    value={row.value}
+                                    onChange={(e) => handleInputChange(row.id, "value", e.target.value)}
+                                />
+
+                                {/* Birim Alanı */}
+                                <span className="text-white-50 text-start ps-1" style={{ fontSize: "11px", minWidth: "50px" }}>
+                                    {row.unit}
+                                </span>
+                            </div>
+
+                            {/* ORTAK DİKEY ÇİZGİ */}
+                            <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+
+                            {/* 3. KOLON: AKSİYON PANELİ */}
+                            <div className="p-1 d-flex align-items-center justify-content-center gap-2" style={{ width: "5%" }}>
+                                <button
+                                    onClick={() => insertAfterRow(index)}
+                                    className="btn btn-sm p-0 border-0 text-success opacity-50 hover-opacity-100 fw-bold"
+                                    style={{ fontSize: "15px", lineHeight: "1" }}
+                                    title="Altına Yeni Gider Ekle"
+                                >
+                                    +
+                                </button>
+                                <button
+                                    onClick={() => deleteRow(row.id)}
+                                    className="btn btn-sm p-0 border-0 text-danger opacity-50 hover-opacity-100"
+                                    style={{ fontSize: "16px", lineHeight: "1" }}
+                                    title="Satırı Sil"
+                                >
+                                    &times;
+                                </button>
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    ))}
 
-                {/* GENEL TOPLAM SATIRI (Dinamik Hesaplanan Alan) */}
-                <div className="d-flex align-items-stretch total-row-opex p-2.5 px-3">
-                    <div className="fw-bold text-uppercase text-white-50" style={{ width: "60%", fontSize: "12px", letterSpacing: "0.5px" }}>
-                        Genel Toplam
+                    {/* GENEL TOPLAM SATIRI (Dinamik Hesaplanan Alan) */}
+                    <div className="d-flex align-items-stretch total-row-opex p-2.5 px-3">
+                        <div className="fw-bold text-uppercase text-white-50" style={{ width: "60%", fontSize: "12px", letterSpacing: "0.5px" }}>
+                            Genel Toplam
+                        </div>
+                        <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+                        <div className="d-flex align-items-center justify-content-end gap-2 text-success fw-bold" style={{ width: "35%", fontSize: "13px" }}>
+                            <span>{totalOpex.toLocaleString()}</span>
+                            <span style={{ fontSize: "11px", minWidth: "50px" }}>€/yıl</span>
+                        </div>
+                        <div style={{ width: "1px", backgroundColor: "transparent" }}></div>
+                        <div style={{ width: "5%" }}></div>
                     </div>
-                    <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                    <div className="d-flex align-items-center justify-content-end gap-2 text-success fw-bold" style={{ width: "35%", fontSize: "13px" }}>
-                        <span>{totalOpex.toLocaleString()}</span>
-                        <span style={{ fontSize: "11px", minWidth: "50px" }}>€/yıl</span>
-                    </div>
-                    <div style={{ width: "1px", backgroundColor: "transparent" }}></div>
-                    <div style={{ width: "5%" }}></div>
+
                 </div>
 
             </div>
-
 
         </div>
     );

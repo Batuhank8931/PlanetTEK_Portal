@@ -1,7 +1,6 @@
 import React, { useState } from "react";
 
 function EkipmanTablosu() {
-  // Karmaşık hiyerarşiyi yönetmek için "type" bazlı düz (flat) state mimarisi
   const [rows, setRows] = useState([
     { id: "m1", type: "main", label: "MEKANİK EKİPMANLAR" },
     
@@ -34,7 +33,6 @@ function EkipmanTablosu() {
 
   const [history, setHistory] = useState([]);
 
-  // --- GEÇMİŞ (UNDO) YÖNETİMİ ---
   const saveToHistory = (currentRows) => {
     setHistory([...history, JSON.stringify(currentRows)]);
   };
@@ -45,7 +43,6 @@ function EkipmanTablosu() {
     setHistory(history.slice(0, -1));
   };
 
-  // --- VERİ GÜNCELLEME VE AKSİYONLAR ---
   const handleChange = (id, field, value) => {
     saveToHistory(rows);
     setRows(rows.map(row => row.id === id ? { ...row, [field]: value } : row));
@@ -61,7 +58,6 @@ function EkipmanTablosu() {
     setRows(rows.filter(row => row.id !== id));
   };
 
-  // Yeni bir Ekipman Başlığı Ekleme (Listenin sonuna)
   const addNewEquipment = () => {
     saveToHistory(rows);
     const newId = `equip_${Date.now()}`;
@@ -72,7 +68,6 @@ function EkipmanTablosu() {
     ]);
   };
 
-  // Belirli bir satırın hemen altına yeni "Teknik Özellik (Spec)" satırı ekleme
   const insertSpecAfter = (index) => {
     saveToHistory(rows);
     const newId = `spec_${Date.now()}`;
@@ -83,11 +78,10 @@ function EkipmanTablosu() {
     setRows(updatedRows);
   };
 
-  // Satırın tipine göre arkaplan rengini belirleme
   const getRowBg = (row) => {
-    if (row.type === "main") return "#0b1329"; // Ana Kategori (Koyu Lacivert)
-    if (row.type === "equip") return row.isUrgent ? "#991b1b" : "#1e293b"; // Ekipman Başlığı (Kırmızı veya Gri)
-    return "#151f32"; // Teknik özellik satırı (Koyu Gri/Mavi)
+    if (row.type === "main") return "#0b1329"; 
+    if (row.type === "equip") return row.isUrgent ? "#991b1b" : "#1e293b"; 
+    return "#151f32"; 
   };
 
   return (
@@ -130,7 +124,6 @@ function EkipmanTablosu() {
         }
       `}</style>
 
-      {/* ÜST PANEL: GERİ AL BUTONU */}
       <div className="d-flex justify-content-end align-items-center mb-1">
         <button
           onClick={handleUndo}
@@ -138,94 +131,88 @@ function EkipmanTablosu() {
           className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1"
           style={{ backgroundColor: history.length === 0 ? "#334155" : "#1e3a8a", fontSize: "11px", borderRadius: "6px", opacity: history.length === 0 ? 0.4 : 1 }}
         >
-          ↶ Geri Al ({history.length})
+          ↶ 
         </button>
       </div>
 
-      {/* BÜYÜK DİNAMİK TABLO GÖVDESİ */}
-      <div className="d-flex flex-column rounded-3 overflow-hidden" style={{ border: "1px solid #334155" }}>
-        
-        {rows.map((row, index) => {
+      <div className="w-100" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
+        <div className="d-flex flex-column rounded-3 overflow-hidden" style={{ border: "1px solid #334155", minWidth: "800px" }}>
           
-          // 1. DURUM: ANA KATEGORİ BAŞLIĞI (Mekanik, İnşaat vb.)
-          if (row.type === "main") {
-            return (
-              <div key={row.id} className="d-flex align-items-stretch equip-row" style={{ backgroundColor: getRowBg(row) }}>
-                <div className="p-2 px-3 d-flex align-items-center" style={{ width: "94%" }}>
-                  <input 
-                    type="text" 
-                    className="equip-input main-title-input text-center" 
-                    value={row.label} 
-                    onChange={(e) => handleChange(row.id, "label", e.target.value)} 
-                  />
+          {rows.map((row, index) => {
+            
+            if (row.type === "main") {
+              return (
+                <div key={row.id} className="d-flex align-items-stretch equip-row" style={{ backgroundColor: getRowBg(row) }}>
+                  <div className="p-2 px-3 d-flex align-items-center" style={{ width: "94%" }}>
+                    <input 
+                      type="text" 
+                      className="equip-input main-title-input text-center" 
+                      value={row.label} 
+                      onChange={(e) => handleChange(row.id, "label", e.target.value)} 
+                    />
+                  </div>
+                  <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+                  <div className="p-1 d-flex align-items-center justify-content-center" style={{ width: "6%" }}>
+                    <button onClick={() => deleteRow(row.id)} className="btn btn-sm p-0 border-0 text-danger opacity-40 hover-opacity-100" style={{ fontSize: "16px" }}>&times;</button>
+                  </div>
                 </div>
-                <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                <div className="p-1 d-flex align-items-center justify-content-center" style={{ width: "6%" }}>
-                  <button onClick={() => deleteRow(row.id)} className="btn btn-sm p-0 border-0 text-danger opacity-40 hover-opacity-100" style={{ fontSize: "16px" }}>&times;</button>
-                </div>
-              </div>
-            );
-          }
+              );
+            }
 
-          // 2. DURUM: EKİPMAN BAŞLIĞI (Pompa, Izgara vb.)
-          if (row.type === "equip") {
+            if (row.type === "equip") {
+              return (
+                <div key={row.id} className="d-flex align-items-stretch equip-row" style={{ backgroundColor: getRowBg(row) }}>
+                  <div className="p-2 px-3 d-flex align-items-center" style={{ width: "94%" }}>
+                    <input 
+                      type="text" 
+                      className="equip-input equip-title-input" 
+                      value={row.label} 
+                      onChange={(e) => handleChange(row.id, "label", e.target.value)} 
+                    />
+                  </div>
+                  <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+                  <div className="p-1 d-flex align-items-center justify-content-center gap-2" style={{ width: "6%" }}>
+                    <button onClick={() => toggleUrgent(row.id)} className="btn btn-sm p-0 border-0 text-warning opacity-60 hover-opacity-100" style={{ fontSize: "14px" }} title="Kırmızı Vurgu">★</button>
+                    <button onClick={() => insertSpecAfter(index)} className="btn btn-sm p-0 border-0 text-success opacity-60 hover-opacity-100 fw-bold" style={{ fontSize: "16px", lineHeight: "1" }} title="Özellik Ekle">+</button>
+                    <button onClick={() => deleteRow(row.id)} className="btn btn-sm p-0 border-0 text-danger opacity-40 hover-opacity-100" style={{ fontSize: "16px", lineHeight: "1" }} title="Ekipmanı Sil">&times;</button>
+                  </div>
+                </div>
+              );
+            }
+
             return (
               <div key={row.id} className="d-flex align-items-stretch equip-row" style={{ backgroundColor: getRowBg(row) }}>
-                <div className="p-2 px-3 d-flex align-items-center" style={{ width: "94%" }}>
-                  <input 
-                    type="text" 
-                    className="equip-input equip-title-input" 
+                <div className="p-2 px-4 d-flex align-items-start border-end" style={{ width: "30%", borderColor: "#334155" }}>
+                  <textarea 
+                    rows={1}
+                    className="equip-input fw-medium text-white-50" 
                     value={row.label} 
                     onChange={(e) => handleChange(row.id, "label", e.target.value)} 
                   />
                 </div>
+                
+                <div className="p-2 px-3 d-flex align-items-start" style={{ width: "64%" }}>
+                  <textarea 
+                    rows={row.value.length > 50 ? 2 : 1}
+                    className="equip-input fw-bold" 
+                    value={row.value} 
+                    onChange={(e) => handleChange(row.id, "value", e.target.value)} 
+                  />
+                </div>
+                
                 <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+                
                 <div className="p-1 d-flex align-items-center justify-content-center gap-2" style={{ width: "6%" }}>
-                  <button onClick={() => toggleUrgent(row.id)} className="btn btn-sm p-0 border-0 text-warning opacity-60 hover-opacity-100" style={{ fontSize: "14px" }} title="Kırmızı Vurgu">★</button>
-                  <button onClick={() => insertSpecAfter(index)} className="btn btn-sm p-0 border-0 text-success opacity-60 hover-opacity-100 fw-bold" style={{ fontSize: "16px", lineHeight: "1" }} title="Özellik Ekle">+</button>
-                  <button onClick={() => deleteRow(row.id)} className="btn btn-sm p-0 border-0 text-danger opacity-40 hover-opacity-100" style={{ fontSize: "16px", lineHeight: "1" }} title="Ekipmanı Sil">&times;</button>
+                  <button onClick={() => insertSpecAfter(index)} className="btn btn-sm p-0 border-0 text-success opacity-50 hover-opacity-100 fw-bold" style={{ fontSize: "15px", lineHeight: "1" }} title="Altına Özellik Ekle">+</button>
+                  <button onClick={() => deleteRow(row.id)} className="btn btn-sm p-0 border-0 text-danger opacity-40 hover-opacity-100" style={{ fontSize: "16px", lineHeight: "1" }} title="Özelliği Sil">&times;</button>
                 </div>
               </div>
             );
-          }
-
-          // 3. DURUM: TEKNİK ÖZELLİK (Adet, Kapasite, Motor Gücü vb.)
-          return (
-            <div key={row.id} className="d-flex align-items-stretch equip-row" style={{ backgroundColor: getRowBg(row) }}>
-              {/* Sol: Özellik Adı */}
-              <div className="p-2 px-4 d-flex align-items-start border-end" style={{ width: "30%", borderColor: "#334155" }}>
-                <textarea 
-                  rows={1}
-                  className="equip-input fw-medium text-white-50" 
-                  value={row.label} 
-                  onChange={(e) => handleChange(row.id, "label", e.target.value)} 
-                />
-              </div>
-              
-              {/* Sağ: Özellik Değeri */}
-              <div className="p-2 px-3 d-flex align-items-start" style={{ width: "64%" }}>
-                <textarea 
-                  rows={row.value.length > 50 ? 2 : 1}
-                  className="equip-input fw-bold" 
-                  value={row.value} 
-                  onChange={(e) => handleChange(row.id, "value", e.target.value)} 
-                />
-              </div>
-              
-              <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-              
-              {/* Aksiyon Paneli */}
-              <div className="p-1 d-flex align-items-center justify-content-center gap-2" style={{ width: "6%" }}>
-                <button onClick={() => insertSpecAfter(index)} className="btn btn-sm p-0 border-0 text-success opacity-50 hover-opacity-100 fw-bold" style={{ fontSize: "15px", lineHeight: "1" }} title="Altına Özellik Ekle">+</button>
-                <button onClick={() => deleteRow(row.id)} className="btn btn-sm p-0 border-0 text-danger opacity-40 hover-opacity-100" style={{ fontSize: "16px", lineHeight: "1" }} title="Özelliği Sil">&times;</button>
-              </div>
-            </div>
-          );
-          
-        })}
+            
+          })}
+        </div>
       </div>
 
-      {/* ALT AKSİYON BUTONLARI */}
       <div className="d-flex justify-content-start gap-2 mt-2">
         <button 
           onClick={addNewEquipment}
