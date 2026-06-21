@@ -4,356 +4,262 @@ import API from "../../utils/utilRequest";
 import PriceChangeUpdateConfirmationModal from "../modals/PriceChangeUpdateConfirmationModal";
 
 function Filtration() {
-    const [filtrationData, setFiltrationData] = useState([]);
+    // --- 1. STATE YÖNETİMLERİ (4 Ayrı Tablo ve Katsayılar) ---
+    const [equipments, setEquipments] = useState([]);
+    const [feedPumps, setFeedPumps] = useState([]);
+    const [backwashPumps, setBackwashPumps] = useState([]);
+    const [onKlorlama, setOnKlorlama] = useState([]);
     const [sabitOranlar, setSabitOranlar] = useState([]);
 
-    const [originalData, setOriginalData] = useState([]);
-    const [originalOranData, setOriginalOranData] = useState([]);
+    // Orijinal Veriler (Fark Ayrıştırma Altyapısı İçin)
+    const [originals, setOriginals] = useState({
+        equipments: [],
+        feedPumps: [],
+        backwashPumps: [],
+        onKlorlama: [],
+        oranData: []
+    });
 
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [pendingChanges, setPendingChanges] = useState([]);
 
-    // 1. Ön Yüz Başlıkları (Tam 19 adet başlık)
-    const headers = [
-        "Sistem Debisi (m³/h)",
-        "S.P. Alış (€)",
-        "K.F. Alış (€)",
-        "A.K.F. Alış (€)",
-        "Besleme Pompa Alış (€)",
-        "Geri Yıkama Alış (€)",
-        "S.P. Satış Yİ (€)",
-        "K.F. Satış Yİ (€)",
-        "A.K.F. Satış Yİ (€)",
-        "Besleme Pompa Satış Yİ (€)",
-        "Geri Yıkama Satış Yİ (€)",
-        "S.P. Satış YD (€)",
-        "K.F. Satış YD (€)",
-        "A.K.F. Satış YD (€)",
-        "Besleme Pompa Satış YD (€)",
-        "Geri Yıkama Satış YD (€)",
-        "Besleme kW",
-        "Geri Yıkama Debisi",
-        "Geri Yıkama kW"
-    ];
-
-    // 2. Başlıklarla Birebir Eşleşen Veri Alanları (Tam 19 adet field)
-    const fields = [
-        "debi",
-        "sp_alis",
-        "kf_alis",
-        "akf_alis",
-        "besleme_pompa_alis",
-        "geri_yikama_alis",
-        "sp_satis_yi",
-        "kf_satis_yi",
-        "akf_satis_yi",
-        "besleme_pompa_satis_yi",
-        "geri_yikama_satis_yi",
-        "sp_satis_yd",
-        "kf_satis_yd",
-        "akf_satis_yd",
-        "besleme_pompa_satis_yd",
-        "geri_yikama_satis_yd",
-        "besleme_kw",
-        "geri_yikama_debi",
-        "geri_yikama_kw"
-    ];
-
-    const dudenlenebilirFields = [
-        "sp_alis",
-        "kf_alis",
-        "akf_alis",
-        "besleme_pompa_alis",
-        "geri_yikama_alis",
-        "besleme_kw",
-        "geri_yikama_debi",
-        "geri_yikama_kw"
-    ];
-
+    // --- 2. GRID ŞEMALARI VE BAŞLIKLARI ---
     const oranHeaders = ["Yurt İçi Satış Oranı (Yİ)", "Yurt Dışı Satış Oranı (YD)"];
     const oranFields = ["yi_oran", "yd_oran"];
 
-    const fetchFiltrationData = async () => {
+    // A. Filtrasyon Kalemleri (Seperatör, Kum, Karbon Gövdeleri)
+    const equipHeaders = ["Sistem Debisi (m³/h)", "Ekipman Tipi", "Alış Fiyatı (€)", "Satış Yİ (€)", "Satış YD (€)"];
+    const equipFields = ["debi", "ekipman_tipi", "alis_fiyat", "satis_yi", "satis_yd"];
+
+    // B. Besleme Pompası
+    const feedHeaders = ["Sistem Debisi (m³/h)", "Motor Gücü (kW)", "Alış Fiyatı (€)", "Satış Yİ (€)", "Satış YD (€)"];
+    const feedFields = ["debi", "kw", "alis_fiyat", "satis_yi", "satis_yd"];
+
+    // C. Geri Yıkama Pompası
+    const backwashHeaders = ["Geri Yıkama Debisi (m³/h)", "Motor Gücü (kW)", "Alış Fiyatı (€)", "Satış Yİ (€)", "Satış YD (€)"];
+    const backwashFields = ["geri_yikama_debi", "kw", "alis_fiyat", "satis_yi", "satis_yd"];
+
+    // D. Ön Klorlama Sistemi
+    const klorlamaHeaders = ["Ekipman Adı", "Ekipman Tipi", "Motor Gücü (kW)", "Alış Fiyatı (€)", "Satış Yİ (€)", "Satış YD (€)"];
+    const klorlamaFields = ["ekipman_adi", "ekipman_tipi", "kw", "alis_fiyati", "yi_satis", "yd_satis"];
+
+    // --- 3. DATA FETCH ---
+    const fetchAllPriceData = async () => {
         try {
             setLoading(true);
             const response = await API.getFiltrationCosts();
+            const { filtrationEquipments, feedPumps, backwashPumps, onKlorlamaEquipments } = response.data || {};
 
-            setFiltrationData(JSON.parse(JSON.stringify(response.data)));
-            setOriginalData(JSON.parse(JSON.stringify(response.data)));
+            setEquipments(JSON.parse(JSON.stringify(filtrationEquipments || [])));
+            setFeedPumps(JSON.parse(JSON.stringify(feedPumps || [])));
+            setBackwashPumps(JSON.parse(JSON.stringify(backwashPumps || [])));
+            setOnKlorlama(JSON.parse(JSON.stringify(onKlorlamaEquipments || [])));
 
-            const referans = response.data[0] || {};
-            const ilkOranlar = [
-                {
-                    id: "sabit_katsayi",
-                    name: "Global Katsayılar",
-                    yi_oran: referans.yi_oran || 1.30,
-                    yd_oran: referans.yd_oran || 1.45
-                }
-            ];
+            const refRow = filtrationEquipments?.[0] || onKlorlamaEquipments?.[0] || {};
+            const ilkOranlar = [{
+                id: "sabit_katsayi",
+                yi_oran: refRow.yi_oran || refRow.yi_katsayi,
+                yd_oran: refRow.yd_oran || refRow.yd_katsayi
+            }];
+            setSabitOranlar(ilkOranlar);
 
-            setSabitOranlar(JSON.parse(JSON.stringify(ilkOranlar)));
-            setOriginalOranData(JSON.parse(JSON.stringify(ilkOranlar)));
+            setOriginals({
+                equipments: JSON.parse(JSON.stringify(filtrationEquipments || [])),
+                feedPumps: JSON.parse(JSON.stringify(feedPumps || [])),
+                backwashPumps: JSON.parse(JSON.stringify(backwashPumps || [])),
+                onKlorlama: JSON.parse(JSON.stringify(onKlorlamaEquipments || [])),
+                oranData: JSON.parse(JSON.stringify(ilkOranlar))
+            });
 
         } catch (error) {
-            console.error("Filtrasyon verileri yüklenirken hata oluştu:", error);
+            console.error("Fiyat listeleri yüklenirken hata:", error);
         } finally {
             setLoading(false);
         }
     };
 
     useEffect(() => {
-        fetchFiltrationData();
+        fetchAllPriceData();
     }, []);
 
-    // ➕ Yeni Boş Filtrasyon Satırı Ekleme Fonksiyonu
-    const handleAddNewRow = () => {
-        const nextDebi = (filtrationData.length + 1) * 5; // Simülatif bir sonraki debi değeri (Örn: 5, 10, 15...)
-        
-        const newRow = {
-            id: `new_${Date.now()}`, // Benzersiz geçici ID
-            debi: nextDebi,
-            sp_alis: 0, kf_alis: 0, akf_alis: 0, besleme_pompa_alis: 0, geri_yikama_alis: 0,
-            sp_satis_yi: 0, kf_satis_yi: 0, akf_satis_yi: 0, besleme_pompa_satis_yi: 0, geri_yikama_satis_yi: 0,
-            sp_satis_yd: 0, kf_satis_yd: 0, akf_satis_yd: 0, besleme_pompa_satis_yd: 0, geri_yikama_satis_yd: 0,
-            besleme_kw: 0, geri_yikama_debi: 0, geri_yikama_kw: 0,
-            isNew: true
+    // --- 4. SİMÜLASYON MOTORLARI ---
+    const recalculateRowSales = (item, yiOran, ydOran, isKlorlama = false) => {
+        const alisKey = isKlorlama ? "alis_fiyati" : "alis_fiyat";
+        const yiKey = isKlorlama ? "yi_satis" : "satis_yi";
+        const ydKey = isKlorlama ? "yd_satis" : "satis_yd";
+
+        const alis = Number(item[alisKey]) || 0;
+        return {
+            ...item,
+            [yiKey]: (alis * yiOran).toFixed(2),
+            [ydKey]: (alis * ydOran).toFixed(2)
         };
-        setFiltrationData(prev => [...prev, newRow]);
     };
 
-    // 🛠️ Alış fiyatlarından biri elle değiştiğinde anlık satış simülasyonu
-    const handleGridDataChange = (newData) => {
-        const resolvedData = typeof newData === "function" ? newData(filtrationData) : newData;
-        if (!resolvedData || !Array.isArray(resolvedData)) return;
-
-        const currentOran = sabitOranlar[0] || { yi_oran: 1.30, yd_oran: 1.45 };
-
-        const recalculated = resolvedData.map(item => {
-            if (item.isDeleted) return item;
-
-            const debiValue = item.debi !== undefined ? Number(item.debi) : 0;
-            const spAlis = Number(item.sp_alis) || 0;
-            const kfAlis = Number(item.kf_alis) || 0;
-            const akfAlis = Number(item.akf_alis) || 0;
-            const bpAlis = Number(item.besleme_pompa_alis) || 0;
-            const gyAlis = Number(item.geri_yikama_alis) || 0;
-
-            const yiOran = Number(currentOran.yi_oran) || 1.30;
-            const ydOran = Number(currentOran.yd_oran) || 1.45;
-
-            return {
-                ...item,
-                debi: debiValue,
-                sp_alis: spAlis,
-                kf_alis: kfAlis,
-                akf_alis: akfAlis,
-                besleme_pompa_alis: bpAlis,
-                geri_yikama_alis: gyAlis,
-
-                sp_satis_yi: (spAlis * yiOran).toFixed(2),
-                kf_satis_yi: (kfAlis * yiOran).toFixed(2),
-                akf_satis_yi: (akfAlis * yiOran).toFixed(2),
-                besleme_pompa_satis_yi: (bpAlis * yiOran).toFixed(2),
-                geri_yikama_satis_yi: (gyAlis * yiOran).toFixed(2),
-
-                sp_satis_yd: (spAlis * ydOran).toFixed(2),
-                kf_satis_yd: (kfAlis * ydOran).toFixed(2),
-                akf_satis_yd: (akfAlis * ydOran).toFixed(2),
-                besleme_pompa_satis_yd: (bpAlis * ydOran).toFixed(2),
-                geri_yikama_satis_yd: (gyAlis * ydOran).toFixed(2)
-            };
-        });
-
-        setFiltrationData([...recalculated]);
+    const handleEquipChange = (newData) => {
+        const currentOran = sabitOranlar[0];
+        const resolved = typeof newData === "function" ? newData(equipments) : newData;
+        setEquipments(resolved.map(item => recalculateRowSales(item, Number(currentOran.yi_oran), Number(currentOran.yd_oran))));
     };
 
-    // 🛠️ Katsayı kutucuğu değiştiğinde alt tabloyu tetikleyen fonksiyon
+    const handleFeedChange = (newData) => {
+        const currentOran = sabitOranlar[0];
+        const resolved = typeof newData === "function" ? newData(feedPumps) : newData;
+        setFeedPumps(resolved.map(item => recalculateRowSales(item, Number(currentOran.yi_oran), Number(currentOran.yd_oran))));
+    };
+
+    const handleBackwashChange = (newData) => {
+        const currentOran = sabitOranlar[0];
+        const resolved = typeof newData === "function" ? newData(backwashPumps) : newData;
+        setBackwashPumps(resolved.map(item => recalculateRowSales(item, Number(currentOran.yi_oran), Number(currentOran.yd_oran))));
+    };
+
+    const handleKlorlamaChange = (newData) => {
+        const currentOran = sabitOranlar[0];
+        const resolved = typeof newData === "function" ? newData(onKlorlama) : newData;
+        setOnKlorlama(resolved.map(item => recalculateRowSales(item, Number(currentOran.yi_oran), Number(currentOran.yd_oran), true)));
+    };
+
     const handleOranDataChange = (newOranData) => {
-        const resolvedArray = typeof newOranData === "function" ? newOranData(sabitOranlar) : newOranData;
-        if (!resolvedArray || !Array.isArray(resolvedArray)) return;
+        const resolved = typeof newOranData === "function" ? newOranData(sabitOranlar) : newOranData;
+        setSabitOranlar(resolved);
+        const yi = Number(resolved[0]?.yi_oran) || 1.30;
+        const yd = Number(resolved[0]?.yd_oran) || 1.45;
 
-        setSabitOranlar([...resolvedArray]);
-
-        const currentOran = resolvedArray[0] || {};
-        const eskiOranlar = originalOranData[0] || { yi_oran: 1.30, yd_oran: 1.45 };
-
-        const yiOran = currentOran.yi_oran !== undefined && currentOran.yi_oran !== "" ? Number(currentOran.yi_oran) : Number(eskiOranlar.yi_oran);
-        const ydOran = currentOran.yd_oran !== undefined && currentOran.yd_oran !== "" ? Number(currentOran.yd_oran) : Number(eskiOranlar.yd_oran);
-
-        setFiltrationData((prevData) => {
-            return prevData.map(item => {
-                if (item.isDeleted) return item;
-
-                const spAlis = Number(item.sp_alis) || 0;
-                const kfAlis = Number(item.kf_alis) || 0;
-                const akfAlis = Number(item.akf_alis) || 0;
-                const bpAlis = Number(item.besleme_pompa_alis) || 0;
-                const gyAlis = Number(item.geri_yikama_alis) || 0;
-
-                return {
-                    ...item,
-                    sp_satis_yi: (spAlis * yiOran).toFixed(2),
-                    kf_satis_yi: (kfAlis * yiOran).toFixed(2),
-                    akf_satis_yi: (akfAlis * yiOran).toFixed(2),
-                    besleme_pompa_satis_yi: (bpAlis * yiOran).toFixed(2),
-                    geri_yikama_satis_yi: (gyAlis * yiOran).toFixed(2),
-
-                    sp_satis_yd: (spAlis * ydOran).toFixed(2),
-                    kf_satis_yd: (kfAlis * ydOran).toFixed(2),
-                    akf_satis_yd: (akfAlis * ydOran).toFixed(2),
-                    besleme_pompa_satis_yd: (bpAlis * ydOran).toFixed(2),
-                    geri_yikama_satis_yd: (gyAlis * ydOran).toFixed(2)
-                };
-            });
-        });
+        setEquipments(prev => prev.map(item => recalculateRowSales(item, yi, yd)));
+        setFeedPumps(prev => prev.map(item => recalculateRowSales(item, yi, yd)));
+        setBackwashPumps(prev => prev.map(item => recalculateRowSales(item, yi, yd)));
+        setOnKlorlama(prev => prev.map(item => recalculateRowSales(item, yi, yd, true)));
     };
 
-    // 🛠️ KAYDET BUTONU: Ekleme, Silme ve Güncelleme Fark Algılama Altyapısı
-    const handleSaveClick = () => {
-        const changes = [];
-        const guncelOranRow = sabitOranlar[0] || {};
-        const eskiOranRow = originalOranData[0] || {};
+    // --- 5. SATIR EKLEME ACTIONLARI ---
+    const addNewEquipmentRow = () => {
+        setEquipments(p => [...p, { id: `new_eq_${Date.now()}`, debi: 0, ekipman_tipi: "Kum Filtresi", alis_fiyat: 0, satis_yi: 0, satis_yd: 0, isNew: true }]);
+    };
+    const addNewFeedRow = () => {
+        setFeedPumps(p => [...p, { id: `new_fd_${Date.now()}`, debi: 0, kw: 0, alis_fiyat: 0, satis_yi: 0, satis_yd: 0, isNew: true }]);
+    };
+    const addNewBackwashRow = () => {
+        setBackwashPumps(p => [...p, { id: `new_bw_${Date.now()}`, geri_yikama_debi: 0, kw: 0, alis_fiyat: 0, satis_yi: 0, satis_yd: 0, isNew: true }]);
+    };
+    const addNewKlorlamaRow = () => {
+        setOnKlorlama(p => [...p, { id: `new_kl_${Date.now()}`, ekipman_adi: "", ekipman_tipi: "pompa", kw: 0, alis_fiyati: 0, yi_satis: 0, yd_satis: 0, isNew: true }]);
+    };
 
-        filtrationData.forEach((item) => {
-            // ❌ DURUM A: Satır Silinmiş mi? (DELETE)
+    // --- 6. GÜVENLİ SAVE MOTORU ---
+    // --- 6. GÜVENLİ SAVE MOTORU (Sanal Kolon Filtreli Hali) ---
+    const checkTableChanges = (currentList, originalList, tableName, labelField, textFields) => {
+        const changes = [];
+
+        // 🌟 ES PAS GEÇİLECEK SANAL / GENERATED KOLONLAR LİSTESİ
+        const sanalKolonlar = ["satis_yi", "satis_yd", "yi_satis", "yd_satis"];
+
+        currentList.forEach(item => {
+            // DELETE (Aynen kalıyor)
             if (item.isDeleted) {
                 if (String(item.id).startsWith("new_")) return;
-
-                changes.push({
-                    type: "DELETE",
-                    tableName: "filtration_systems",
-                    id: item.id,
-                    columnName: "debi", // Güvenlik listesi için placeholder tetikleyici kolon
-                    newValue: null,
-                    rowName: `${item.debi} m³/h Sistem`,
-                    oldValue: 0
-                });
+                changes.push({ type: "DELETE", tableName, id: item.id, columnName: "id", newValue: null, rowName: `${item[labelField]}`, oldValue: 0 });
                 return;
             }
 
-            // ➕ DURUM B: Yeni Satır mı? (INSERT)
+            // INSERT (Sanal kolonları temizleyerek ekliyoruz)
             if (String(item.id).startsWith("new_")) {
+                const triggerField = textFields[0];
+                const additional = { ...item };
+
+                // Güvenlik: Yeni satır eklerken de sanal kolonları payload'dan ayıklıyoruz
+                delete additional.id; delete additional.isNew; delete additional.isDeleted;
+                delete additional[triggerField];
+                sanalKolonlar.forEach(sk => delete additional[sk]);
+
                 changes.push({
-                    type: "INSERT",
-                    tableName: "filtration_systems",
-                    id: undefined,
-                    columnName: "debi", // İlk zorunlu ana kolonumuz
-                    newValue: Number(item.debi) || 0,
-                    rowName: `${item.debi} m³/h Yeni Sistem`,
-                    oldValue: 0,
-                    additionalData: {
-                        sp_alis: Number(item.sp_alis) || 0,
-                        kf_alis: Number(item.kf_alis) || 0,
-                        akf_alis: Number(item.akf_alis) || 0,
-                        besleme_pompa_alis: Number(item.besleme_pompa_alis) || 0,
-                        geri_yikama_alis: Number(item.geri_yikama_alis) || 0,
-                        besleme_kw: Number(item.besleme_kw) || 0,
-                        geri_yikama_debi: Number(item.geri_yikama_debi) || 0,
-                        geri_yikama_kw: Number(item.geri_yikama_kw) || 0
-                    }
+                    type: "INSERT", tableName, id: undefined, columnName: triggerField, newValue: textFields.includes(triggerField) ? item[triggerField] : Number(item[triggerField]),
+                    rowName: `${item[labelField]}`, oldValue: 0, additionalData: additional
                 });
                 return;
             }
 
-            // 🔄 DURUM C: Mevcut Satır Güncelleme mi? (UPDATE)
-            const originalItem = originalData.find((o) => String(o.id) === String(item.id));
-            if (originalItem) {
-                const tumGuncellenecekSutunlar = ["debi", ...dudenlenebilirFields];
+            // UPDATE
+            const orig = originalList.find(o => String(o.id) === String(item.id));
+            if (orig) {
+                Object.keys(item).forEach(field => {
+                    if (field === "id" || field === "isNew" || field === "isDeleted" || field === "created_at" || field === "updated_at") return;
 
-                tumGuncellenecekSutunlar.forEach((field) => {
-                    const eskiDeger = parseFloat(originalItem[field] || 0).toFixed(2);
-                    const yeniDeger = parseFloat(item[field] || 0).toFixed(2);
+                    // 🌟 KRİTİK FİLTRE: Eğer alan sanal bir kolonsa fark takibine sokma, pas geç!
+                    if (sanalKolonlar.includes(field)) return;
 
-                    if (eskiDeger !== yeniDeger) {
-                        changes.push({
-                            type: "UPDATE",
-                            tableName: "filtration_systems",
-                            id: originalItem.id,
-                            columnName: field,
-                            newValue: Number(yeniDeger),
-                            rowName: `${originalItem.debi} m³/h Sistem`,
-                            oldValue: Number(eskiDeger)
-                        });
+                    const isText = textFields.includes(field);
+                    const esitMi = isText ? String(orig[field] || "").trim() === String(item[field] || "").trim() : Number(orig[field] || 0) === Number(item[field] || 0);
+
+                    if (!esitMi) {
+                        changes.push({ type: "UPDATE", tableName, id: orig.id, columnName: field, newValue: isText ? item[field] : Number(item[field]), rowName: `${item[labelField]}`, oldValue: orig[field] || 0 });
                     }
                 });
             }
         });
+        return changes;
+    };
 
-        // --- 2. ÜST ORAN TABLOSU DEĞİŞİKLİK KONTROLÜ ---
-        oranFields.forEach((oranField) => {
-            const eskiOran = parseFloat(eskiOranRow[oranField] || 0).toFixed(2);
-            const guncelOran = parseFloat(guncelOranRow[oranField] || 0).toFixed(2);
+    const handleSaveClick = () => {
+        let allChanges = [];
 
-            if (eskiOran !== guncelOran) {
-                const friendlyName = oranField === "yi_oran" ? "Yurt İçi Oranı" : "Yurt Dışı Oranı";
-                const firstId = originalData[0]?.id || 1;
+        allChanges = allChanges.concat(checkTableChanges(equipments, originals.equipments, "filtration_equipments", "debi", ["ekipman_tipi"]));
+        allChanges = allChanges.concat(checkTableChanges(feedPumps, originals.feedPumps, "filtration_feed_pumps", "debi", []));
+        allChanges = allChanges.concat(checkTableChanges(backwashPumps, originals.backwashPumps, "filtration_backwash_pumps", "geri_yikama_debi", []));
+        allChanges = allChanges.concat(checkTableChanges(onKlorlama, originals.onKlorlama, "on_klorlama_ekipmanlari", "ekipman_adi", ["ekipman_adi", "ekipman_tipi"]));
 
-                changes.push({
-                    type: "UPDATE",
-                    tableName: "filtration_systems",
-                    id: firstId,
-                    columnName: oranField,
-                    newValue: Number(guncelOran),
-                    rowName: `Global Ayar (${friendlyName})`,
-                    oldValue: Number(eskiOran)
-                });
+        // Oran kontrolü (Global katsayı değişim takibi)
+        const currentOran = sabitOranlar[0] || {};
+        const origOran = originals.oranData[0] || {};
+        const targets = [
+            { field: "yi_oran", dbCol: "yi_oran", label: "Yurt İçi Oranı", tName: "filtration_equipments" },
+            { field: "yd_oran", dbCol: "yd_oran", label: "Yurt Dışı Oranı", tName: "filtration_equipments" }
+        ];
+
+        targets.forEach(t => {
+            if (parseFloat(currentOran[t.field] || 0).toFixed(2) !== parseFloat(origOran[t.field] || 0).toFixed(2)) {
+                allChanges.push({ type: "UPDATE", tableName: t.tName, id: equipments[0]?.id || 1, columnName: t.dbCol, newValue: Number(currentOran[t.field]), rowName: `Global Ayar (${t.label})`, oldValue: Number(origOran[t.field]) });
             }
         });
 
-        if (changes.length === 0) {
-            alert("Değişen bir veri bulunamadı.");
+        if (allChanges.length === 0) {
+            alert("Herhangi bir değişiklik algılanmadı.");
             return;
         }
-
-        setPendingChanges(changes);
+        setPendingChanges(allChanges);
         setShowModal(true);
     };
 
     const handleConfirmSave = async () => {
         setShowModal(false);
         setLoading(true);
-
         try {
-            if (pendingChanges.length === 0) {
-                setLoading(false);
-                return;
-            }
+            if (pendingChanges.length === 0) return;
 
-            const targetTableName = pendingChanges[0].tableName;
-            const updatesPayload = pendingChanges.map((change) => ({
-                id: change.id,
-                columnName: change.columnName,
-                newValue: change.newValue,
-                additionalData: change.additionalData || undefined
-            }));
+            // Değişiklikleri tablolara göre gruplayarak paralel API.updatePriceData çağrıları yapıyoruz
+            const tableGroups = pendingChanges.reduce((acc, change) => {
+                if (!acc[change.tableName]) acc[change.tableName] = [];
+                acc[change.tableName].push({
+                    id: change.id,
+                    columnName: change.columnName,
+                    newValue: change.newValue,
+                    additionalData: change.additionalData || undefined
+                });
+                return acc;
+            }, {});
 
-            await API.updatePriceData({
-                tableName: targetTableName,
-                updates: updatesPayload
-            });
+            await Promise.all(
+                Object.entries(tableGroups).map(([tName, updatesPayload]) =>
+                    API.updatePriceData({ tableName: tName, updates: updatesPayload })
+                )
+            );
 
-            const response = await API.getFiltrationCosts();
-            setFiltrationData(JSON.parse(JSON.stringify(response.data)));
-            setOriginalData(JSON.parse(JSON.stringify(response.data)));
-
-            const referans = response.data[0] || {};
-            const yeniOranlar = [
-                {
-                    id: "sabit_katsayi",
-                    name: "Global Katsayılar",
-                    yi_oran: referans.yi_oran || 1.30,
-                    yd_oran: referans.yd_oran || 1.45
-                }
-            ];
-
-            setSabitOranlar(JSON.parse(JSON.stringify(yeniOranlar)));
-            setOriginalOranData(JSON.parse(JSON.stringify(yeniOranlar)));
+            await fetchAllPriceData();
             setPendingChanges([]);
-
-        } catch (error) {
-            console.error("Kaydetme esnasında teknik hata:", error);
-            alert("Veriler kaydedilirken teknik bir hata meydana geldi.");
+        } catch (err) {
+            console.error(err);
+            alert("Sistemsel hata meydana geldi.");
         } finally {
             setLoading(false);
         }
@@ -362,32 +268,25 @@ function Filtration() {
     if (loading) {
         return (
             <div className="d-flex justify-content-center my-5">
-                <div className="spinner-border text-success" role="status">
-                    <span className="visually-hidden">İşlem Yapılıyor...</span>
-                </div>
+                <div className="spinner-border text-success" role="status"><span className="visually-hidden">Yükleniyor...</span></div>
             </div>
         );
     }
 
-    const visibleFiltrationData = filtrationData.filter(d => !d.isDeleted);
-
     return (
         <div>
-            <div className="d-flex justify-content-between align-items-center mb-3">
-                <div className="mb-2 d-flex align-items-center" style={{ color: "#94a3b8" }}>
-                    <i className="bi bi-gear-fill me-2 text-success"></i>
-                    <span className="fw-semibold small">Filtrasyon Sistemleri Yönetimi</span>
+            {/* ÜST PANEL */}
+            <div className="d-flex justify-content-between align-items-center mb-4">
+                <div className="d-flex align-items-center" style={{ color: "#94a3b8" }}>
+                    <i className="bi bi-gear-fill me-2 text-success" style={{ fontSize: "18px" }}></i>
+                    <span className="fw-semibold small fs-6">Filtrasyon & Klorlama Sistemleri Fiyat Yönetimi</span>
                 </div>
-                <div className="d-flex gap-2">
-                    <button className="btn btn-outline-primary btn-sm px-3" onClick={handleAddNewRow}>
-                        <i className="bi bi-plus-circle me-2"></i>Yeni Sistem Ekle
-                    </button>
-                    <button className="btn btn-success btn-sm px-4" onClick={handleSaveClick}>
-                        <i className="bi bi-file-earmark-excel me-2"></i>Kaydet
-                    </button>
-                </div>
+                <button className="btn btn-success btn-sm px-4" onClick={handleSaveClick}>
+                    <i className="bi bi-file-earmark-excel me-2"></i>Değişiklikleri Kaydet
+                </button>
             </div>
 
+            {/* ORAN KATTSAYILARI */}
             <div className="mb-4">
                 <div className="mb-2 d-flex align-items-center" style={{ color: "#94a3b8" }}>
                     <i className="bi bi-sliders me-2 text-success"></i>
@@ -395,28 +294,65 @@ function Filtration() {
                 </div>
                 <div className="row">
                     <div className="col-12 col-md-5">
-                        <ExcelGrid
-                            headers={oranHeaders}
-                            data={sabitOranlar}
-                            fields={oranFields}
-                            onDataChange={handleOranDataChange}
-                        />
+                        <ExcelGrid headers={oranHeaders} data={sabitOranlar} fields={oranFields} onDataChange={handleOranDataChange} />
                     </div>
                 </div>
             </div>
 
-            <div className="mt-4">
-                <div className="mb-2 d-flex align-items-center" style={{ color: "#94a3b8" }}>
-                    <i className="bi bi-table me-2 text-secondary"></i>
-                    <span className="fw-semibold small">Sistem Maliyet ve Satış Fiyat Listesi</span>
+            {/* 📊 TABLO 1: FİLTRASYON GÖVDE KALEMLERİ */}
+            <div className="mb-4">
+                <div className="mb-2 d-flex align-items-center justify-content-between w-100" style={{ color: "#94a3b8" }}>
+                    <div className="d-flex align-items-center fw-bold small text-primary">
+                        <i className="bi bi-droplet-half me-2"></i>
+                        <span>1. Filtrasyon Gövde Kalemleri (Seperatör / Kum / Karbon)</span>
+                    </div>
+                    <button className="btn btn-outline-primary btn-xs px-2 py-0.5" style={{ fontSize: '10px' }} onClick={addNewEquipmentRow}>
+                        + Data Ekle
+                    </button>
                 </div>
-                <ExcelGrid
-                    headers={headers}
-                    data={visibleFiltrationData}
-                    fields={fields}
-                    onDataChange={handleGridDataChange}
-                    isMainTable={true} // Aksiyon silme butonu aktif
-                />
+                <ExcelGrid headers={equipHeaders} data={equipments.filter(i => !i.isDeleted)} fields={equipFields} onDataChange={handleEquipChange} isMainTable={true} />
+            </div>
+
+            {/* 📊 TABLO 2: BESLEME POMPALARI */}
+            <div className="mb-4">
+                <div className="mb-2 d-flex align-items-center justify-content-between w-100" style={{ color: "#94a3b8" }}>
+                    <div className="d-flex align-items-center fw-bold small text-success">
+                        <i className="bi bi-lightning-charge me-2"></i>
+                        <span>2. Hidrofor / Besleme Pompaları</span>
+                    </div>
+                    <button className="btn btn-outline-success btn-xs px-2 py-0.5" style={{ fontSize: '10px' }} onClick={addNewFeedRow}>
+                        + Data Ekle
+                    </button>
+                </div>
+                <ExcelGrid headers={feedHeaders} data={feedPumps.filter(i => !i.isDeleted)} fields={feedFields} onDataChange={handleFeedChange} isMainTable={true} />
+            </div>
+
+            {/* 📊 TABLO 3: GERİ YIKAMA POMPALARI */}
+            <div className="mb-4">
+                <div className="mb-2 d-flex align-items-center justify-content-between w-100" style={{ color: "#94a3b8" }}>
+                    <div className="d-flex align-items-center fw-bold small text-info">
+                        <i className="bi bi-arrow-left-right me-2"></i>
+                        <span>3. Geri Yıkama Pompaları</span>
+                    </div>
+                    <button className="btn btn-outline-info btn-xs px-2 py-0.5" style={{ fontSize: '10px' }} onClick={addNewBackwashRow}>
+                        + Data Ekle
+                    </button>
+                </div>
+                <ExcelGrid headers={backwashHeaders} data={backwashPumps.filter(i => !i.isDeleted)} fields={backwashFields} onDataChange={handleBackwashChange} isMainTable={true} />
+            </div>
+
+            {/* 📊 TABLO 4: ÖN KLORLAMA SİSTEMİ */}
+            <div className="mb-4">
+                <div className="mb-2 d-flex align-items-center justify-content-between w-100" style={{ color: "#94a3b8" }}>
+                    <div className="d-flex align-items-center fw-bold small text-warning">
+                        <i className="bi bi-shield-check me-2 " style={{ color: "#ffc107" }}></i>
+                        <span style={{ color: "#ffc107" }}>4. Ön Klorlama & Dozaj Sistemleri</span>
+                    </div>
+                    <button className="btn btn-outline-warning btn-xs px-2 py-0.5" style={{ fontSize: '10px' }} onClick={addNewKlorlamaRow}>
+                        + Data Ekle
+                    </button>
+                </div>
+                <ExcelGrid headers={klorlamaHeaders} data={onKlorlama.filter(i => !i.isDeleted)} fields={klorlamaFields} onDataChange={handleKlorlamaChange} isMainTable={true} />
             </div>
 
             <PriceChangeUpdateConfirmationModal

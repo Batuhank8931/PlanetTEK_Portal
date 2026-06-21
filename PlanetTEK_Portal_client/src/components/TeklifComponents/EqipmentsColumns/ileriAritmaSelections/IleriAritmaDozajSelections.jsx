@@ -1,59 +1,107 @@
-import React, { useMemo, useEffect } from "react";
-import { useTeklifStore } from "../../../../utils/teklifStore"; // Store yolunu kontrol edin
+import React, { useMemo, useEffect, useState } from "react";
+import { useTeklifStore } from "../../../../utils/teklifStore"; 
+import API from "../../../../utils/utilRequest";
 
 function IleriAritmaDozajSelections() {
-  // 1. ZUSTAND STORE BAĞLANTISI
+  // 1. STATE TANIMLAMALARI
+  const [apiEquipments, setApiEquipments] = useState([]); 
+  const [loading, setLoading] = useState(false);
+
+  // 2. ZUSTAND STORE BAĞLANTISI
   const formData = useTeklifStore((state) => state.formData);
   const updateSection = useTeklifStore((state) => state.updateSection);
 
-  // Gerekli verileri store'un ilgili düğümlerinden dinamik ve güvenli bir şekilde süzüyoruz
   const diskDetails = formData.planetDiskDetails || {};
-  const debi = parseFloat(diskDetails.debi) || 0; // m3/gün cinsinden debi
+  const debi = parseFloat(diskDetails.debi) || 0; 
 
   const equipmentsCache = formData.equipments || {};
   const storeIleriAritma = equipmentsCache.ileriAritma || {};
   const inputSelections = storeIleriAritma.IleriAritmaInputSelections || {};
   const storeDozajSelections = storeIleriAritma.IleriAritmaDozajSelections || {};
 
-  // Global veya bu adıma ait bir stok günü tanımı (yoksa varsayılan 30 gün)
-  const stokGunu = parseFloat(formData.stokGunu) || 30;
-
-  // Standart piyasa tank hacimlerine yukarı yuvarlama yardımcı fonksiyonu
-  const getStandardTankVolume = (requiredLiters) => {
-    if (requiredLiters <= 0) return 0;
-    const commercialVolumes = [100, 200, 300, 500, 1000, 2000, 3000, 5000, 10000];
-    const matched = commercialVolumes.find((v) => v >= requiredLiters);
-    return matched || Math.ceil(requiredLiters / 1000) * 1000; // Eğer 10 tondan büyükse en yakın binliğe yuvarla
+  // API'den gelen ekipmanları çekip filtrelemeye hazır hale getirme
+  const fetchEquipmentsData = async () => {
+    try {
+      setLoading(true);
+      const response = await API.getIlerAritmaEquipmentsCosts();
+      setApiEquipments(response.data || []);
+    } catch (error) {
+      console.error("Ekipman verileri yüklenirken hata oluştu:", error);
+    } finally {
+      setLoading(false);
+    }
   };
 
-  // 2. SAF MATEMATİKSEL HESAPLAMA (useMemo)
+  useEffect(() => {
+    fetchEquipmentsData();
+  }, []);
+
+  // Pompa ve Tank listelerini tiplerine göre ayırıyoruz
+  const availablePumps = useMemo(() => apiEquipments.filter(e => e.ekipman_tipi === "pompa"), [apiEquipments]);
+  const availableTanks = useMemo(() => apiEquipments.filter(e => e.ekipman_tipi === "tank"), [apiEquipments]);
+
+  const stokGunu = parseFloat(formData.stokGunu) || 30;
+
+  // 3. SAF MATEMATİKSEL HESAPLAMA VE OTOMATİK EKİPMAN SEÇİMİ
   const hesaplananDegerler = useMemo(() => {
-    const girisP = parseFloat(inputSelections.girisToplamFosfor) || 10; // mg/L
-    const cikisP = parseFloat(inputSelections.cikisToplamFosfor) || 3; // mg/L
+    const girisP = parseFloat(inputSelections.girisToplamFosfor) || 10; 
+    const cikisP = parseFloat(inputSelections.cikisToplamFosfor) || 3; 
     const katsayi = parseFloat(inputSelections.gerekliFeKatsayisi) || 2.7;
 
-    // Giderilecek Fosfor yükü kontrolü
     const giderilecekP = Math.max(0, girisP - cikisP);
-
-    // 1. Gerekli Fe Miktarı (kg/gün) = (Q * ΔP * katsayi) / 1000
     const gerekliFe = (debi * giderilecekP * katsayi) / 1000;
-
-    // 2. Gerekli FeCl3 Miktarı (kg/gün)
     const gerekliFeCl3 = gerekliFe * (60 / 26);
-
-    // 3. %40'lık FeCl3 Çözelti Miktarı (Litre/gün)
     const cozeltiLitreGun = gerekliFeCl3 / 1.43 / (40 / 100);
-
-    // 4. Pompa Saatlik Debisi (L/saat)
     const pompaSaatlikDebi = cozeltiLitreGun / 24;
 
-    // 5. Pompa Adedi Hesabı (Standart pompa: 5 L/saat) -> Math.ceil ile Tamsayı
-    const standartPompaKapasitesi = 5;
-    const pompaAdedi = pompaSaatlikDebi > 0 ? Math.ceil(pompaSaatlikDebi / standartPompaKapasitesi) : 1;
+    // --- OTOMATİK POMPA SEÇİMİ ---
+    let otomatikPompa = null;
+    let pompaAdedi = 1;
 
-    // 6. Gerekli Tank Hacmi (Litre)
+    if (pompaSaatlikDebi > 0 && availablePumps.length > 0) {
+      const sortedPumps = [...availablePumps].sort((a, b) => {
+        const capA = parseFloat(a.ekipman_adi.match(/(\d+)\s*L\/h/)?.[1]) || 5;
+        const capB = parseFloat(b.ekipman_adi.match(/(\d+)\s*L\/h/)?.[1]) || 5;
+        return capA - capB;
+      });
+
+      let found = sortedPumps.find(p => {
+        const cap = parseFloat(p.ekipman_adi.match(/(\d+)\s*L\/h/)?.[1]) || 5;
+        return cap >= pompaSaatlikDebi;
+      });
+
+      if (found) {
+        otomatikPompa = found;
+        pompaAdedi = 1;
+      } else {
+        otomatikPompa = sortedPumps[sortedPumps.length - 1];
+        const maxCap = parseFloat(otomatikPompa?.ekipman_adi.match(/(\d+)\s*L\/h/)?.[1]) || 5;
+        pompaAdedi = Math.ceil(pompaSaatlikDebi / maxCap);
+      }
+    } else {
+      otomatikPompa = availablePumps[0] || null;
+    }
+
+    // --- OTOMATİK TANK SEÇİMİ ---
     const tankHacmiLitre = cozeltiLitreGun * stokGunu;
-    const standartTankHacmi = getStandardTankVolume(tankHacmiLitre);
+    let otomatikTank = null;
+
+    if (tankHacmiLitre > 0 && availableTanks.length > 0) {
+      const sortedTanks = [...availableTanks].sort((a, b) => {
+        const volA = parseFloat(a.ekipman_adi.match(/(\d+)\s*(lt|Litre)/i)?.[1]) || 0;
+        const volB = parseFloat(b.ekipman_adi.match(/(\d+)\s*(lt|Litre)/i)?.[1]) || 0;
+        return volA - volB;
+      });
+
+      let foundTank = sortedTanks.find(t => {
+        const vol = parseFloat(t.ekipman_adi.match(/(\d+)\s*(lt|Litre)/i)?.[1]) || 0;
+        return vol >= tankHacmiLitre;
+      });
+
+      otomatikTank = foundTank || sortedTanks[sortedTanks.length - 1];
+    } else {
+      otomatikTank = availableTanks[0] || null;
+    }
 
     return {
       gerekliFe,
@@ -62,26 +110,41 @@ function IleriAritmaDozajSelections() {
       pompaSaatlikDebi,
       pompaAdedi,
       tankHacmiLitre,
-      standartTankHacmi
+      otomatikPompaId: otomatikPompa ? String(otomatikPompa.id) : "", 
+      otomatikTankId: otomatikTank ? String(otomatikTank.id) : ""     
     };
-  }, [debi, inputSelections, stokGunu]);
+  }, [debi, inputSelections, stokGunu, availablePumps, availableTanks]);
 
-  // 3. HESAPLANAN VERİLERİN MERKEZİ STORE'A BAĞLANMASI (Sonsuz döngü korumalı useEffect)
+  // 4. OTOMATİK İLK YÜKLEME VE DEBİ/GİRİŞ DEĞİŞİM SENKRONİZASYONU
   useEffect(() => {
-    if (debi > 0) {
-      const currentPompaAdedi = parseInt(storeDozajSelections.pompaAdedi ?? hesaplananDegerler.pompaAdedi, 10) || 1;
-      const dozajPompasiString = `${currentPompaAdedi} Adet Dozaj Pompası (5 L/h @ 5 Bar)`;
+    if (debi > 0 && apiEquipments.length > 0) {
+      const finalPompaId = storeDozajSelections.secilenPompaId !== undefined 
+        ? String(storeDozajSelections.secilenPompaId) 
+        : hesaplananDegerler.otomatikPompaId;
+
+      const finalTankId = storeDozajSelections.secilenTankId !== undefined 
+        ? String(storeDozajSelections.secilenTankId) 
+        : hesaplananDegerler.otomatikTankId;
       
-      const currentTankHacmi = storeDozajSelections.standartTankHacmi ?? hesaplananDegerler.standartTankHacmi;
-      const kimyasalTankString = currentTankHacmi > 0 
-        ? `${Number(currentTankHacmi).toFixed(2)} Litre FeCl₃ Kimyasal Depolama Tankı` 
+      const secilenPompaObj = apiEquipments.find(e => String(e.id) === finalPompaId);
+      const secilenTankObj = apiEquipments.find(e => String(e.id) === finalTankId);
+
+      const currentPompaAdedi = parseInt(storeDozajSelections.pompaAdedi ?? hesaplananDegerler.pompaAdedi, 10) || 1;
+      
+      const dozajPompasiString = secilenPompaObj 
+        ? `${currentPompaAdedi} Adet ${secilenPompaObj.ekipman_adi}`
+        : `${currentPompaAdedi} Adet Dozaj Pompası (Hesaplanıyor)`;
+
+      const kimyasalTankString = secilenTankObj 
+        ? secilenTankObj.ekipman_adi 
         : "---";
 
-      // Sadece verilerde gerçekten bir değişiklik varsa store'u güncelle
       if (
         storeDozajSelections.dozajPompasi !== dozajPompasiString ||
         storeDozajSelections.kimyasalTanki !== kimyasalTankString ||
-        storeDozajSelections.gerekliFe === undefined // İlk yükleme kontrolü
+        storeDozajSelections.secilenPompaId !== finalPompaId ||
+        storeDozajSelections.secilenTankId !== finalTankId ||
+        storeDozajSelections.gerekliFe === undefined
       ) {
         updateSection("equipments", {
           ...equipmentsCache,
@@ -94,41 +157,81 @@ function IleriAritmaDozajSelections() {
               pompaSaatlikDebi: storeDozajSelections.pompaSaatlikDebi ?? hesaplananDegerler.pompaSaatlikDebi,
               pompaAdedi: currentPompaAdedi,
               tankHacmiLitre: storeDozajSelections.tankHacmiLitre ?? hesaplananDegerler.tankHacmiLitre,
-              standartTankHacmi: storeDozajSelections.standartTankHacmi ?? hesaplananDegerler.standartTankHacmi,
+              secilenPompaId: finalPompaId, 
+              secilenTankId: finalTankId,   
               dozajPompasi: dozajPompasiString,
-              kimyasalTanki: kimyasalTankString
+              kimyasalTanki: kimyasalTankString,
+              pompaBirimFiyat: secilenPompaObj?.alis_fiyati || 0,
+              tankBirimFiyat: secilenTankObj?.alis_fiyati || 0
             }
           }
         });
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hesaplananDegerler]);
+  }, [hesaplananDegerler, apiEquipments]);
 
-  // Manuel Input Değişim Yönetimi
+  // 5. MANUEL DROPDOWN VE INPUT YÖNETİMİ (Kritik Düzeltme Alanı)
   const handleInputChange = (field, value) => {
-    // Pompa adedi için tamsayı (int), diğer alanlar için float dönüşümü yapıyoruz
-    const numValue = value === "" ? "" : (field === "pompaAdedi" ? parseInt(value, 10) : parseFloat(value)) || 0;
-    
-    let ekAlanlar = {};
-    if (field === "tankHacmiLitre" && numValue !== "") {
-      ekAlanlar.standartTankHacmi = getStandardTankVolume(numValue);
+    let nextState = { ...storeDozajSelections };
+
+    if (field === "secilenPompaId") {
+      const targetId = value === "" ? "" : String(value);
+      const secilenPompaObj = apiEquipments.find(e => String(e.id) === targetId);
+      const currentPompaAdedi = parseInt(storeDozajSelections.pompaAdedi ?? hesaplananDegerler.pompaAdedi, 10) || 1;
+
+      if (secilenPompaObj) {
+        nextState = {
+          ...nextState,
+          secilenPompaId: targetId,
+          dozajPompasi: `${currentPompaAdedi} Adet ${secilenPompaObj.ekipman_adi}`,
+          pompaBirimFiyat: secilenPompaObj.alis_fiyati || 0
+        };
+      } else {
+        nextState.secilenPompaId = targetId;
+      }
+    } 
+    else if (field === "secilenTankId") {
+      const targetId = value === "" ? "" : String(value);
+      const secilenTankObj = apiEquipments.find(e => String(e.id) === targetId);
+
+      if (secilenTankObj) {
+        nextState = {
+          ...nextState,
+          secilenTankId: targetId,
+          kimyasalTanki: secilenTankObj.ekipman_adi,
+          tankBirimFiyat: secilenTankObj.alis_fiyati || 0
+        };
+      } else {
+        nextState.secilenTankId = targetId;
+      }
+    } 
+    else if (field === "pompaAdedi") {
+      const targetCount = value === "" ? "" : parseInt(value, 10) || 0;
+      nextState.pompaAdedi = targetCount;
+
+      // Adet değişince üst metni de (Örn: "2 Adet Prominent...") anlık güncelle
+      const asilPompaId = storeDozajSelections.secilenPompaId || hesaplananDegerler.otomatikPompaId;
+      const secilenPompaObj = apiEquipments.find(e => String(e.id) === String(asilPompaId));
+      if (secilenPompaObj) {
+        nextState.dozajPompasi = `${targetCount} Adet ${secilenPompaObj.ekipman_adi}`;
+      }
+    } 
+    else {
+      // Diğer sayısal manuel input girişleri (gerekliFe, gerekliFeCl3 vb.)
+      nextState[field] = value === "" ? "" : parseFloat(value) || 0;
     }
 
+    // Değişikliği anında store'a gönderiyoruz
     updateSection("equipments", {
       ...equipmentsCache,
       ileriAritma: {
         ...storeIleriAritma,
-        IleriAritmaDozajSelections: {
-          ...storeDozajSelections,
-          [field]: numValue,
-          ...ekAlanlar
-        }
+        IleriAritmaDozajSelections: nextState
       }
     });
   };
 
-  // Inputlar için ortak şeffaf stil şablonu
   const inputStyle = {
     background: "transparent",
     border: "none",
@@ -141,12 +244,24 @@ function IleriAritmaDozajSelections() {
     padding: 0
   };
 
-  // Değerleri güvenli formatlayan yardımcı fonksiyon (isInt parametresi true ise virgülsüz basar)
+  const selectStyle = {
+    background: "#1e293b",
+    border: "1px solid #334155",
+    color: "#fff",
+    fontSize: "11px",
+    borderRadius: "4px",
+    padding: "2px 5px",
+    outline: "none",
+    maxWidth: "180px"
+  };
+
   const formatValue = (storeVal, calcVal, isInt = false) => {
     const val = storeVal ?? calcVal;
     if (val === undefined || val === "") return "";
     return isInt ? parseInt(val, 10).toString() : Number(val).toFixed(2);
   };
+
+  if (loading) return <div className="text-white-50" style={{ fontSize: '11px' }}>Ekipman verileri yükleniyor...</div>;
 
   return (
     <div className="card-body d-flex flex-column gap-3" style={{ position: "relative", color: "#fff", padding: 0 }}>
@@ -162,9 +277,9 @@ function IleriAritmaDozajSelections() {
       {/* SONUÇ KARTLARI PANELİ */}
       <div className="row g-2">
 
-        {/* Sol Kolon: Kütlesel ve Hacimsel Gereksinimler */}
+        {/* Sol Kolon */}
         <div className="col-md-6 d-flex flex-column gap-2">
-
+          {/* Gerekli Saf Fe Miktarı */}
           <div className="p-2 rounded d-flex justify-content-between align-items-center" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
             <span className="text-white-50" style={{ fontSize: "10px" }}>Gerekli Saf Fe Miktarı:</span>
             <div className="d-flex align-items-center gap-1 text-white">
@@ -179,6 +294,7 @@ function IleriAritmaDozajSelections() {
             </div>
           </div>
 
+          {/* Gerekli Saf FeCl3 Miktarı */}
           <div className="p-2 rounded d-flex justify-content-between align-items-center" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
             <span className="text-white-50" style={{ fontSize: "10px" }}>Gerekli Saf FeCl₃ Miktarı:</span>
             <div className="d-flex align-items-center gap-1 text-white">
@@ -193,6 +309,7 @@ function IleriAritmaDozajSelections() {
             </div>
           </div>
 
+          {/* %40 Çözelti İhtiyacı */}
           <div className="p-2 rounded d-flex justify-content-between align-items-center" style={{ backgroundColor: "#1e293b", border: "1px solid #00874e" }}>
             <span className="text-white-50" style={{ fontSize: "10px" }}>%40 Çözelti İhtiyacı:</span>
             <div className="d-flex align-items-center gap-1 text-success">
@@ -206,30 +323,28 @@ function IleriAritmaDozajSelections() {
               <span style={{ fontSize: "9px" }}>L/gün</span>
             </div>
           </div>
-
         </div>
 
-        {/* Sağ Kolon: Pompa ve Tank Boyutlandırma */}
+        {/* Sağ Kolon */}
         <div className="col-md-6 d-flex flex-column gap-2">
-
-          {/* Pompa Saatlik Debisi */}
+          
+          {/* Pompa Seçimi */}
           <div className="p-2 rounded d-flex justify-content-between align-items-center" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
-            <span className="text-white-50" style={{ fontSize: "10px" }}>Pompa Saatlik Debisi:</span>
-            <div className="d-flex align-items-center gap-1 text-white">
-              <input
-                type="number"
-                step="0.01"
-                style={inputStyle}
-                value={formatValue(storeDozajSelections.pompaSaatlikDebi, hesaplananDegerler.pompaSaatlikDebi)}
-                onChange={(e) => handleInputChange("pompaSaatlikDebi", e.target.value)}
-              />
-              <span className="text-white-50" style={{ fontSize: "9px" }}>L/saat</span>
-            </div>
+            <span className="text-white-50" style={{ fontSize: "10px" }}>Dozaj Pompası Seçimi:</span>
+            <select
+              style={selectStyle}
+              value={storeDozajSelections.secilenPompaId || hesaplananDegerler.otomatikPompaId || ""}
+              onChange={(e) => handleInputChange("secilenPompaId", e.target.value)}
+            >
+              {availablePumps.map(pump => (
+                <option key={pump.id} value={String(pump.id)}>{pump.ekipman_adi}</option>
+              ))}
+            </select>
           </div>
 
-          {/* DİNAMİK POMPA ADEDİ KUTUSU (TAMSAYI - INT) */}
+          {/* Dinamik Pompa Adedi */}
           <div className="p-2 rounded d-flex justify-content-between align-items-center" style={{ backgroundColor: "#1e293b", border: "1px solid #ef4444" }}>
-            <span className="text-white-50" style={{ fontSize: "10px" }}>Gerekli Pompa Adedi (5 L/h @ 5 Bar):</span>
+            <span className="text-white-50" style={{ fontSize: "10px" }}>Gerekli Pompa Adedi:</span>
             <div className="d-flex align-items-center gap-1 text-danger">
               <input
                 type="number"
@@ -242,24 +357,18 @@ function IleriAritmaDozajSelections() {
             </div>
           </div>
 
-          {/* Tank Hacmi Kutusu */}
+          {/* Tank Seçimi */}
           <div className="p-2 rounded d-flex justify-content-between align-items-center" style={{ backgroundColor: "#1e293b", border: "1px solid #38bdf8" }}>
-            <span className="text-white-50" style={{ fontSize: "10px" }}>Gerekli Tank Hacmi ({stokGunu} Gün):</span>
-            <div className="d-flex align-items-center gap-1 text-info">
-              <input
-                type="number"
-                step="0.01"
-                style={{ ...inputStyle, color: "#0dcaf0", width: "65px" }}
-                value={formatValue(storeDozajSelections.tankHacmiLitre, hesaplananDegerler.tankHacmiLitre)}
-                onChange={(e) => handleInputChange("tankHacmiLitre", e.target.value)}
-              />
-              <span style={{ fontSize: "9px" }}>Litre</span>
-              {((storeDozajSelections.standartTankHacmi ?? hesaplananDegerler.standartTankHacmi) > 0) && (
-                <span className="text-warning ms-1" style={{ fontSize: "10px", whiteSpace: "nowrap" }}>
-                  (Seçilen: {Number(storeDozajSelections.standartTankHacmi ?? hesaplananDegerler.standartTankHacmi).toFixed(2)} L)
-                </span>
-              )}
-            </div>
+            <span className="text-white-50" style={{ fontSize: "10px" }}>Kimyasal Depo Tankı ({stokGunu} Gün):</span>
+            <select
+              style={selectStyle}
+              value={storeDozajSelections.secilenTankId || hesaplananDegerler.otomatikTankId || ""}
+              onChange={(e) => handleInputChange("secilenTankId", e.target.value)}
+            >
+              {availableTanks.map(tank => (
+                <option key={tank.id} value={String(tank.id)}>{tank.ekipman_adi}</option>
+              ))}
+            </select>
           </div>
 
         </div>

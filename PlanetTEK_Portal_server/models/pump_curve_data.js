@@ -97,6 +97,7 @@ const getAllPumpCurves = async (req, res) => {
                 JSON_OBJECTAGG(c.flow_rate, c.head_mss) AS mssData
             FROM submersible_pumps p
             INNER JOIN pump_curve_points c ON p.id = c.pump_id
+            WHERE p.pompa_tipi = 'submersible' -- 🚀 KOŞUL BURAYA EKLENDİ
             GROUP BY p.id, p.pompa_adi
             ORDER BY p.id ASC
         `;
@@ -117,6 +118,37 @@ const getAllPumpCurves = async (req, res) => {
     }
 };
 
+const getCentrifugePumps = async (req, res) => {
+    try {
+        // Eğri noktalarına gerek olmadığı için JOIN yapmadan doğrudan düz listeyi çekiyoruz
+        const query = `
+            SELECT 
+                id,
+                pompa_adi AS name,
+                pompa_tipi,
+                kw,
+                alis_fiyati,
+                yd_katsayi,
+                yd_satis,
+                yi_katsayi,
+                yi_satis
+            FROM submersible_pumps
+            WHERE pompa_tipi = 'centrifuge'
+            ORDER BY pompa_adi ASC
+        `;
+
+        const [rows] = await pool.execute(query);
+
+        return res.json(rows);
+    } catch (error) {
+        console.error("getCentrifugePumps Error:", error.message);
+        return res.status(500).json({
+            message: "Santrifüj pompalar yüklenirken teknik bir hata oluştu.",
+            error: error.message
+        });
+    }
+};
+
 // export kısmına getAllPumpCurves fonksiyonunu eklemeyi unutma!
 
-module.exports = { getPumpCurve, updatePumpCurve, getAllPumpCurves };
+module.exports = { getPumpCurve, updatePumpCurve, getAllPumpCurves, getCentrifugePumps };

@@ -5,7 +5,7 @@ import PriceChangeUpdateConfirmationModal from "../modals/PriceChangeUpdateConfi
 
 function Lamella() {
   const [lamellaData, setLamellaData] = useState([]);
-  const [originalData, setOriginalData] = useState([]); 
+  const [originalData, setOriginalData] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Modal State Yönetimi
@@ -14,7 +14,7 @@ function Lamella() {
 
   // 📊 Kolon Yapısı: Yeni veritabanı şemamıza göre yd_fiyat ve yi_fiyat olarak ayrıldı
   const headers = ["Lamella Tipi Seçeneği", "Yurt Dışı Fiyatı (€)", "Yurt İçi Fiyatı (€)"];
-  const fields = ["tipi", "yd_fiyat", "yi_fiyat"]; 
+  const fields = ["tipi", "yd_fiyat", "yi_fiyat"];
 
   const fetchLamellaData = async () => {
     try {
@@ -40,7 +40,7 @@ function Lamella() {
 
     const newRow = {
       id: `new_${Date.now()}`, // Benzersiz geçici ID
-      tipi: defaultName,       
+      tipi: defaultName,
       yd_fiyat: 0,
       yi_fiyat: 0,
       isNew: true
@@ -61,7 +61,7 @@ function Lamella() {
           type: "DELETE",
           tableName: "lamella_data",
           id: item.id,
-          columnName: "tipi", 
+          columnName: "tipi",
           newValue: null,
           rowName: item.tipi,
           oldValue: 0
@@ -145,7 +145,7 @@ function Lamella() {
 
       // Güncel verileri veritabanından çek ve mühürle
       await fetchLamellaData();
-      setPendingChanges([]); 
+      setPendingChanges([]);
     } catch (error) {
       console.error("Lamella fiyatları güncellenirken teknik hata:", error);
       alert("Veriler kaydedilirken sistemsel bir hata meydana geldi.");
@@ -183,18 +183,13 @@ function Lamella() {
         </div>
       </div>
 
-      <div className="row justify-content-start">
-        {/* Kolon genişliğini yeni sütunlar eklendiği için daha dengeli dursun diye col-md-9 yaptım */}
-        <div className="col-12 col-md-9">
-          <ExcelGrid
-            headers={headers}
-            data={visibleLamellaData}
-            fields={fields}
-            onDataChange={setLamellaData}
-            isMainTable={true} // Aksiyon (Silme) kolonu aktif
-          />
-        </div>
-      </div>
+      <ExcelGrid
+        headers={headers}
+        data={visibleLamellaData}
+        fields={fields}
+        onDataChange={setLamellaData}
+        isMainTable={true} // Aksiyon (Silme) kolonu aktif
+      />
 
       <PriceChangeUpdateConfirmationModal
         show={showModal}

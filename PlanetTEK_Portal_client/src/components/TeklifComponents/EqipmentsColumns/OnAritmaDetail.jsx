@@ -4,8 +4,6 @@ import API from "../../../utils/utilRequest";
 
 const IZGARA_OPTIONS = ["Otomatik Mekanik Izgara", "Manuel Izgara"];
 
-// NOT: Yukarıdaki eski sabit yagTutucuOptions, state ile çakışmaması için kaldırıldı.
-
 function OnAritmaDetail() {
   const formData = useTeklifStore((state) => state.formData);
   const updateSection = useTeklifStore((state) => state.updateSection);
@@ -16,8 +14,9 @@ function OnAritmaDetail() {
 
   // --- LOCAL STATELER ---
   const [yagTutucuOptions, setYagTutucuOptions] = useState([]);
-  const [yagTutucuKapasiteOptions, setYagTutucuKapasiteOptions] = useState({});
-  const [isLoading, setIsLoading] = useState(true); // Loading state'i eklendi
+  const [yagTutucuKapasiteOptions, setYagTutucuKapasiteOptions] = useState({}); // { 50: "Boyut A", 100: "Boyut B" }
+  const [boyutKapasiteMap, setBoyutKapasiteMap] = useState({}); // { "Boyut A": 50, "Boyut B": 100 }
+  const [isLoading, setIsLoading] = useState(true);
 
   // --- ANA DEBİ DEĞİŞİM KONTROLÜ ---
   const lastCalculatedMainDebi = storeOnAritma.calculatedMainDebi !== undefined ? storeOnAritma.calculatedMainDebi : null;
@@ -27,42 +26,50 @@ function OnAritmaDetail() {
   const yagTutucuOffset = !isMainDebiChanged ? (storeOnAritma.yagTutucuOffset || 0) : 0;
   const isInputsChanged = !isMainDebiChanged ? (storeOnAritma.isManualUserControl || false) : false;
 
-  // İdeal indeks hesaplayıcılar
+  // İdeal indeks hesaplayıcılar (Izgara Tipi İçin)
   const idealIzgaraIndex = useMemo(() => {
     if (!günlükDebi) return 0;
-    return günlükDebi < 50 ? 0 : 1;
+    return günlükDebi < 50 ? 0 : 1; // Şartına göre ideal seçimi belirler
   }, [günlükDebi]);
 
-  // FETCH PARAMETERS
+  // 🔄 FETCH PARAMETERS: Gelen 3'lü Obje Yapısına Göre Revize Edildi
   const fetchParameters = async () => {
     try {
-      setIsLoading(true); // İstek başlarken loading aktif
+      setIsLoading(true);
       const response = await API.getScreenData();
-      const data = response.data || [];
+      
+      // 🌟 OYUNU DEĞİŞTİREN YER: Gelen datayı destrucuring ile yakalıyoruz
+      const { greaseTrap = [] } = response.data || {};
 
       const uniqueBoyutlar = new Set();
       const kapasiteMap = {};
+      const tersMap = {};
 
-      data.forEach(item => {
+      // Yağ tutucu opsiyonlarını ve kapasite ilişkilerini sadece greaseTrap tablosundan üretiyoruz
+      greaseTrap.forEach(item => {
         if (item.plakaboyut) {
-          uniqueBoyutlar.add(item.plakaboyut.trim());
-        }
+          const temizBoyut = item.plakaboyut.trim();
+          uniqueBoyutlar.add(temizBoyut);
 
-        if (item.kapasite && item.plakaboyut) {
-          const kapasiteSayi = parseInt(item.kapasite.replace(/[^\d]/g, ''), 10);
-          if (!isNaN(kapasiteSayi)) {
-            kapasiteMap[kapasiteSayi] = item.plakaboyut.trim();
+          if (item.kapasite) {
+            // "200 m³/gün" -> 200
+            const kapasiteSayi = parseInt(item.kapasite.replace(/[^\d]/g, ''), 10);
+            if (!isNaN(kapasiteSayi)) {
+              kapasiteMap[kapasiteSayi] = temizBoyut;
+              tersMap[temizBoyut] = kapasiteSayi;
+            }
           }
         }
       });
 
       setYagTutucuOptions(Array.from(uniqueBoyutlar));
       setYagTutucuKapasiteOptions(kapasiteMap);
+      setBoyutKapasiteMap(tersMap);
 
     } catch (error) {
       console.error("Parametre verileri yüklenirken hata oldu:", error);
     } finally {
-      setIsLoading(false); // İstek bittiğinde (başarılı veya başarısız) loading kapanır
+      setIsLoading(false);
     }
   };
 
@@ -70,13 +77,19 @@ function OnAritmaDetail() {
     fetchParameters();
   }, []);
 
-  const idealYagTutucuIndex = useMemo(() => {
-    if (!günlükDebi || isLoading) return 0; // Veri yüklenirken hesaplamayı durdur
+  // İdeal otomatik kapasiteyi ve boyutu bulur
+  const { idealKapasite, idealYagTutucuIndex } = useMemo(() => {
+    if (!günlükDebi || isLoading) return { idealKapasite: 0, idealYagTutucuIndex: 0 };
+    
     const kapasiteler = Object.keys(yagTutucuKapasiteOptions).map(Number).sort((a, b) => a - b);
-    const uygunKapasite = kapasiteler.find((k) => günlükDebi <= k) || 99999;
+    const uygunKapasite = kapasiteler.find((k) => günlükDebi <= k) || (kapasiteler[kapasiteler.length - 1] || 0);
     const boyutMetni = yagTutucuKapasiteOptions[uygunKapasite];
     const index = yagTutucuOptions.indexOf(boyutMetni);
-    return index !== -1 ? index : 0;
+    
+    return {
+      idealKapasite: uygunKapasite,
+      idealYagTutucuIndex: index !== -1 ? index : 0
+    };
   }, [günlükDebi, yagTutucuKapasiteOptions, yagTutucuOptions, isLoading]);
 
   // Offset değerlerine göre nihai seçilen opsiyonlar
@@ -99,7 +112,7 @@ function OnAritmaDetail() {
 
   // Merkezi Store Güncelleme Fonksiyonu
   const updateOnAritmaStore = (nextIzgaraOffset, nextYagOffset, isManual = true) => {
-    if (isLoading) return; // Veri yoksa store'a hatalı yazım yapmasını engelle
+    if (isLoading) return;
 
     let finalIzgaraIdx = idealIzgaraIndex + nextIzgaraOffset;
     if (finalIzgaraIdx < 0) finalIzgaraIdx = 0;
@@ -109,6 +122,8 @@ function OnAritmaDetail() {
     if (finalYagIdx < 0) finalYagIdx = 0;
     if (finalYagIdx >= yagTutucuOptions.length) finalYagIdx = yagTutucuOptions.length - 1;
 
+    const yeniKapasite = !isManual ? idealKapasite : (storeOnAritma.onAritmaKapasite || idealKapasite);
+
     updateSection("equipments", {
       ...equipmentsCache,
       onAritma: {
@@ -117,13 +132,13 @@ function OnAritmaDetail() {
         yagTutucuOffset: nextYagOffset,
         izgaraTipi: IZGARA_OPTIONS[finalIzgaraIdx],
         yagTutucuBoyut: yagTutucuOptions[finalYagIdx],
+        onAritmaKapasite: yeniKapasite,
         isManualUserControl: isManual,
         calculatedMainDebi: günlükDebi
       }
     });
   };
 
-  // Ana debi değiştiğinde veya ilk kurulumda tetiklenen useEffect
   useEffect(() => {
     if (günlükDebi === 0 || isLoading) return;
 
@@ -131,7 +146,7 @@ function OnAritmaDetail() {
       updateOnAritmaStore(0, 0, false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [günlükDebi, isMainDebiChanged, isLoading]);
+  }, [günlükDebi, isMainDebiChanged, isLoading, idealKapasite]);
 
   const handleIzgaraChange = (newTipi) => {
     const selectedIndex = IZGARA_OPTIONS.indexOf(newTipi);
@@ -147,7 +162,8 @@ function OnAritmaDetail() {
     updateOnAritmaStore(izgaraOffset, nextOffset, true);
   };
 
-  // --- BARIYER: YÜKLENİYOR EKRANI ---
+  const gosterilenKapasite = boyutKapasiteMap[currentYagTutucuBoyut] || 0;
+
   if (isLoading) {
     return (
       <div className="d-flex flex-column align-items-center justify-content-center p-4 gap-2 text-white-50">
@@ -233,6 +249,22 @@ function OnAritmaDetail() {
           </select>
         </div>
       </div>
+
+      {/* Kapasite Bilgilendirme Alanları */}
+      {günlükDebi > 0 && (
+        <div className="row g-2 px-1 mt-1 text-white-50" style={{ fontSize: "10px" }}>
+          <div className="col-6">
+            <span>Hesaplanan Sabit Kapasite: </span>
+            <strong className="text-success">{storeOnAritma.onAritmaKapasite || 0} m³/gün</strong>
+          </div>
+          <div className="col-6 text-end">
+            <span>Seçilen Plaka Kapasitesi: </span>
+            <strong className={yagTutucuOffset !== 0 ? "text-warning" : "text-success"}>
+              {gosterilenKapasite} m³/gün
+            </strong>
+          </div>
+        </div>
+      )}
 
       {/* Eğer herhangi biri manuel değiştirildiyse geri dönme butonu */}
       {(izgaraOffset !== 0 || yagTutucuOffset !== 0) && (

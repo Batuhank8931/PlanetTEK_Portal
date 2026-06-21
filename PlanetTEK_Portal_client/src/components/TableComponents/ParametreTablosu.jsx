@@ -1,107 +1,130 @@
 import React, { useState, useEffect } from "react";
 import { useTeklifStore } from "../../utils/teklifStore";
 
+const PARAMETER_TEMPLATES = [
+  { key: "hidrolikYuk", label: "Toplam Atıksu Miktarı (max) – Hidrolik Yük", unit: "m³/gün", girişFn: (p) => p?.debi ? String(p.debi) : "0", çıkış: "-" },
+  { key: "organikYuk", label: "Toplam Kirlilik (max) – Organik Yük", unit: "kg/gün", girişFn: (p) => (p?.debi && p?.girisBoi) ? String(((p.debi * p.girisBoi) / 1000).toFixed(2)) : "0", çıkış: "-" },
+  { key: "dizaynDebisi", label: "Tesis Dizayn Debisi", unit: "m³/saat", girişFn: (p) => p?.debi ? String((p.debi / 24).toFixed(2)) : "0", çıkış: "-" },
+  { key: "boi", label: "Biyolojik Oksijen İhtiyacı (BOİ₅)", unit: "mg/L", girişFn: (p) => p?.girisBoi ? String(p.girisBoi) : "0", çıkışFn: (p) => p?.cikisBoi ? String(p.cikisBoi) : "0" },
+  { key: "koi", label: "Kimyasal Oksijen İhtiyacı (KOİ)", unit: "mg/L", girişFn: (p) => p?.girisBoi ? String((p.girisBoi * 1.8).toFixed(0)) : "0", çıkışFn: (p) => p?.cikisBoi ? String((p.cikisBoi * 1.8).toFixed(0)) : "0" },
+  { key: "akm", label: "Askıda Katı Madde (AKM)", unit: "mg/L", girişFn: (p) => p?.girisBoi ? String(p.girisBoi) : "0", çıkışFn: (p) => p?.cikisBoi ? `<${p.cikisBoi}` : "0" },
+  { key: "tn", label: "Toplam Azot (TN)", unit: "mg/L", requiresIleriAritma: true, girişFn: (p, ia) => ia?.girisToplamAzot ? String(ia.girisToplamAzot) : "0", çıkışFn: (p, ia) => ia?.cikisToplamAzot ? String(ia.cikisToplamAzot) : "0" },
+  { key: "nh4", label: "Amonyum Azotu (NH4-N)", unit: "mg/L", requiresNitrifikasyon: true, girişFn: (p) => p?.girisAmonyum ? String(p.girisAmonyum) : "0", çıkışFn: (p) => p?.cikisAmonyum ? String(p.cikisAmonyum) : "0" },
+  { key: "tp", label: "Toplam Fosfor (TP)", unit: "mg/L", requiresIleriAritma: true, girişFn: (p, ia) => ia?.girisToplamFosfor ? String(ia.girisToplamFosfor) : "0", çıkışFn: (p, ia) => ia?.cikisToplamFosfor ? String(ia.cikisToplamFosfor) : "0" },
+  { key: "yagGres", label: "Yağ ve Gres", unit: "mg/L", giriş: "≤25", çıkış: "<20" },
+  { key: "ph", label: "pH", unit: "-", giriş: "6 – 9", çıkış: "6 – 9" },
+  { key: "sicaklikAralik", label: "Atıksu Sıcaklığı", unit: "°C", giriş: "15-32", çıkış: "15-32" },
+  { key: "kabulEdilenSicaklik", label: "Kabul Edilen Sıcaklık", unit: "°C", girişFn: (p) => p?.sicaklik ? String(p.sicaklik) : "19", çıkış: "-" }
+];
+
 function ParametreTablosu() {
-    const formData = useTeklifStore((state) => state.formData);
-    const updateSection = useTeklifStore((state) => state.updateSection);
+  const formData = useTeklifStore((state) => state.formData);
+  const updateSection = useTeklifStore((state) => state.updateSection);
 
-    // 1. ADIM: Store'da önceden kaydedilmiş veri varsa oradan başlat, yoksa default array'i yükle
-    const [rows, setRows] = useState(() => {
-        const savedData = formData?.tables?.parametretablosu;
-        if (savedData && Array.isArray(savedData) && savedData.length > 0) {
-            return savedData;
-        }
-        return [
-            { id: 1, label: "Toplam Atıksu Miktarı (max) – Hidrolik Yük", unit: "m³/gün", giriş: "70,00", çıkış: "-", isUrgent: false },
-            { id: 2, label: "Toplam Kirlilik (max) – Organik Yük", unit: "kg/gün", giriş: "25,00", çıkış: "-", isUrgent: false },
-            { id: 3, label: "Tesis Dizayn Debisi", unit: "m³/saat", giriş: "2,92", çıkış: "-", isUrgent: false },
-            { id: 4, label: "Biyolojik Oksijen İhtiyacı (BOİ₅)", unit: "mg/L", giriş: "350,00", çıkış: "40", isUrgent: false },
-            { id: 5, label: "Kimyasal Oksijen İhtiyacı (KOİ)", unit: "mg/L", giriş: "630,00", çıkış: "125", isUrgent: false },
-            { id: 6, label: "Askıda Katı Madde (AKM)", unit: "mg/L", giriş: "350,00", çıkış: "<20", isUrgent: false },
-            { id: 7, label: "Toplam Azot (TN)", unit: "mg/L", giriş: "0", çıkış: "0", isUrgent: true },
-            { id: 8, label: "Amonyum Azotu (NH4-N)", unit: "mg/L", giriş: "0", çıkış: "0", isUrgent: true },
-            { id: 9, label: "Toplam Fosfor (TP)", unit: "mg/L", giriş: "0", çıkış: "0", isUrgent: true },
-            { id: 10, label: "Yağ ve Gres", unit: "mg/L", giriş: "≤25", çıkış: "<20", isUrgent: false },
-            { id: 11, label: "Sülfat", unit: "mg/L", giriş: "≤60", çıkış: "-", isUrgent: false },
-            { id: 12, merge: false, label: "pH", unit: "-", giriş: "6 – 9", çıkış: "6 – 9", isUrgent: false },
-            { id: 13, label: "Atıksu Sıcaklığı", unit: "°C", giriş: "15-32", çıkış: "15-32", isUrgent: false },
-            { id: 14, label: "Kabul Edilen Sıcaklık", unit: "°C", giriş: "19", çıkış: "-", isUrgent: false },
-        ];
+  const storeParametre = formData?.tables?.parametretablosu;
+
+  // Tasarım verilerini şablona göre eşleştiren jeneratör fonksiyonu
+  const generateRowsFromDesign = () => {
+    const pDetails = formData?.planetDiskDetails?.tasarim?.aritmaParametreleri || {};
+    const ileriAritmaData = formData?.equipments?.ileriAritma?.IleriAritmaInputSelections;
+    
+    const hasIleriAritma = formData?.equipments?.modulesState?.ileriAritma?.checked === true;
+    const hasNitrifikasyon = pDetails.nitrifikasyon === "nitrifikasyonVar";
+
+    return PARAMETER_TEMPLATES
+      .filter(param => !param.requiresNitrifikasyon || hasNitrifikasyon)
+      .filter(param => !param.requiresIleriAritma || hasIleriAritma)
+      .map((param, index) => ({
+        id: `design_${param.key}_${index}`,
+        label: param.label,
+        unit: param.unit,
+        giriş: param.girişFn ? param.girişFn(pDetails, ileriAritmaData) : (param.giriş || "0"),
+        çıkış: param.çıkışFn ? param.çıkışFn(pDetails, ileriAritmaData) : (param.çıkış || "0"),
+        isUrgent: false
+      }));
+  };
+
+  // BASAMAK 1: Eğer store'da veri varsa onu render et, yoksa sıfırdan hesapla
+  const [rows, setRows] = useState(() => {
+    if (storeParametre && storeParametre.length > 0) {
+      return storeParametre;
+    }
+    return generateRowsFromDesign();
+  });
+
+  const [history, setHistory] = useState([]);
+
+  // Form girdilerindeki değişimleri reaktif dinleyen motor
+  useEffect(() => {
+    const freshRows = generateRowsFromDesign();
+    setRows(prevRows => {
+      if (prevRows.length === 0) return freshRows;
+      return freshRows.map(fRow => {
+        const existing = prevRows.find(p => p.id === fRow.id);
+        return existing ? { ...fRow, giriş: existing.giriş, çıkış: existing.çıkış, label: existing.label, unit: existing.unit } : fRow;
+      }).concat(prevRows.filter(p => !p.id.toString().startsWith("design_")));
     });
+  }, [
+    formData?.planetDiskDetails?.tasarim?.aritmaParametreleri,
+    formData?.equipments?.ileriAritma?.IleriAritmaInputSelections,
+    formData?.equipments?.modulesState?.ileriAritma?.checked
+  ]);
 
-    const [history, setHistory] = useState([]);
+  // Güncelleme yapıldığında yeni dizi klon referansı ile store'u tetikle
+  useEffect(() => {
+    updateSection("tables", {
+      ...formData?.tables,
+      parametretablosu: [...rows]
+    });
+  }, [rows]);
 
-    // 2. ADIM: Rows her değiştiğinde anında Zustand store'u güncelle
-    useEffect(() => {
-        updateSection("tables", {
-            ...formData?.tables, // Diğer tabloları koru
-            parametretablosu: rows
-        });
-    }, [rows]);
+  // BASAMAK 2: YENİLEME FONKSİYONU
+  // Store datalarını temizleyip, tasarımdan ham verileri anlık re-render eder
+  const handleRefresh = () => {
+    setHistory([]); // Geçmişi temizle
+    const freshRows = generateRowsFromDesign();
+    setRows(freshRows);
+  };
 
-    // Geçmişi kaydetme fonksiyonu
-    const saveToHistory = (currentRows) => {
-        setHistory([...history, JSON.stringify(currentRows)]);
-    };
+  const saveToHistory = (currentRows) => {
+    setHistory([...history, JSON.stringify(currentRows)]);
+  };
 
-    // Geri al (Undo) fonksiyonu
-    const handleUndo = () => {
-        if (history.length === 0) return;
-        const previousState = JSON.parse(history[history.length - 1]);
-        setRows(previousState);
-        setHistory(history.slice(0, -1));
-    };
+  const handleUndo = () => {
+    if (history.length === 0) return;
+    const previousState = JSON.parse(history[history.length - 1]);
+    setRows(previousState);
+    setHistory(history.slice(0, -1));
+  };
 
-    // Hücre değişikliklerini yöneten merkezi fonksiyon
-    const handleCellChange = (id, field, newValue) => {
-        saveToHistory(rows);
-        setRows(rows.map(row => row.id === id ? { ...row, [field]: newValue } : row));
-    };
+  const handleCellChange = (id, field, newValue) => {
+    saveToHistory(rows);
+    setRows(rows.map(row => row.id === id ? { ...row, [field]: newValue } : row));
+  };
 
-    // Tıklanan satırın hemen altına yeni satır enjekte eden fonksiyon
-    const insertAfterRow = (index) => {
-        saveToHistory(rows);
-        const newId = `new_${Date.now()}`;
-        const newRow = { id: newId, label: "Araya Eklenen Yeni Parametre", unit: "mg/L", giriş: "0", çıkış: "0", isUrgent: false };
+  const insertAfterRow = (index) => {
+    saveToHistory(rows);
+    const newId = `new_${Date.now()}`;
+    const newRow = { id: newId, label: "Araya Eklenen Yeni Parametre", unit: "mg/L", giriş: "0", çıkış: "0", isUrgent: false };
 
-        const updatedRows = [...rows];
-        updatedRows.splice(index + 1, 0, newRow);
-        setRows(updatedRows);
-    };
+    const updatedRows = [...rows];
+    updatedRows.splice(index + 1, 0, newRow);
+    setRows(updatedRows);
+  };
 
-    // Satır silme fonksiyonu
-    const deleteRow = (id) => {
-        saveToHistory(rows);
-        setRows(rows.filter(row => row.id !== id));
-    };
+  const deleteRow = (id) => {
+    saveToHistory(rows);
+    setRows(rows.filter(row => row.id !== id));
+  };
 
-    return (
-        <div className="d-flex flex-column gap-3 w-100">
-
-            <style>{`
-        .table-row-param {
-          border-bottom: 1px solid #334155;
-          transition: background-color 0.15s ease;
-        }
-        .table-row-param:last-child {
-          border-bottom: none;
-        }
-        .bg-normal-param {
-          background-color: #1e293b;
-        }
-        .bg-normal-param:hover {
-          background-color: #243249 !important;
-        }
-        .bg-urgent-param {
-          background-color: #991b1b !important;
-        }
-        .bg-urgent-param:hover {
-          background-color: #b91c1c !important;
-        }
-        .param-input:focus {
-          outline: none;
-          background-color: rgba(255, 255, 255, 0.05) !important;
-        }
+  return (
+    <div className="d-flex flex-column w-100">
+      <style>{`
+        .table-row-param { border-bottom: 1px solid #334155; transition: background-color 0.15s ease; }
+        .table-row-param:last-child { border-bottom: none; }
+        .bg-normal-param { background-color: #1e293b; }
+        .bg-normal-param:hover { background-color: #243249 !important; }
+        .param-input:focus { outline: none; background-color: rgba(255, 255, 255, 0.05) !important; }
         .header-cell {
           font-size: 11px;
           font-weight: 700;
@@ -110,135 +133,145 @@ function ParametreTablosu() {
           text-transform: uppercase;
           letter-spacing: 0.5px;
         }
-        .opacity-hover:hover {
-          opacity: 1 !important;
-        }
+        .opacity-hover:hover { opacity: 1 !important; }
       `}</style>
 
-            {/* ÜST KONTROL PANELİ (GERİ AL BUTONU) */}
-            <div className="d-flex justify-content-end align-items-center mb-1">
-                <button
-                    onClick={handleUndo}
-                    disabled={history.length === 0}
-                    className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1"
-                    style={{
-                        backgroundColor: history.length === 0 ? "#334155" : "#1e3a8a",
-                        fontSize: "11px",
-                        borderRadius: "6px",
-                        transition: "0.2s",
-                        opacity: history.length === 0 ? 0.4 : 1,
-                        cursor: history.length === 0 ? "not-allowed" : "pointer"
-                    }}
-                >
-                    <span style={{ fontSize: "12px" }}>↶</span> Son Değişikliği Geri Al ({history.length})
-                </button>
-            </div>
-
-            {/* Ana Tablo Bloğu */}
-            <div
-                className="d-flex flex-column rounded-3 overflow-hidden"
-                style={{ border: "1px solid #334155", height: "auto" }}
+      <div className="d-flex flex-column rounded-3 overflow-hidden" style={{ border: "1px solid #334155" }}>
+        
+        {/* ÜST PANEL */}
+        <div className="d-flex justify-content-between align-items-center p-3" style={{ backgroundColor: "#1e293b", borderBottom: "1px solid #334155" }}>
+          <div className="fw-semibold text-white" style={{ fontSize: "14px" }}>
+            Tasarım Giriş / Çıkış Parametreleri Tablosu
+          </div>
+          
+          {/* YENİLE VE GERİ AL BUTON GRUBU */}
+          <div className="d-flex align-items-center gap-2">
+            {/* Yenileme Butonu */}
+            <button
+              onClick={handleRefresh}
+              className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
+              style={{
+                backgroundColor: "#d97706",
+                fontSize: "11px",
+                borderRadius: "6px",
+                transition: "0.2s",
+                cursor: "pointer"
+              }}
+              title="Tabloyu İlk Tasarım Ayarlarına Döndür"
             >
+              🔄 Yenile
+            </button>
 
-                {/* TABLO BAŞLIĞI (HEADER) */}
-                <div className="d-flex align-items-stretch border-bottom" style={{ borderColor: "#334155" }}>
-                    <div className="p-2 px-3 header-cell" style={{ width: "40%" }}>Parametre</div>
-                    <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                    <div className="p-2 px-3 header-cell text-center" style={{ width: "15%" }}>Birim</div>
-                    <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                    <div className="p-2 px-3 header-cell text-end" style={{ width: "20%" }}>Atıksu Giriş</div>
-                    <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                    <div className="p-2 px-3 header-cell text-end" style={{ width: "20%" }}>Atıksu Çıkış</div>
-                    <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                    <div className="p-2 text-center header-cell" style={{ width: "5%" }}>Aksiyon</div>
-                </div>
-
-                {/* TABLO SATIRLARI */}
-                {rows.map((row, index) => (
-                    <div
-                        key={row.id}
-                        className={`d-flex align-items-stretch table-row-param ${row.isUrgent ? 'bg-urgent-param' : 'bg-normal-param'}`}
-                    >
-                        {/* 1. KOLON: Parametre Adı */}
-                        <div className="p-1 px-3 d-flex align-items-center" style={{ width: "40%" }}>
-                            <input
-                                type="text"
-                                className="form-control form-control-sm text-start text-white bg-transparent border-0 fw-medium p-1 param-input rounded"
-                                style={{ fontSize: "12px", boxShadow: "none", width: "100%" }}
-                                value={row.label}
-                                onChange={(e) => handleCellChange(row.id, "label", e.target.value)}
-                            />
-                        </div>
-
-                        <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-
-                        {/* 2. KOLON: Birim */}
-                        <div className="p-1 px-2 d-flex align-items-center justify-content-center" style={{ width: "15%" }}>
-                            <input
-                                type="text"
-                                className="form-control form-control-sm text-center text-white-50 bg-transparent border-0 p-1 param-input rounded"
-                                style={{ fontSize: "12px", boxShadow: "none", width: "100%" }}
-                                value={row.unit}
-                                onChange={(e) => handleCellChange(row.id, "unit", e.target.value)}
-                            />
-                        </div>
-
-                        <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-
-                        {/* 3. KOLON: Giriş Değerleri */}
-                        <div className="p-1 px-3 d-flex align-items-center justify-content-end" style={{ width: "20%" }}>
-                            <input
-                                type="text"
-                                className="form-control form-control-sm text-end fw-bold text-white bg-transparent border-0 p-1 param-input rounded"
-                                style={{ fontSize: "12px", boxShadow: "none", width: "100%" }}
-                                value={row.giriş}
-                                onChange={(e) => handleCellChange(row.id, "giriş", e.target.value)}
-                            />
-                        </div>
-
-                        <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-
-                        {/* 4. KOLON: Çıkış Değerleri */}
-                        <div className="p-1 px-3 d-flex align-items-center justify-content-end" style={{ width: "20%" }}>
-                            <input
-                                type="text"
-                                className="form-control form-control-sm text-end fw-bold text-white bg-transparent border-0 p-1 param-input rounded"
-                                style={{ fontSize: "12px", boxShadow: "none", width: "100%" }}
-                                value={row.çıkış}
-                                onChange={(e) => handleCellChange(row.id, "çıkış", e.target.value)}
-                            />
-                        </div>
-
-                        <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-
-                        {/* AKSİYON PANELİ (Hem Silme Hem Araya Ekleme) */}
-                        <div className="p-1 d-flex align-items-center justify-content-center gap-2" style={{ width: "5%" }}>
-                            {/* Araya Ekle Butonu */}
-                            <button
-                                onClick={() => insertAfterRow(index)}
-                                className="btn btn-sm p-0 border-0 text-success opacity-50 opacity-hover fw-bold"
-                                style={{ fontSize: "15px", lineHeight: "1" }}
-                                title="Altına Yeni Satır Ekle"
-                            >
-                                +
-                            </button>
-                            {/* Silme Butonu */}
-                            <button
-                                onClick={() => deleteRow(row.id)}
-                                className="btn btn-sm p-0 border-0 text-danger opacity-50 opacity-hover"
-                                style={{ fontSize: "16px", lineHeight: "1" }}
-                                title="Satırı Sil"
-                            >
-                                &times;
-                            </button>
-                        </div>
-
-                    </div>
-                ))}
-            </div>
-
+            {/* Geri Al Butonu */}
+            <button
+              onClick={handleUndo}
+              disabled={history.length === 0}
+              className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
+              style={{
+                backgroundColor: history.length === 0 ? "#334155" : "#1e3a8a",
+                fontSize: "11px",
+                borderRadius: "6px",
+                transition: "0.2s",
+                opacity: history.length === 0 ? 0.4 : 1,
+                cursor: history.length === 0 ? "not-allowed" : "pointer"
+              }}
+            >
+              ↶ Geri Al
+            </button>
+          </div>
         </div>
-    );
+
+        <div className="d-flex align-items-stretch border-bottom" style={{ borderColor: "#334155" }}>
+          <div className="p-2 px-3 header-cell" style={{ width: "40%" }}>Parametre</div>
+          <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+          <div className="p-2 px-3 header-cell text-center" style={{ width: "15%" }}>Birim</div>
+          <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+          <div className="p-2 px-3 header-cell text-end" style={{ width: "20%" }}>Atıksu Giriş</div>
+          <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+          <div className="p-2 px-3 header-cell text-end" style={{ width: "20%" }}>Atıksu Çıkış</div>
+          <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+          <div className="p-2 text-center header-cell" style={{ width: "5%" }}>Aksiyon</div>
+        </div>
+
+        <div style={{ overflowY: "auto" }}>
+          {rows.map((row, index) => (
+            <div key={row.id} className="d-flex align-items-stretch table-row-param bg-normal-param">
+              
+              <div className="p-1 px-3 d-flex align-items-center" style={{ width: "40%" }}>
+                <input
+                  type="text"
+                  className="form-control form-control-sm text-start text-white bg-transparent border-0 fw-medium p-1 param-input rounded"
+                  style={{ fontSize: "12px", boxShadow: "none", width: "100%" }}
+                  value={row.label}
+                  onChange={(e) => handleCellChange(row.id, "label", e.target.value)}
+                />
+              </div>
+
+              <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+
+              <div className="p-1 px-2 d-flex align-items-center justify-content-center" style={{ width: "15%" }}>
+                <input
+                  type="text"
+                  className="form-control form-control-sm text-center text-white-50 bg-transparent border-0 p-1 param-input rounded"
+                  style={{ fontSize: "12px", boxShadow: "none", width: "100%" }}
+                  value={row.unit}
+                  onChange={(e) => handleCellChange(row.id, "unit", e.target.value)}
+                />
+              </div>
+
+              <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+
+              <div className="p-1 px-3 d-flex align-items-center justify-content-end" style={{ width: "20%" }}>
+                <input
+                  type="text"
+                  className="form-control form-control-sm text-end fw-bold text-white bg-transparent border-0 p-1 param-input rounded"
+                  style={{ fontSize: "12px", boxShadow: "none", width: "100%" }}
+                  value={row.giriş}
+                  onChange={(e) => handleCellChange(row.id, "giriş", e.target.value)}
+                />
+              </div>
+
+              <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+
+              <div className="p-1 px-3 d-flex align-items-center justify-content-end" style={{ width: "20%" }}>
+                <input
+                  type="text"
+                  className="form-control form-control-sm text-end fw-bold text-white bg-transparent border-0 p-1 param-input rounded"
+                  style={{ fontSize: "12px", boxShadow: "none", width: "100%" }}
+                  value={row.çıkış}
+                  onChange={(e) => handleCellChange(row.id, "çıkış", e.target.value)}
+                />
+              </div>
+
+              <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+
+              <div className="p-1 d-flex align-items-center justify-content-center gap-2" style={{ width: "5%" }}>
+                <button
+                  onClick={() => insertAfterRow(index)}
+                  className="btn btn-sm p-0 border-0 text-success opacity-50 opacity-hover fw-bold"
+                  style={{ fontSize: "15px", lineHeight: "1" }}
+                  title="Altına Yeni Satır Ekle"
+                  type="button"
+                >
+                  +
+                </button>
+                <button
+                  onClick={() => deleteRow(row.id)}
+                  className="btn btn-sm p-0 border-0 text-danger opacity-50 opacity-hover"
+                  style={{ fontSize: "16px", lineHeight: "1" }}
+                  title="Satırı Sil"
+                  type="button"
+                >
+                  &times;
+                </button>
+              </div>
+
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default ParametreTablosu;

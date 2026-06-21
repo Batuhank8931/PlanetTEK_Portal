@@ -1,0 +1,253 @@
+import React, { useEffect, useRef, useState } from "react";
+
+const AutoResizeTextarea = ({ value, onChange, disabled, style, className }) => {
+    const textareaRef = useRef(null);
+
+    const adjustHeight = () => {
+        const textarea = textareaRef.current;
+        if (textarea) {
+            textarea.style.height = "auto";
+            textarea.style.height = `${textarea.scrollHeight}px`;
+        }
+    };
+
+    useEffect(() => {
+        adjustHeight();
+    }, [value]);
+
+    return (
+        <textarea
+            ref={textareaRef}
+            value={value}
+            onChange={onChange}
+            disabled={disabled}
+            style={{ ...style, resize: "none", overflowY: "hidden" }}
+            className={className}
+            rows={1}
+        />
+    );
+};
+
+function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellChange, insertAfterRow, deleteRow, handleRefresh }) {
+    const [activeMenuId, setActiveMenuId] = useState(null);
+
+    useEffect(() => {
+        const handleOutsideClick = () => setActiveMenuId(null);
+        if (activeMenuId !== null) {
+            window.addEventListener("click", handleOutsideClick);
+        }
+        return () => window.removeEventListener("click", handleOutsideClick);
+    }, [activeMenuId]);
+
+    const getRowBg = (row) => {
+        if (row.type === 0) return "#0b1329";
+        if (row.type === 1) return "#1e2d42";
+        if (row.type === 2) return "#2a3a52";
+        if (row.isUrgent) return "#1e2d42";
+        if (row.piece === 0) return "#2d1f2d";
+        return "#151f32";
+    };
+
+    return (
+        <div className="d-flex flex-column w-100">
+            <style>{`
+                .capex-row { border-bottom: 1px solid #334155; }
+                .capex-row:last-child { border-bottom: none; }
+                .capex-input:focus { outline: none; background-color: rgba(255, 255, 255, 0.05) !important; }
+                .header-title-cell { font-size: 11px; font-weight: 800; color: #94a3b8; background-color: #090d16; text-transform: uppercase; letter-spacing: 0.6px; }
+                
+                .action-dropdown { position: relative; display: inline-block; }
+                .dropdown-menu-custom { 
+                    position: absolute; 
+                    background-color: #1e293b; 
+                    border: 1px solid #475569; 
+                    border-radius: 6px; 
+                    z-index: 999; 
+                    right: 110%; 
+                    top: 50%;
+                    transform: translateY(-50%);
+                    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5); 
+                }
+                
+                .dropdown-item-custom { padding: 8px 14px; font-size: 11px; color: #cbd5e1; cursor: pointer; white-space: nowrap; text-align: left; }
+                .dropdown-item-custom:hover { background-color: #334155; color: #fff; }
+            `}</style>
+
+            <div className="d-flex flex-column rounded-3 overflow-hidden" style={{ border: "1px solid #334155" }}>
+
+                {/* ÜST PANEL */}
+                <div className="d-flex justify-content-between align-items-center p-3" style={{ backgroundColor: "#1e293b", borderBottom: "1px solid #334155" }}>
+                    <div className="fw-semibold text-white" style={{ fontSize: "14px" }}>
+                        Maliyet ve Yatırım Tablosu (CAPEX)
+                    </div>
+
+                    <div className="d-flex align-items-center gap-2">
+                        {/* Yenileme Butonu */}
+                        <button
+                            onClick={handleRefresh}
+                            className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
+                            style={{
+                                backgroundColor: "#d97706",
+                                fontSize: "11px",
+                                borderRadius: "6px",
+                                transition: "0.2s",
+                                cursor: "pointer"
+                            }}
+                            title="Tabloyu İlk Ayarlarına Döndür"
+                        >
+                            🔄 Yenile
+                        </button>
+
+                        {/* Geri Al Butonu */}
+                        <button
+                            onClick={handleUndo}
+                            disabled={!handleUndo || historyLength === 0}
+                            className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
+                            style={{
+                                backgroundColor: historyLength === 0 ? "#334155" : "#1e3a8a",
+                                fontSize: "11px",
+                                borderRadius: "6px",
+                                transition: "0.2s",
+                                opacity: historyLength === 0 ? 0.4 : 1,
+                                cursor: historyLength === 0 ? "not-allowed" : "pointer"
+                            }}
+                        >
+                            ↶ Geri Al
+                        </button>
+                    </div>
+                </div>
+
+                {/* TABLO BAŞLIĞI */}
+                <div className="d-flex align-items-stretch border-bottom" style={{ borderBottomColor: "#334155" }}>
+                    <div className="p-2 px-2 header-title-cell text-center" style={{ width: "7%" }}>No</div>
+                    <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+                    <div className="p-2 px-3 header-title-cell" style={{ width: "36%" }}>Tanım</div>
+                    <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+                    <div className="p-2 px-2 header-title-cell text-center" style={{ width: "7%" }}>Adet</div>
+                    <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+                    <div className="p-2 px-2 header-title-cell text-end" style={{ width: "11%" }}>Birim Fiyat</div>
+                    <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+                    <div className="p-2 px-2 header-title-cell text-end" style={{ width: "11%" }}>Toplam Fiyat</div>
+                    <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+                    <div className="p-2 px-2 header-title-cell text-center" style={{ width: "10%" }}>İndirim Oranı</div>
+                    <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+                    <div className="p-2 px-2 header-title-cell text-end" style={{ width: "12%" }}>İndirim Sonrası</div>
+                    <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+                    <div className="p-2 header-title-cell text-center" style={{ width: "6%" }}>Aksiyon</div>
+                </div>
+
+                {/* TABLO GÖVDESİ */}
+                <div style={{ overflowY: "auto" }}>
+                    {numberedRows.map((row, index) => {
+                        const rawTotal = row.rawTotal ?? 0;
+                        const netTotal = row.netTotal ?? 0;
+
+                        let totalStr = `${rawTotal.toLocaleString()} €`;
+                        let netStr = `${netTotal.toLocaleString()} €`;
+
+                        if (row.isUrgent) { totalStr = "MÜŞTERİYE AİT"; netStr = "MÜŞTERİYE AİT"; }
+                        else if (row.isOptionalStyle) { totalStr = "Seçime bağlı"; netStr = "Seçime bağlı"; }
+                        else if (row.isShippingStyle) { totalStr = "-"; netStr = "Bilgi Amaçlı"; }
+                        else if (row.unitPrice === 0 && row.type === 3) { totalStr = "-"; netStr = "-"; }
+
+                        return (
+                            <div key={row.id} className="d-flex align-items-stretch capex-row" style={{ backgroundColor: getRowBg(row) }}>
+                                <div className="p-2 px-2 d-flex align-items-center justify-content-center text-white-50 fw-bold" style={{ width: "7%", fontSize: "11px" }}>
+                                    {row.computedNo}
+                                </div>
+                                <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+
+                                <div className="p-2 px-3 d-flex align-items-center" style={{ width: "36%" }}>
+                                    {row.type < 3 ? (
+                                        <input
+                                            type="text"
+                                            className="form-control form-control-sm text-start text-white bg-transparent border-0 fw-bold p-0 capex-input"
+                                            style={{ fontSize: row.type === 0 ? "13px" : "12px", color: row.type === 0 ? "#60a5fa" : row.type === 1 ? "#cbd5e1" : "#94a3b8", boxShadow: "none", width: "100%" }}
+                                            value={row.label}
+                                            onChange={(e) => handleCellChange(row.id, "label", e.target.value)}
+                                        />
+                                    ) : (
+                                        <AutoResizeTextarea
+                                            className="form-control form-control-sm text-start text-white bg-transparent border-0 fw-medium p-0 capex-input rounded"
+                                            style={{ fontSize: "12px", boxShadow: "none", width: "100%", lineHeight: "1.4" }}
+                                            value={row.label}
+                                            onChange={(e) => handleCellChange(row.id, "label", e.target.value)}
+                                        />
+                                    )}
+                                </div>
+
+                                <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+                                <div className="p-1 d-flex align-items-center justify-content-center" style={{ width: "7%" }}>
+                                    {row.type < 3 || row.isUrgent ? null : (
+                                        <input type="number" className="form-control form-control-sm text-center text-white bg-transparent border-0 p-0 capex-input fw-bold" style={{ fontSize: "12px", boxShadow: "none" }} value={row.piece} onChange={(e) => handleCellChange(row.id, "piece", e.target.value)} />
+                                    )}
+                                </div>
+                                <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+                                <div className="p-1 px-2 d-flex align-items-center justify-content-end" style={{ width: "11%" }}>
+                                    {row.type < 3 || row.isUrgent ? null : (
+                                        <input type="number" className="form-control form-control-sm text-end text-white bg-transparent border-0 p-0 capex-input fw-bold" style={{ fontSize: "12px", boxShadow: "none" }} value={row.unitPrice} onChange={(e) => handleCellChange(row.id, "unitPrice", e.target.value)} />
+                                    )}
+                                    {(row.type === 3 && !row.isUrgent) && <span className="text-white-50 ms-1" style={{ fontSize: "11px" }}>€</span>}
+                                </div>
+                                <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+                                <div className="p-1 px-2 d-flex align-items-center justify-content-end text-white fw-bold" style={{ width: "11%", fontSize: "11.5px" }}>
+                                    {row.type < 3 ? null : totalStr}
+                                </div>
+                                <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+                                <div className="p-1 d-flex align-items-center justify-content-center" style={{ width: "10%" }}>
+                                    {row.type < 3 || row.isUrgent || row.isShippingStyle ? null : (
+                                        <div className="d-flex align-items-center justify-content-center gap-1 w-100">
+                                            <input type="number" className="form-control form-control-sm text-center text-white-50 bg-transparent border-0 p-0 capex-input" style={{ fontSize: "11.5px", boxShadow: "none", width: "45%" }} value={row.discount} onChange={(e) => handleCellChange(row.id, "discount", e.target.value)} />
+                                            <span className="text-white-50" style={{ fontSize: "10px" }}>%</span>
+                                        </div>
+                                    )}
+                                </div>
+                                <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+                                <div className="p-1 px-2 d-flex align-items-center justify-content-end fw-bold" style={{ width: "12%", fontSize: "12px", color: row.isUrgent ? "#94a3b8" : row.piece === 0 ? "#94a3b8" : "#4ade80" }}>
+                                    {row.type < 3 ? null : netStr}
+                                </div>
+                                <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+
+                                <div className="p-1 d-flex align-items-center justify-content-center gap-2" style={{ width: "6%" }}>
+                                    <div className="action-dropdown d-flex align-items-center justify-content-center" style={{ width: "24px", height: "24px" }}>
+                                        <button
+                                            type="button"
+                                            className="btn btn-sm p-0 border-0 text-success opacity-70 fw-bold"
+                                            style={{ fontSize: "16px", lineHeight: "1" }}
+                                            onClick={(e) => {
+                                                e.stopPropagation();
+                                                setActiveMenuId(activeMenuId === row.id ? null : row.id);
+                                            }}
+                                        >
+                                            +
+                                        </button>
+                                        
+                                        {activeMenuId === row.id && (
+                                            <div className="dropdown-menu-custom" onClick={(e) => e.stopPropagation()}>
+                                                <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 0); setActiveMenuId(null); }}>+ Ana Başlık</div>
+                                                <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 1); setActiveMenuId(null); }}>+ Alt Başlık Lvl 1</div>
+                                                <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 2); setActiveMenuId(null); }}>+ Alt Başlık Lvl 2</div>
+                                                <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 3); setActiveMenuId(null); }}>+ Normal Satır</div>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={(e) => { e.stopPropagation(); deleteRow(row.id); }}
+                                        className="btn btn-sm p-0 border-0 text-danger opacity-60"
+                                        style={{ fontSize: "16px", lineHeight: "1" }}
+                                        title="Bu Satırı Sil"
+                                    >
+                                        &times;
+                                    </button>
+                                </div>
+                            </div>
+                        );
+                    })}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+export default CapexTableView;

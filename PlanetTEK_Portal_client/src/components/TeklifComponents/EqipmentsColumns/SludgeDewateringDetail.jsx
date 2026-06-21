@@ -68,7 +68,12 @@ function SludgeDewateringDetail() {
     opsiyonelTipler.forEach((tip) => {
       const ilkModel = ekipmanGruplari[tip]?.[0];
       const varsayilanSecili = tip === "polimer_unitesi";
-      baslangicOpsiyonlari[tip] = { secili: varsayilanSecili, id: ilkModel ? ilkModel.id : "" };
+      // 🚀 Yapıya 'adet: 1' bilgisini entegre ettik
+      baslangicOpsiyonlari[tip] = { 
+        secili: varsayilanSecili, 
+        id: ilkModel ? ilkModel.id : "",
+        adet: 1 
+      };
     });
     setOpsiyonlar(baslangicOpsiyonlari);
   }, [dbLoading, dbData, opsiyonelTipler, ekipmanGruplari]);
@@ -166,7 +171,6 @@ function SludgeDewateringDetail() {
     };
   }, [debi, boi, secilenEkipmanTipi, ekipmanGruplari, hesapParametreleri, dbLoading, dbData, anaOffset, beslemeOffset, suzuntuOffset]);
 
-  // Teknoloji tipi değiştiğinde ana modelin offsetini sıfırlayalım ki eski teknoloji hafızası sapıtmasın
   useEffect(() => {
     setAnaOffset(0);
   }, [secilenEkipmanTipi]);
@@ -174,14 +178,35 @@ function SludgeDewateringDetail() {
   useEffect(() => {
     if (dbLoading || dbData.length === 0) return;
 
+    const temizleEkipman = (ekipmanObj) => {
+      if (!ekipmanObj) return null;
+      const {
+        id,
+        ekipman_tipi,
+        kapasite_degeri,
+        kapasite_birimi,
+        besleme_kw,
+        geri_yikama_kw
+      } = ekipmanObj;
+
+      return {
+        id,
+        ekipman_tipi,
+        kapasite_degeri,
+        kapasite_birimi,
+        ...(besleme_kw && { besleme_kw }),
+        ...(geri_yikama_kw && { geri_yikama_kw })
+      };
+    };
+
     updateSection("equipments", {
       ...equipmentsCache,
       sludgeDewatering: {
         ekipmanTipi: secilenEkipmanTipi,
         hesapParametreleri,
-        anaEkipman: otomatikKonfigurasyon.ana,
-        beslemePompasi: otomatikKonfigurasyon.besleme,
-        suzuntuPompasi: otomatikKonfigurasyon.suzuntu,
+        anaEkipman: temizleEkipman(otomatikKonfigurasyon.ana),
+        beslemePompasi: temizleEkipman(otomatikKonfigurasyon.besleme),
+        suzuntuPompasi: temizleEkipman(otomatikKonfigurasyon.suzuntu),
         anaOffset,
         beslemeOffset,
         suzuntuOffset,
@@ -189,7 +214,6 @@ function SludgeDewateringDetail() {
         gerekliIhtiyac: otomatikKonfigurasyon.hamIhtiyac,
       },
     });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [secilenEkipmanTipi, hesapParametreleri, otomatikKonfigurasyon, opsiyonlar, dbLoading, dbData, anaOffset, beslemeOffset, suzuntuOffset]);
 
   const handleParametreChange = (key, value) => {
@@ -203,7 +227,6 @@ function SludgeDewateringDetail() {
     }));
   };
 
-  // 🚀 DROPDOWN SEÇİM HANDLER FONKSİYONLARI (KİLİTSİZ OFFSETE GÖRE ÇALIŞIR)
   const handleAnaDropdownChange = (targetId) => {
     const tipKey = secilenEkipmanTipi === "Dekantör" ? "dekantor" : "filtrepres";
     const modeller = ekipmanGruplari[tipKey] || [];
@@ -332,7 +355,7 @@ function SludgeDewateringDetail() {
       {/* --- PANEL GRUPLARI --- */}
       <div className="card-body d-flex flex-column gap-3" style={{ padding: 0 }}>
 
-        {/* 🚀 2. ANA SUSUZLAŞTIRMA ÜNİTESİ (KİLİTSİZ DROPDOWN ENTEGRASYONU) */}
+        {/* 2. ANA SUSUZLAŞTIRMA ÜNİTESİ */}
         <div className="d-flex flex-column gap-2">
           <div className="d-flex align-items-center">
             <span className="fw-bold text-uppercase pe-2" style={{ fontSize: "11px", letterSpacing: "0.7px", color: "#00874e" }}>
@@ -376,7 +399,7 @@ function SludgeDewateringDetail() {
           </div>
         </div>
 
-        {/* 🚀 3. ENTEGRE POMPA GRUPLARI */}
+        {/* 3. ENTEGRE POMPA GRUPLARI */}
         <div className="d-flex flex-column gap-2">
           <div className="d-flex align-items-center">
             <span className="fw-bold text-uppercase pe-2" style={{ fontSize: "11px", letterSpacing: "0.7px", color: "#00874e" }}>
@@ -385,8 +408,6 @@ function SludgeDewateringDetail() {
             <div className="flex-grow-1 border-bottom" style={{ borderColor: "rgba(255,255,255,0.1)" }}></div>
           </div>
           <div className="row g-2">
-            
-            {/* Çamur Besleme Pompası */}
             <div className="col-md-6">
               <div className="p-2 rounded d-flex justify-content-between align-items-center h-100" style={{ backgroundColor: "#1e293b", border: beslemeOffset !== 0 ? "1px solid #f59e0b" : "1px solid #ef4444" }}>
                 <div className="flex-grow-1 me-2">
@@ -419,7 +440,6 @@ function SludgeDewateringDetail() {
               </div>
             </div>
 
-            {/* Süzüntü Suyu Pompası */}
             <div className="col-md-6">
               <div className="p-2 rounded d-flex justify-content-between align-items-center h-100" style={{ backgroundColor: "#1e293b", border: suzuntuOffset !== 0 ? "1px solid #f59e0b" : "1px solid #a855f7" }}>
                 <div className="flex-grow-1 me-2">
@@ -451,11 +471,10 @@ function SludgeDewateringDetail() {
                 )}
               </div>
             </div>
-
           </div>
         </div>
 
-        {/* 4. YARDIMCI VE OPSİYONEL EKİPMAN PANELİ */}
+        {/* 🚀 4. YARDIMCI VE OPSİYONEL EKİPMAN PANELİ (YENİLENEN INT INPUT ALANI) */}
         <div className="d-flex flex-column gap-2 mt-2">
           <div className="d-flex align-items-center">
             <span className="fw-bold text-uppercase pe-2" style={{ fontSize: "11px", letterSpacing: "0.7px", color: "#00874e" }}>
@@ -467,7 +486,8 @@ function SludgeDewateringDetail() {
           <div className="row g-2">
             {opsiyonelTipler.map((tip) => {
               const modeller = ekipmanGruplari[tip] || [];
-              const mevcutOpsiyon = opsiyonlar[tip] || { secili: false, id: "" };
+              const mevcutOpsiyon = opsiyonlar[tip] || { secili: false, id: "", adet: 1 };
+              const ilkModel = modeller[0];
 
               const baslikFormatli = tip
                 .replace(/_/g, " ")
@@ -480,34 +500,50 @@ function SludgeDewateringDetail() {
                       backgroundColor: mevcutOpsiyon.secili ? "rgba(16, 185, 129, 0.08)" : "#1e293b",
                       border: mevcutOpsiyon.secili ? "1px solid #10b981" : "1px solid #2d3748"
                     }}>
-                    <div className="d-flex align-items-center gap-2">
-                      <input
-                        type="checkbox"
-                        className="form-check-input m-0 cursor-pointer"
-                        style={{ width: "16px", height: "16px", accentColor: "#10b981" }}
-                        id={`check-${tip}`}
-                        checked={mevcutOpsiyon.secili}
-                        onChange={(e) => handleOpsiyonChange(tip, "secili", e.target.checked)}
-                      />
-                      <label htmlFor={`check-${tip}`} className="form-check-label fw-semibold m-0 cursor-pointer" style={{ fontSize: "11px" }}>
-                        {baslikFormatli} Sistem Entegrasyonu
-                      </label>
+                    <div className="d-flex flex-column justify-content-center">
+                      <div className="d-flex align-items-center gap-2">
+                        <input
+                          type="checkbox"
+                          className="form-check-input m-0 cursor-pointer"
+                          style={{ width: "16px", height: "16px", accentColor: "#10b981" }}
+                          id={`check-${tip}`}
+                          checked={mevcutOpsiyon.secili}
+                          onChange={(e) => handleOpsiyonChange(tip, "secili", e.target.checked)}
+                        />
+                        <label htmlFor={`check-${tip}`} className="form-check-label fw-semibold m-0 cursor-pointer" style={{ fontSize: "11px" }}>
+                          {baslikFormatli} Entegrasyonu
+                        </label>
+                      </div>
+                      {/* Kapasite bilgisini etiket altında bilgilendirme olarak gösteriyoruz */}
+                      {ilkModel && (
+                        <span className="text-white-50 ms-4 mt-0.5" style={{ fontSize: "9px" }}>
+                          Kapasite: {parseFloat(ilkModel.kapasite_degeri).toFixed(2)} {ilkModel.kapasite_birimi}
+                        </span>
+                      )}
                     </div>
 
-                    {mevcutOpsiyon.secili && modeller.length > 0 && (
-                      <div style={{ width: "130px" }}>
-                        <select
-                          className="form-select form-select-sm border-0 py-0 text-white"
-                          style={{ backgroundColor: "#0f172a", fontSize: "11px", height: "26px", borderRadius: "4px" }}
-                          value={mevcutOpsiyon.id}
-                          onChange={(e) => handleOpsiyonChange(tip, "id", e.target.value)}
-                        >
-                          {modeller.map((m) => (
-                            <option key={m.id} value={m.id} style={{ backgroundColor: "#1e293b" }}>
-                              {parseFloat(m.kapasite_degeri).toFixed(2)} {m.kapasite_birimi}
-                            </option>
-                          ))}
-                        </select>
+                    {/* 🚀 Dropdown kaldırıldı, yerine dinamik INT Adet Input Alanı eklendi */}
+                    {mevcutOpsiyon.secili && (
+                      <div className="d-flex align-items-center gap-1">
+                        <span className="text-white-50" style={{ fontSize: "10px" }}>Adet:</span>
+                        <input
+                          type="number"
+                          min="1"
+                          step="1"
+                          className="form-control form-control-sm text-center text-white fw-bold border-0"
+                          style={{ 
+                            backgroundColor: "#0f172a", 
+                            fontSize: "11px", 
+                            height: "26px", 
+                            width: "55px", 
+                            borderRadius: "4px" 
+                          }}
+                          value={mevcutOpsiyon.adet || 1}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10);
+                            handleOpsiyonChange(tip, "adet", isNaN(val) || val < 1 ? 1 : val);
+                          }}
+                        />
                       </div>
                     )}
                   </div>

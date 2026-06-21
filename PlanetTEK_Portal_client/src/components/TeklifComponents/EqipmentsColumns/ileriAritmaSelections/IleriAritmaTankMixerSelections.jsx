@@ -1,12 +1,16 @@
-import React, { useEffect, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useTeklifStore } from "../../../../utils/teklifStore";
+import API from "../../../../utils/utilRequest";
 
 function IleriAritmaTankMixerSelections() {
-  // 1. ZUSTAND STORE BAĞLANTISI
+  // 1. STATE TANIMLAMALARI
+  const [apiMixers, setApiMixers] = useState([]);
+  const [loading, setLoading] = useState(false);
+
+  // 2. ZUSTAND STORE BAĞLANTISI
   const formData = useTeklifStore((state) => state.formData);
   const updateSection = useTeklifStore((state) => state.updateSection);
 
-  // Kök debi bilgisi (m3/gün)
   const debi = parseFloat(formData.planetDiskDetails?.debi) || 0;
 
   const equipmentsCache = formData.equipments || {};
@@ -15,73 +19,99 @@ function IleriAritmaTankMixerSelections() {
 
   // Sabit Tasarım Kriterleri
   const POWER_DENSITY = 10; // 10 W/m³ güç yoğunluğu
-  const MIXER_RPM = 400; // Standart anoksik karıştırıcı pervane devri
-  const commercialMotorPowers = [0.37, 0.55, 0.75, 1.1, 1.5, 2.2, 3.0, 4.0, 5.5, 7.5];
+
+  // API'den mikserleri çekme işlemi
+  const fetchMixersData = async () => {
+    try {
+      setLoading(true);
+      const response = await API.getIlerAritmaEquipmentsCosts();
+      const allEquipments = response.data || [];
+      setApiMixers(allEquipments.filter(e => e.ekipman_tipi === "mikser"));
+    } catch (error) {
+      console.error("Mikser verileri yüklenirken hata oluştu:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchMixersData();
+  }, []);
 
   // --- MANUEL USER CONTROL & MÜHÜR MANTIĞI ---
   const DEFAULT_HRT = "2";
   const lastCalculatedDebi = storeMixerSelections.calculatedDebi !== undefined ? storeMixerSelections.calculatedDebi : null;
   const isDebiChanged = lastCalculatedDebi !== null && lastCalculatedDebi !== debi;
 
-  // Eğer dışarıdan gelen ana debi değiştiyse default değere (2) dön, değişmediyse store'daki güncel input değerini oku
   const manualHrtHours = (storeMixerSelections.manualHrtHours !== undefined && !isDebiChanged)
     ? storeMixerSelections.manualHrtHours
     : DEFAULT_HRT;
 
   const activeHrtHours = useMemo(() => {
     const val = parseFloat(manualHrtHours);
-    return isNaN(val) || val <= 0 ? 2 : val; // Güvenli fallback olarak 2 saat
+    return isNaN(val) || val <= 0 ? 2 : val;
   }, [manualHrtHours]);
 
-  // 2. SAF DİNAMİK MÜHENDİSLİK HESAPLAMALARI
+  // 3. SAF DİNAMİK MÜHENDİSLİK HESAPLAMALARI VE OTOMATİK MİKSER SEÇİMİ
   const hesaplananDegerler = useMemo(() => {
     if (debi <= 0) {
-      return { tankHacmi: 0, hamGucKw: 0, secilenGucKw: 0, gucHp: 0, mikserMetni: "---", tankMetni: "---" };
+      return { tankHacmi: 0, hamGucKw: 0, otomatikMikserId: "", otomatikKw: 0, otomatikHp: 0, otomatikRpm: 400 };
     }
 
-    // 1. Tank Hacmi (m³) = (Q * HRT) / 24
     const tankHacmi = (debi * activeHrtHours) / 24;
-
-    // 2. Ham Güç İhtiyacı (kW) = (Hacim * Power Density) / 1000
     const hamGucKw = (tankHacmi * POWER_DENSITY) / 1000;
 
-    // 3. Standart Motor Gücüne Yukarı Yuvarlama
-    const secilenGucKw = commercialMotorPowers.find((p) => p >= hamGucKw) || commercialMotorPowers[commercialMotorPowers.length - 1];
+    let otomatikMikser = null;
+    if (apiMixers.length > 0) {
+      const sortedMixers = [...apiMixers].sort((a, b) => (parseFloat(a.kw) || 0) - (parseFloat(b.kw) || 0));
+      otomatikMikser = sortedMixers.find(m => (parseFloat(m.kw) || 0) >= hamGucKw);
+      
+      if (!otomatikMikser) {
+        otomatikMikser = sortedMixers[sortedMixers.length - 1];
+      }
+    }
 
-    // 4. kW -> HP Dönüşümü
-    const gucHp = secilenGucKw * 1.341;
-
-    // Teklif çıktı metinleri (Varsayılan dinamik metinler)
-    const tankMetni = `${tankHacmi.toFixed(2)} m³ Anoksik Tank Hacmi (${Number(activeHrtHours).toFixed(2)} Saat HRT)`;
-    const mikserMetni = `1 Adet Dalgıç Mikser (${secilenGucKw.toFixed(2)} kW / ${gucHp.toFixed(2)} HP, ${MIXER_RPM} RPM)`;
+    const otomatikKw = otomatikMikser ? (parseFloat(otomatikMikser.kw) || 0) : 0.37;
+    const otomatikHp = otomatikKw * 1.341;
+    const otomatikRpm = otomatikMikser ? (parseInt(otomatikMikser.ekipman_adi.match(/(\d+)\s*RPM/)?.[1], 10) || 400) : 400;
 
     return {
       tankHacmi,
       hamGucKw,
-      secilenGucKw,
-      gucHp,
-      tankMetni,
-      mikserMetni,
+      otomatikMikserId: otomatikMikser ? String(otomatikMikser.id) : "",
+      otomatikKw,
+      otomatikHp,
+      otomatikRpm
     };
-  }, [debi, activeHrtHours]);
+  }, [debi, activeHrtHours, apiMixers]);
 
-  // 3. STORE SENKRONİZASYON EFFECT'İ
+  // 4. OTOMATİK İLK YÜKLEME VE DEBİ DEĞİŞİM SENKRONİZASYONU
   useEffect(() => {
-    if (debi > 0) {
-      // Store'da var olan veya anlık olarak elle/otomatik üretilen güncel değerleri süzüyoruz
-      const currentTankHacmi = storeMixerSelections.anoksikTankHacmi ?? hesaplananDegerler.tankHacmi;
-      const currentHrt = storeMixerSelections.manualHrtHours ?? manualHrtHours;
-      const currentKw = storeMixerSelections.gerekliGucKw ?? hesaplananDegerler.secilenGucKw;
-      const currentHp = storeMixerSelections.gerekliGucHp ?? hesaplananDegerler.gucHp;
-      const currentRpm = storeMixerSelections.mikserRpm ?? MIXER_RPM;
+    if (debi > 0 && apiMixers.length > 0) {
+      // Eğer store'da henüz hiç mikser id'si yoksa veya debi değiştiği için mühür kırıldıysa otomatik olanı ata
+      const asilMikserId = (storeMixerSelections.secilenMikserId === undefined || isDebiChanged)
+        ? hesaplananDegerler.otomatikMikserId 
+        : String(storeMixerSelections.secilenMikserId);
+
+      const secilenMikserObj = apiMixers.find(m => String(m.id) === asilMikserId);
+
+      const currentTankHacmi = isDebiChanged ? hesaplananDegerler.tankHacmi : (storeMixerSelections.anoksikTankHacmi ?? hesaplananDegerler.tankHacmi);
+      const currentHrt = isDebiChanged ? DEFAULT_HRT : manualHrtHours;
+      
+      const currentKw = secilenMikserObj ? (parseFloat(secilenMikserObj.kw) || 0) : hesaplananDegerler.otomatikKw;
+      const currentHp = currentKw * 1.341;
+      const currentRpm = secilenMikserObj ? (parseInt(secilenMikserObj.ekipman_adi.match(/(\d+)\s*RPM/)?.[1], 10) || 400) : hesaplananDegerler.otomatikRpm;
 
       const tankMetniString = `${Number(currentTankHacmi).toFixed(2)} m³ Anoksik Tank Hacmi (${Number(currentHrt).toFixed(2)} Saat HRT)`;
-      const mikserMetniString = `1 Adet Dalgıç Mikser (${Number(currentKw).toFixed(2)} kW / ${Number(currentHp).toFixed(2)} HP, ${parseInt(currentRpm, 10)} RPM)`;
+      const mikserMetniString = secilenMikserObj 
+        ? `1 Adet ${secilenMikserObj.ekipman_adi}`
+        : `1 Adet Dalgıç Mikser (${currentKw.toFixed(2)} kW)`;
 
       if (
         storeMixerSelections.anoksikTankHacmi !== currentTankHacmi ||
+        storeMixerSelections.secilenMikserId !== asilMikserId ||
         storeMixerSelections.secilenMikserMetni !== mikserMetniString ||
-        storeMixerSelections.anoksikTankHacmi === undefined || // İlk yüklenme kontrolü
+        storeMixerSelections.anoksikTankHacmi === undefined ||
         isDebiChanged
       ) {
         updateSection("equipments", {
@@ -94,8 +124,10 @@ function IleriAritmaTankMixerSelections() {
               gerekliGucKw: currentKw,
               gerekliGucHp: currentHp,
               mikserRpm: currentRpm,
+              secilenMikserId: asilMikserId,
               secilenTankMetni: tankMetniString,
               secilenMikserMetni: mikserMetniString,
+              mikserBirimFiyat: secilenMikserObj?.alis_fiyati || 0,
               calculatedDebi: debi
             },
           },
@@ -103,34 +135,59 @@ function IleriAritmaTankMixerSelections() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hesaplananDegerler, debi, isDebiChanged]);
+  }, [hesaplananDegerler, debi, isDebiChanged, apiMixers]);
 
-  // Manuel Input Değişim Yönetimi
+  // 5. MANUEL DROPDOWN VE INPUT YÖNETİMİ (Kritik Alanlar Burada Anlık Hesaplanıp Store'a Basılır)
   const handleInputChange = (field, value) => {
-    // RPM tamsayı, diğerleri float dönüşümü
-    let numValue = value === "" ? "" : (field === "mikserRpm" ? parseInt(value, 10) : parseFloat(value)) || 0;
+    let nextState = { ...storeMixerSelections };
 
-    // Eğer kW değiştiyse HP'yi de otomatik güncelle
-    let ekAlanlar = {};
-    if (field === "gerekliGucKw" && numValue !== "") {
-      ekAlanlar.gerekliGucHp = numValue * 1.341;
+    if (field === "secilenMikserId") {
+      const targetId = value === "" ? "" : String(value);
+      const secilenMikserObj = apiMixers.find(m => String(m.id) === targetId);
+
+      if (secilenMikserObj) {
+        const kw = parseFloat(secilenMikserObj.kw) || 0;
+        const hp = kw * 1.341;
+        const rpm = parseInt(secilenMikserObj.ekipman_adi.match(/(\d+)\s*RPM/)?.[1], 10) || 400;
+
+        nextState = {
+          ...nextState,
+          secilenMikserId: targetId,
+          gerekliGucKw: kw,
+          gerekliGucHp: hp,
+          mikserRpm: rpm,
+          secilenMikserMetni: `1 Adet ${secilenMikserObj.ekipman_adi}`,
+          mikserBirimFiyat: secilenMikserObj.alis_fiyati || 0
+        };
+      } else {
+        nextState.secilenMikserId = targetId;
+      }
+    } else {
+      // Diğer sayısal input alanları (anoksikTankHacmi veya manualHrtHours) değiştirilirse
+      const numValue = value === "" ? "" : parseFloat(value) || 0;
+      nextState[field] = numValue;
+
+      // Eğer hrt değiştirildiyse tank hacmini de bir sonraki adım için hazırlayabiliriz
+      if (field === "manualHrtHours" && numValue > 0) {
+        const yeniHacim = (debi * numValue) / 24;
+        nextState.anoksikTankHacmi = yeniHacim;
+        nextState.secilenTankMetni = `${yeniHacim.toFixed(2)} m³ Anoksik Tank Hacmi (${Number(numValue).toFixed(2)} Saat HRT)`;
+      }
     }
 
+    // Tek bir seferde store'u temiz ve tam veriyle güncelliyoruz
     updateSection("equipments", {
       ...equipmentsCache,
       ileriAritma: {
         ...storeIleriAritma,
         IleriAritmaTankMixerSelections: {
-          ...storeMixerSelections,
-          [field]: numValue,
-          ...ekAlanlar,
+          ...nextState,
           calculatedDebi: debi
         }
       }
     });
   };
 
-  // Ortak şeffaf input stili
   const inputStyle = {
     background: "transparent",
     border: "none",
@@ -143,12 +200,24 @@ function IleriAritmaTankMixerSelections() {
     padding: 0
   };
 
-  // Değerleri formatlayan yardımcı fonksiyon
+  const selectStyle = {
+    background: "#0f172a",
+    border: "1px solid #334155",
+    color: "#fff",
+    fontSize: "11px",
+    borderRadius: "4px",
+    padding: "2px 5px",
+    outline: "none",
+    maxWidth: "210px"
+  };
+
   const formatValue = (storeVal, calcVal, isInt = false) => {
     const val = storeVal ?? calcVal;
     if (val === undefined || val === "") return "";
     return isInt ? parseInt(val, 10).toString() : Number(val).toFixed(2);
   };
+
+  if (loading) return <div className="text-white-50" style={{ fontSize: '11px' }}>Mikser verileri yükleniyor...</div>;
 
   return (
     <div className="card-body d-flex flex-column gap-3 pt-3" style={{ position: "relative", color: "#fff", padding: 0 }}>
@@ -196,45 +265,36 @@ function IleriAritmaTankMixerSelections() {
           </div>
         </div>
 
-        {/* 3. GEREKLİ MİKSER GÜCÜ (kW / HP) INPUT */}
+        {/* 3. MİKSER SEÇİM DROPDOWN */}
         <div className="col-md-6">
           <div className="p-2 rounded d-flex justify-content-between align-items-center" style={{ backgroundColor: "#0f172a", border: "1px solid #00874e" }}>
-            <span className="text-white-50" style={{ fontSize: "10px" }}>Gerekli Mikser Gücü (Standart):</span>
-            <div className="d-flex align-items-center gap-1 text-success">
-              <input
-                type="number"
-                step="0.01"
-                style={{ ...inputStyle, color: "#198754", width: "55px" }}
-                value={formatValue(storeMixerSelections.gerekliGucKw, hesaplananDegerler.secilenGucKw)}
-                onChange={(e) => handleInputChange("gerekliGucKw", e.target.value)}
-              />
-              <span style={{ fontSize: "9px" }}>kW</span>
-              <span className="text-white-50 ms-1" style={{ fontSize: "10px", whiteSpace: "nowrap" }}>
-                ({formatValue(storeMixerSelections.gerekliGucHp, hesaplananDegerler.gucHp)} HP)
-              </span>
-            </div>
+            <span className="text-white-50" style={{ fontSize: "10px" }}>Mikser Ekipmanı Seçimi:</span>
+            <select
+              style={selectStyle}
+              value={storeMixerSelections.secilenMikserId || hesaplananDegerler.otomatikMikserId || ""}
+              onChange={(e) => handleInputChange("secilenMikserId", e.target.value)}
+            >
+              {apiMixers.map(mixer => (
+                <option key={mixer.id} value={String(mixer.id)}>
+                  {mixer.ekipman_adi} ({mixer.kw} kW)
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 
-        {/* 4. MİKSER KARIŞTIRICI DEVRİ (RPM) INPUT - TAMSAYI */}
+        {/* 4. DİNAMİK GÜÇ VE DEVRİ GÖSTEREN BİLGİ ALANI */}
         <div className="col-md-6">
           <div className="p-2 rounded d-flex justify-content-between align-items-center" style={{ backgroundColor: "#0f172a", border: "1px solid #ef4444" }}>
-            <span className="text-white-50" style={{ fontSize: "10px" }}>Mikser Karıştırıcı Devri:</span>
-            <div className="d-flex align-items-center gap-1 text-danger">
-              <input
-                type="number"
-                step="1"
-                style={{ ...inputStyle, color: "#dc3545" }}
-                value={formatValue(storeMixerSelections.mikserRpm, MIXER_RPM, true)}
-                onChange={(e) => handleInputChange("mikserRpm", e.target.value)}
-              />
-              <span style={{ fontSize: "9px" }}>RPM</span>
-            </div>
+            <span className="text-white-50" style={{ fontSize: "10px" }}>Seçilen Mikser Detayları:</span>
+            <span className="text-danger fw-bold" style={{ fontSize: "11px" }}>
+              {formatValue(storeMixerSelections.gerekliGucKw, hesaplananDegerler.otomatikKw)} kW / {formatValue(storeMixerSelections.gerekliGucHp, hesaplananDegerler.otomatikHp)} HP @ {formatValue(storeMixerSelections.mikserRpm, hesaplananDegerler.otomatikRpm, true)} RPM
+            </span>
           </div>
         </div>
       </div>
 
-      {/* Özet Görünüm Şeridi (İçerikler anlık store'daki inputlara göre senkronize üretilir) */}
+      {/* Özet Görünüm Şeridi */}
       {debi > 0 && (
         <div className="p-2 rounded mt-1" style={{ backgroundColor: "rgba(16, 185, 129, 0.1)", borderLeft: "3px solid #10b981", fontSize: "11px" }}>
           <div className="text-white-50" style={{ fontSize: "9px", fontWeight: "bold" }}>SİSTEME EKLENECEK EKİPMAN ÖZETLERİ</div>
@@ -242,7 +302,7 @@ function IleriAritmaTankMixerSelections() {
             • {formatValue(storeMixerSelections.anoksikTankHacmi, hesaplananDegerler.tankHacmi)} m³ Anoksik Tank Hacmi ({formatValue(storeMixerSelections.manualHrtHours, manualHrtHours)} Saat HRT)
           </div>
           <div className="text-warning fw-medium">
-            • 1 Adet Dalgıç Mikser ({formatValue(storeMixerSelections.gerekliGucKw, hesaplananDegerler.secilenGucKw)} kW / {formatValue(storeMixerSelections.gerekliGucHp, hesaplananDegerler.gucHp)} HP, {formatValue(storeMixerSelections.mikserRpm, MIXER_RPM, true)} RPM)
+            • {storeMixerSelections.secilenMikserMetni || "Mikser Seçilmedi"}
           </div>
         </div>
       )}

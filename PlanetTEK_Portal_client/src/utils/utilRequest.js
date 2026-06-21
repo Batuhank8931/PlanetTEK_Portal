@@ -105,6 +105,11 @@ const API = {
         return crudClient.get("api/price/sludge-dewatering-costs");
     },
 
+    // 🔍 Sludge Dewatering Costs Listesi Getir
+    getIlerAritmaEquipmentsCosts: async () => {
+        return crudClient.get("api/price/ileri-aritma-costs");
+    },
+
     // 📊 1. Belirli Bir Pompanın Eğrisini Getir (GET api/price/pump-curve/:pump_id)
     getPumpCurve: async (pumpId) => {
         try {
@@ -186,6 +191,20 @@ const API = {
             throw err;
         }
     },
+
+    getCentrifugePumps: async () => {
+        try {
+            const res = await crudClient.get("api/price/centrifuge-pumps");
+            return res;
+        } catch (err) {
+            console.error("❌ [API.ggetCentrifugePumps] Santrifüj pompa listesi çekilemedi:", {
+                status: err.response?.status,
+                message: err.message,
+                responseData: err.response?.data
+            });
+            throw err;
+        }
+    }
 
 };
 

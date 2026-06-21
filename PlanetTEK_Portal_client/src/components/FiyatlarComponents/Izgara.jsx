@@ -4,42 +4,63 @@ import API from "../../utils/utilRequest";
 import PriceChangeUpdateConfirmationModal from "../modals/PriceChangeUpdateConfirmationModal";
 
 function Izgara() {
-  const [izgaraData, setIzgaraData] = useState([]);
-  const [originalData, setOriginalData] = useState([]); 
+  // 3 bağımsız tablo için 3 ayrı state yönetimi
+  const [greaseData, setGreaseData] = useState([]);
+  const [coarseData, setCoarseData] = useState([]);
+  const [fineData, setFineData] = useState([]);
+
+  // Orijinal verileri mühürlemek için
+  const [originalData, setOriginalData] = useState({ grease: [], coarse: [], fine: [] });
   const [loading, setLoading] = useState(true);
 
   // Modal State Yönetimi
   const [showModal, setShowModal] = useState(false);
   const [pendingChanges, setPendingChanges] = useState([]);
 
-  // 📊 Kolon Yapısı: 12 Başlık ve 12 Field tam 1:1 senkronize edildi!
-  const headers = [
-    "Kapasite",
-    "Yağ Tutucu Boyut",
-    "Yağ Tutucu YD", "Yağ Tutucu YI",
-    "M. Kaba YD", "M. Kaba YI",
-    "M. İnce YD", "M. İnce YI",
-    "Oto Kaba YD", "Oto Kaba YI",
-    "Oto İnce YD", "Oto İnce YI"
-  ];
+  // Tablolara göre kolon ayrıştırmaları (Fark motoru ve API payload'u için kritik whitelist'ler)
+  const tablesWhitelist = {
+    grease_trap_data: ["kapasite", "plakaboyut", "yd_fiyat", "yi_fiyat"],
+    coarse_screen_data: ["kapasite", "tipi", "yd_fiyat", "yi_fiyat"],
+    fine_screen_data: ["kapasite", "tipi", "yd_fiyat", "yi_fiyat"]
+  };
 
-  const fields = [
-    "kapasite", "plakaboyut",
-    "plakaYd", "plakaYi",
-    "mKabaYd", "mKabaYi",
-    "mInceYd", "mInceYi",
-    "oKabaYd", "oKabaYi",
-    "oInceYd", "oInceYi"
-  ];
+  // 1️⃣ TABLO: YAĞ TUTUCU PLAKALARI (DB Alanları: id, kapasite, plakaboyut, yd_fiyat, yi_fiyat)
+  const greaseHeaders = ["Kapasite", "Yağ Tutucu Boyutu", "Yurt Dışı Fiyatı (€)", "Yurt İçi Fiyatı (€)"];
+  const greaseFields = ["kapasite", "plakaboyut", "yd_fiyat", "yi_fiyat"];
 
+  // 2️⃣ & 3️⃣ TABLOLAR: IZGARALAR ORTAK BAŞLIK VE ALANLARI (DB Alanları: id, kapasite, tipi, yd_fiyat, yi_fiyat)
+  const screenHeaders = ["Kapasite", "Izgara Tipi (Manuel/Otomatik)", "Yurt Dışı Fiyatı (€)", "Yurt İçi Fiyatı (€)"];
+  const screenFields = ["kapasite", "tipi", "yd_fiyat", "yi_fiyat"];
+
+  // Verileri çekip state'lere temizce dağıtma
   const fetchIzgaraData = async () => {
     try {
       setLoading(true);
       const response = await API.getScreenData();
-      setIzgaraData(response.data);
-      setOriginalData(JSON.parse(JSON.stringify(response.data)));
+      const { greaseTrap = [], coarseScreen = [], fineScreen = [] } = response.data || {};
+
+      // String dönüşümleriyle sayısal alanları sanitize edelim
+      const formatIncoming = (arr) => arr.map(item => ({
+        ...item,
+        yd_fiyat: Number(item.yd_fiyat) || 0,
+        yi_fiyat: Number(item.yi_fiyat) || 0
+      }));
+
+      const gFormed = formatIncoming(greaseTrap);
+      const cFormed = formatIncoming(coarseScreen);
+      const fFormed = formatIncoming(fineScreen);
+
+      setGreaseData(gFormed);
+      setCoarseData(cFormed);
+      setFineData(fFormed);
+
+      setOriginalData({
+        grease: JSON.parse(JSON.stringify(gFormed)),
+        coarse: JSON.parse(JSON.stringify(cFormed)),
+        fine: JSON.parse(JSON.stringify(fFormed))
+      });
     } catch (error) {
-      console.error("Izgara ve kapasite verileri yüklenirken hata oluştu:", error);
+      console.error("Izgara verileri yüklenirken hata oluştu:", error);
     } finally {
       setLoading(false);
     }
@@ -49,95 +70,95 @@ function Izgara() {
     fetchIzgaraData();
   }, []);
 
-  // ➕ Yeni Boş Izgara Kademesi Ekleme Fonksiyonu
-  const handleAddNewRow = () => {
-    const nextNum = izgaraData.length + 1;
-    const defaultKapasite = `${nextNum * 100} m³/gün`;
-
-    const newRow = {
-      id: `new_${Date.now()}`, // Benzersiz geçici ID
-      kapasite: defaultKapasite,
-      plakaboyut: "", // 🌟 EKLEME: Yeni satır için default boş text değeri
-      plakaYd: 0, plakaYi: 0,
-      mKabaYd: 0, mKabaYi: 0,
-      mInceYd: 0, mInceYi: 0,
-      oKabaYd: 0, oKabaYi: 0,
-      oInceYd: 0, oInceYi: 0,
+  // ➕ HER TABLO İÇİN KENDİ BAĞIMSIZ EKLEME FONKSİYONLARI
+  const handleAddGreaseRow = () => {
+    setGreaseData(prev => [...prev, {
+      id: `new_grease_${Date.now()}`,
+      kapasite: `${(prev.length + 1) * 100} m³/gün`,
+      plakaboyut: "1000 x 1000 mm",
+      yd_fiyat: 0, yi_fiyat: 0,
       isNew: true
-    };
-    setIzgaraData(prev => [...prev, newRow]);
+    }]);
   };
 
-  // 🛠️ KAYDET BUTONU: Ekleme, Silme ve Güncelleme Fark Ayrıştırma Modülü
+  const handleAddCoarseRow = () => {
+    setCoarseData(prev => [...prev, {
+      id: `new_coarse_${Date.now()}`,
+      kapasite: `${Math.ceil((prev.length + 1) / 2) * 100} m³/gün`,
+      tipi: prev.length % 2 === 0 ? "Manuel" : "Otomatik",
+      yd_fiyat: 0, yi_fiyat: 0,
+      isNew: true
+    }]);
+  };
+
+  const handleAddFineRow = () => {
+    setFineData(prev => [...prev, {
+      id: `new_fine_${Date.now()}`,
+      kapasite: `${Math.ceil((prev.length + 1) / 2) * 100} m³/gün`,
+      tipi: prev.length % 2 === 0 ? "Manuel" : "Otomatik",
+      yd_fiyat: 0, yi_fiyat: 0,
+      isNew: true
+    }]);
+  };
+
+  // 🛠️ MERKEZİ FARK AYRIŞTIRMA MOTORU
   const handleSaveClick = () => {
     const changes = [];
 
-    izgaraData.forEach((item) => {
-      // ❌ DURUM A: Satır Silinmiş mi? (DELETE) - Burası kapasite üzerinden yürüdüğü için değişiklik istemez
-      if (item.isDeleted) {
-        if (String(item.id).startsWith("new_")) return;
+    const diffTable = (currentArr, originalArr, tableName, textFields = ["kapasite", "plakaboyut", "tipi"]) => {
+      currentArr.forEach((item) => {
+        // DELETE
+        if (item.isDeleted) {
+          if (String(item.id).startsWith("new_")) return;
+          changes.push({
+            type: "DELETE", tableName, id: item.id, columnName: "kapasite", newValue: null, rowName: item.kapasite, oldValue: 0
+          });
+          return;
+        }
 
-        changes.push({
-          type: "DELETE",
-          tableName: "screen_data",
-          id: item.id,
-          columnName: "kapasite", 
-          newValue: null,
-          rowName: item.kapasite,
-          oldValue: 0
-        });
-        return;
-      }
+        // INSERT
+        if (String(item.id).startsWith("new_")) {
+          const triggerField = textFields.includes("plakaboyut") ? "plakaboyut" : "tipi";
+          const additional = { ...item };
+          delete additional.id;
+          delete additional.isNew;
+          delete additional.isDeleted;
+          delete additional[triggerField];
 
-      // ➕ DURUM B: Yeni Satır mı? (INSERT)
-      if (String(item.id).startsWith("new_")) {
-        changes.push({
-          type: "INSERT",
-          tableName: "screen_data",
-          id: undefined,
-          columnName: "kapasite", 
-          newValue: item.kapasite,
-          rowName: item.kapasite,
-          oldValue: 0,
-          additionalData: {
-            plakaboyut: String(item.plakaboyut || ""), // 🌟 EKLEME: INSERT için payload'a eklendi
-            plakaYd: Number(item.plakaYd) || 0, plakaYi: Number(item.plakaYi) || 0,
-            mKabaYd: Number(item.mKabaYd) || 0, mKabaYi: Number(item.mKabaYi) || 0,
-            mInceYd: Number(item.mInceYd) || 0, mInceYi: Number(item.mInceYi) || 0,
-            oKabaYd: Number(item.oKabaYd) || 0, oKabaYi: Number(item.oKabaYi) || 0,
-            oInceYd: Number(item.oInceYd) || 0, oInceYi: Number(item.oInceYi) || 0
-          }
-        });
-        return;
-      }
+          changes.push({
+            type: "INSERT", tableName, id: undefined, columnName: triggerField,
+            newValue: item[triggerField], rowName: item.kapasite, oldValue: 0,
+            additionalData: additional
+          });
+          return;
+        }
 
-      // 🔄 DURUM C: Mevcut Satır Güncelleme mi? (UPDATE)
-      const originalItem = originalData.find((o) => String(o.id) === String(item.id));
+        // UPDATE
+        const originalItem = originalArr.find(o => String(o.id) === String(item.id));
+        if (originalItem) {
+          Object.keys(item).forEach((field) => {
+            if (field === "id" || field === "isNew" || field === "isDeleted" || field === "created_at" || field === "updated_at") return;
 
-      if (originalItem) {
-        fields.forEach((field) => {
-          // 🌟 GÜNCELLEME: Alan 'kapasite' VEYA 'plakaboyut' ise text olarak karşılaştırıyoruz
-          const isTextField = field === "kapasite" || field === "plakaboyut";
+            const isText = textFields.includes(field);
+            const esitMi = isText
+              ? String(originalItem[field] || "").trim() === String(item[field] || "").trim()
+              : Number(originalItem[field] || 0) === Number(item[field] || 0);
 
-          const esitMi = isTextField
-            ? String(originalItem[field] || "").trim() === String(item[field] || "").trim()
-            : Number(originalItem[field] || 0) === Number(item[field] || 0);
+            if (!esitMi) {
+              changes.push({
+                type: "UPDATE", tableName, id: originalItem.id, columnName: field,
+                newValue: isText ? item[field] : Number(item[field]),
+                rowName: item.kapasite, oldValue: originalItem[field] || 0
+              });
+            }
+          });
+        }
+      });
+    };
 
-          if (!esitMi) {
-            changes.push({
-              type: "UPDATE",
-              tableName: "screen_data",
-              id: originalItem.id,
-              columnName: field,
-              // 🌟 GÜNCELLEME: Eğer text alanı ise text, sayı alanı ise Number formatında kaydet
-              newValue: isTextField ? item[field] : Number(item[field]),
-              rowName: item.kapasite,
-              oldValue: originalItem[field] || (isTextField ? "" : 0)
-            });
-          }
-        });
-      }
-    });
+    diffTable(greaseData, originalData.grease, "grease_trap_data", ["kapasite", "plakaboyut"]);
+    diffTable(coarseData, originalData.coarse, "coarse_screen_data", ["kapasite", "tipi"]);
+    diffTable(fineData, originalData.fine, "fine_screen_data", ["kapasite", "tipi"]);
 
     if (changes.length === 0) {
       alert("Değişen bir veri bulunamadı.");
@@ -151,32 +172,31 @@ function Izgara() {
   const handleConfirmSave = async () => {
     setShowModal(false);
     setLoading(true);
-
     try {
-      if (pendingChanges.length === 0) {
-        setLoading(false);
-        return;
-      }
+      if (pendingChanges.length === 0) return;
 
-      const targetTableName = pendingChanges[0].tableName;
+      const tableGroups = pendingChanges.reduce((acc, change) => {
+        if (!acc[change.tableName]) acc[change.tableName] = [];
+        acc[change.tableName].push({
+          id: change.id,
+          columnName: change.columnName,
+          newValue: change.newValue,
+          additionalData: change.additionalData || undefined
+        });
+        return acc;
+      }, {});
 
-      const updatesPayload = pendingChanges.map((change) => ({
-        id: change.id,
-        columnName: change.columnName,
-        newValue: change.newValue,
-        additionalData: change.additionalData || undefined
-      }));
-
-      await API.updatePriceData({
-        tableName: targetTableName,
-        updates: updatesPayload
-      });
+      await Promise.all(
+        Object.entries(tableGroups).map(([tName, updatesPayload]) =>
+          API.updatePriceData({ tableName: tName, updates: updatesPayload })
+        )
+      );
 
       await fetchIzgaraData();
-      setPendingChanges([]); 
+      setPendingChanges([]);
     } catch (error) {
-      console.error("Maliyetler güncellenirken teknik hata oluştu:", error);
-      alert("Veriler kaydedilirken sistemsel bir hata meydana geldi.");
+      console.error("Maliyetler güncellenirken hata oluştu:", error);
+      alert("Veriler kaydedilirken bir hata meydana geldi.");
     } finally {
       setLoading(false);
     }
@@ -185,39 +205,88 @@ function Izgara() {
   if (loading) {
     return (
       <div className="d-flex justify-content-center my-5">
-        <div className="spinner-border text-success" role="status">
-          <span className="visually-hidden">İşlem Yapılıyor...</span>
-        </div>
+        <div className="spinner-border text-success" role="status"><span className="visually-hidden">Yükleniyor...</span></div>
       </div>
     );
   }
 
-  const visibleIzgaraData = izgaraData.filter(i => !i.isDeleted);
-
   return (
     <div>
-      <div className="d-flex justify-content-between align-items-center mb-3">
-        <div className="mb-2 d-flex align-items-center" style={{ color: "#94a3b8" }}>
-          <i className="bi bi-grid-3x3-gap me-2 text-success"></i>
-          <span className="fw-semibold small">Izgara & Yağ Tutucu Fiyat Yönetimi</span>
+      {/* ÜST PANEL */}
+      <div className="d-flex justify-content-between align-items-center mb-4">
+        <div className="d-flex align-items-center" style={{ color: "#94a3b8" }}>
+          <i className="bi bi-grid-3x3-gap me-2 text-success" style={{ fontSize: "18px" }}></i>
+          <span className="fw-semibold fs-6">Izgara & Yağ Tutucu Fiyat Yönetim Merkezi</span>
         </div>
-        <div className="d-flex gap-2">
-          <button className="btn btn-outline-primary btn-sm px-3" onClick={handleAddNewRow}>
-            <i className="bi bi-plus-circle me-2"></i>Yeni Kademe Ekle
-          </button>
-          <button className="btn btn-success btn-sm px-4" onClick={handleSaveClick}>
-            <i className="bi bi-file-earmark-excel me-2"></i>Kaydet
-          </button>
-        </div>
+        <button className="btn btn-success btn-sm px-5" onClick={handleSaveClick}>
+          <i className="bi bi-file-earmark-excel me-2"></i>Değişiklikleri Kaydet
+        </button>
       </div>
 
-      <ExcelGrid
-        headers={headers}
-        data={visibleIzgaraData}
-        fields={fields}
-        onDataChange={setIzgaraData}
-        isMainTable={true}
-      />
+      {/* 📊 TABLO 1: YAĞ TUTUCU PLAKALARI */}
+
+      <div className="mb-4">
+        <div className="mb-2 d-flex align-items-center justify-content-between w-100" style={{ color: "#94a3b8" }}>
+          <div className="d-flex align-items-center fw-bold small text-primary">
+            <i className="bi bi-droplet-half me-2"></i>
+            <span>Yağ Tutucu Plaka Detayları ve Fiyatları</span>
+          </div>
+          <button className="btn btn-outline-primary btn-xs px-2 py-0.5" style={{ fontSize: '10px' }} onClick={handleAddGreaseRow}>
+            + Data Ekle
+          </button>
+        </div>
+        <ExcelGrid
+          headers={greaseHeaders}
+          data={greaseData.filter(i => !i.isDeleted)}
+          fields={greaseFields}
+          onDataChange={setGreaseData}
+          isMainTable={true}
+        />
+      </div>
+
+      {/* 📊 TABLO 2: KABA IZGARALAR */}
+      <div className="mb-4">
+        <div className="mb-2 d-flex align-items-center justify-content-between w-100" style={{ color: "#94a3b8" }}>
+          <div className="d-flex align-items-center fw-bold small text-primary">
+            <i className="bi bi-droplet-half me-2"></i>
+            <span>Kaba Izgara Grubu (Manuel & Otomatik)</span>
+          </div>
+          <button className="btn btn-outline-primary btn-xs px-2 py-0.5" style={{ fontSize: '10px' }} onClick={handleAddCoarseRow}>
+            + Data Ekle
+          </button>
+        </div>
+        <ExcelGrid
+          headers={screenHeaders}
+          data={coarseData.filter(i => !i.isDeleted)}
+          fields={screenFields}
+          onDataChange={setCoarseData}
+          isMainTable={true}
+        />
+      </div>
+
+
+      {/* 📊 TABLO 3: İNCE IZGARALAR (Düzeltilen Kısım burasıdır) */}
+
+      <div className="mb-4">
+        <div className="mb-2 d-flex align-items-center justify-content-between w-100" style={{ color: "#94a3b8" }}>
+          <div className="d-flex align-items-center fw-bold small text-primary">
+            <i className="bi bi-droplet-half me-2"></i>
+            <span>İnce Izgara Grubu (Manuel & Otomatik)</span>
+          </div>
+          <button className="btn btn-outline-primary btn-xs px-2 py-0.5" style={{ fontSize: '10px' }} onClick={handleAddFineRow}>
+            + Data Ekle
+          </button>
+        </div>
+        <ExcelGrid
+          headers={screenHeaders} // 🌟 KRİTİK DÜZELTME: Tanımlı olan screenHeaders atandı
+          data={fineData.filter(i => !i.isDeleted)}
+          fields={screenFields}
+          onDataChange={setFineData}
+          isMainTable={true}
+        />
+      </div>
+
+
 
       <PriceChangeUpdateConfirmationModal
         show={showModal}

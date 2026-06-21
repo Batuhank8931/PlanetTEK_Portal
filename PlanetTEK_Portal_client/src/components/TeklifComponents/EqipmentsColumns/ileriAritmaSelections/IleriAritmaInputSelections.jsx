@@ -14,47 +14,30 @@ function IleriAritmaInputSelections() {
   const formData = useTeklifStore((state) => state.formData);
   const updateSection = useTeklifStore((state) => state.updateSection);
 
-  // Store'daki equipments altından ileriAritma verilerini alıyoruz
+  // Store içindeki derin verilere güvenli erişim
   const equipmentsCache = formData.equipments || {};
   const storeIleriAritma = equipmentsCache.ileriAritma || {};
-  const storeSelections = storeIleriAritma.IleriAritmaInputSelections || {};
+  const storeSelections = storeIleriAritma.IleriAritmaInputSelections;
 
-  // 2. RUNTIME DEFAULT DEĞER ATAMASI
-  const currentSelectionData = {
-    girisToplamAzot: storeSelections.girisToplamAzot !== undefined ? storeSelections.girisToplamAzot : DEFAULT_VALUES.girisToplamAzot,
-    cikisToplamAzot: storeSelections.cikisToplamAzot !== undefined ? storeSelections.cikisToplamAzot : DEFAULT_VALUES.cikisToplamAzot,
-    girisToplamFosfor: storeSelections.girisToplamFosfor !== undefined ? storeSelections.girisToplamFosfor : DEFAULT_VALUES.girisToplamFosfor,
-    cikisToplamFosfor: storeSelections.cikisToplamFosfor !== undefined ? storeSelections.cikisToplamFosfor : DEFAULT_VALUES.cikisToplamFosfor,
-    gerekliFeKatsayisi: storeSelections.gerekliFeKatsayisi !== undefined ? storeSelections.gerekliFeKatsayisi : DEFAULT_VALUES.gerekliFeKatsayisi,
-  };
-
-  // 3. EN GARANTİ STORE SENKRONİZASYONU (Yazım hataları düzeltildi)
+  // 2. STORE INITIALIZATION (İlk Renderda Boşsa Default Değerleri Kaydetme)
   useEffect(() => {
-    if (
-      !storeIleriAritma.IleriAritmaInputSelections ||
-      storeSelections.girisToplamAzot !== currentSelectionData.girisToplamAzot ||
-      storeSelections.cikisToplamAzot !== currentSelectionData.cikisToplamAzot ||
-      storeSelections.girisToplamFosfor !== currentSelectionData.girisToplamFosfor || // "grid" hatası düzeltildi
-      storeSelections.cikisToplamFosfor !== currentSelectionData.cikisToplamFosfor ||
-      storeSelections.gerekliFeKatsayisi !== currentSelectionData.gerekliFeKatsayisi
-    ) {
+    // Eğer store'da bu section henüz tanımlanmadıysa default değerlerle dolduruyoruz
+    if (!storeSelections) {
       updateSection("equipments", {
-        ...equipmentsCache, 
+        ...equipmentsCache,
         ileriAritma: {
-          ...storeIleriAritma, 
-          IleriAritmaInputSelections: currentSelectionData
-        }
+          ...storeIleriAritma,
+          IleriAritmaInputSelections: DEFAULT_VALUES,
+        },
       });
     }
+    // Sadece component mount olduğunda çalışması yeterlidir
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [
-    storeIleriAritma.IleriAritmaInputSelections,
-    currentSelectionData.girisToplamAzot,
-    currentSelectionData.cikisToplamAzot,
-    currentSelectionData.girisToplamFosfor,
-    currentSelectionData.cikisToplamFosfor,
-    currentSelectionData.gerekliFeKatsayisi
-  ]);
+  }, []);
+
+  // 3. RUNTIME DEĞERLERİ (Inputların okuyacağı güncel veri)
+  // Store'da veri varsa onu kullanır, yoksa (ilk render anında) default veriyi gösterir
+  const currentSelectionData = storeSelections || DEFAULT_VALUES;
 
   // 4. EL YAZIMI INPUT DEĞİŞİM REAKSİYONU
   const handleChange = (e) => {
@@ -64,12 +47,12 @@ function IleriAritmaInputSelections() {
     updateSection("equipments", {
       ...equipmentsCache,
       ileriAritma: {
-        ...storeIleriAritma, 
+        ...storeIleriAritma,
         IleriAritmaInputSelections: {
           ...currentSelectionData,
           [name]: parsedValue,
-        }
-      }
+        },
+      },
     });
   };
 
@@ -120,7 +103,7 @@ function IleriAritmaInputSelections() {
             <input
               type="number"
               name="girisToplamAzot"
-              value={currentSelectionData.girisToplamAzot}
+              value={currentSelectionData.girisToplamAzot ?? ""}
               onChange={handleChange}
               className="form-control form-control-sm text-white fw-bold border-0 text-center"
               style={{ backgroundColor: "rgba(0, 135, 78, 0.2)", borderRadius: "6px", fontSize: "12px", height: "25px" }}
@@ -134,7 +117,7 @@ function IleriAritmaInputSelections() {
             <input
               type="number"
               name="cikisToplamAzot"
-              value={currentSelectionData.cikisToplamAzot}
+              value={currentSelectionData.cikisToplamAzot ?? ""}
               onChange={handleChange}
               className="form-control form-control-sm text-white fw-bold border-0 text-center"
               style={{ backgroundColor: "rgba(0, 135, 78, 0.2)", borderRadius: "6px", fontSize: "12px", height: "25px" }}
@@ -150,7 +133,7 @@ function IleriAritmaInputSelections() {
             <input
               type="number"
               name="girisToplamFosfor"
-              value={currentSelectionData.girisToplamFosfor}
+              value={currentSelectionData.girisToplamFosfor ?? ""}
               onChange={handleChange}
               className="form-control form-control-sm text-white fw-bold border-0 text-center"
               style={{ backgroundColor: "rgba(0, 135, 78, 0.2)", borderRadius: "6px", fontSize: "12px", height: "25px" }}
@@ -164,7 +147,7 @@ function IleriAritmaInputSelections() {
             <input
               type="number"
               name="cikisToplamFosfor"
-              value={currentSelectionData.cikisToplamFosfor}
+              value={currentSelectionData.cikisToplamFosfor ?? ""}
               onChange={handleChange}
               className="form-control form-control-sm text-white fw-bold border-0 text-center"
               style={{ backgroundColor: "rgba(0, 135, 78, 0.2)", borderRadius: "6px", fontSize: "12px", height: "25px" }}
@@ -181,7 +164,7 @@ function IleriAritmaInputSelections() {
               type="number"
               name="gerekliFeKatsayisi"
               step="0.1"
-              value={currentSelectionData.gerekliFeKatsayisi}
+              value={currentSelectionData.gerekliFeKatsayisi ?? ""}
               onChange={handleChange}
               className="form-control form-control-sm text-warning fw-bold border-0 text-center"
               style={{ backgroundColor: "rgba(255, 193, 7, 0.15)", borderRadius: "6px", fontSize: "12px", height: "25px" }}

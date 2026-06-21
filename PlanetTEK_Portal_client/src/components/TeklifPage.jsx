@@ -10,14 +10,12 @@ import SelectFinal from "./TeklifComponents/SelectFinal";
 import SelectionsModal from "./TeklifComponents/SelectionsModal";
 
 function TeklifPage() {
-  // Store'dan verileri ve fonksiyonları çekiyoruz
   const formData = useTeklifStore((state) => state.formData);
-  const currentStep = useTeklifStore((state) => state.currentStep); // Store'daki adım
-  const setCurrentStepStore = useTeklifStore((state) => state.setCurrentStepStore); // Adım değiştirme fonksiyonu
+  const currentStep = useTeklifStore((state) => state.currentStep);
+  const setCurrentStepStore = useTeklifStore((state) => state.setCurrentStepStore);
   const resetForm = useTeklifStore((state) => state.resetForm);
 
   const [showModal, setShowModal] = useState(false);
-  // Animasyon yönü yerel state olarak kalabilir
   const [direction, setDirection] = useState(1);
 
   const steps = [
@@ -28,17 +26,29 @@ function TeklifPage() {
     { id: 5, label: "Özet & Onay", icon: "bi-check2-circle" }
   ];
 
+  // Doğrudan bir adıma zıplamayı sağlayan yeni fonksiyon
+  const handleStepClick = (targetStepId) => {
+    if (targetStepId === currentStep) return;
+    
+    // Hedef adım mevcut adımdan büyükse ileri (1), küçükse geri (-1) animasyonu ayarla
+    const nextDirection = targetStepId > currentStep ? 1 : -1;
+    setDirection(nextDirection);
+    
+    // Aradaki adımlara uğramadan direkt store'u hedef adıma güncelle
+    setCurrentStepStore(targetStepId);
+  };
+
   const nextStep = () => {
     if (currentStep < steps.length) {
-      setDirection(1); // İleri yön animasyonu
-      setCurrentStepStore(currentStep + 1); // Store'u günceller (Hafızaya yazar)
+      setDirection(1);
+      setCurrentStepStore(currentStep + 1);
     }
   };
 
   const prevStep = () => {
     if (currentStep > 1) {
-      setDirection(-1); // Geri yön animasyonu
-      setCurrentStepStore(currentStep - 1); // Store'u günceller (Hafızaya yazar)
+      setDirection(-1);
+      setCurrentStepStore(currentStep - 1);
     }
   };
 
@@ -46,10 +56,9 @@ function TeklifPage() {
     alert("Teklif başarıyla oluşturuldu! Veriler konsolda.");
   };
 
-  // FORM SIFIRLAMA FONKSİYONU
   const handleResetForm = () => {
     if (window.confirm("Formdaki tüm verileri sıfırlamak istediğinize emin misiniz?")) {
-      resetForm(); // Bu fonksiyon store'da hem formData'yı boşaltıyor hem de adımı 1 yapıyor.
+      resetForm();
     }
   };
 
@@ -125,7 +134,12 @@ function TeklifPage() {
               if (isCompleted) textColor = "#94a3b8";
 
               return (
-                <div key={step.id} className="d-flex align-items-center">
+                <div 
+                  key={step.id} 
+                  className="d-flex align-items-center"
+                  onClick={() => handleStepClick(step.id)} // Tıklanınca direkt o adıma geçiş sağlandı
+                  style={{ cursor: "pointer" }} // Kullanıcıya tıklanabilir olduğunu hissettirmek için imleç
+                >
                   <motion.div
                     animate={{
                       scale: isActive ? 1.1 : 1,

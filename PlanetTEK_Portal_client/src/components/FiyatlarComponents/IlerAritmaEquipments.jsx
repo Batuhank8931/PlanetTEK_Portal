@@ -1,10 +1,9 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import ExcelGrid from "./ExcelGrid";
 import API from "../../utils/utilRequest";
 import PriceChangeUpdateConfirmationModal from "../modals/PriceChangeUpdateConfirmationModal";
-import PumpCurveUpdateModal from "../modals/PumpCurveUpdateModal.jsx";
 
-function DalgicPompa() {
+function IleriAritmaEquipments() {
     const [pumpsData, setPumpsData] = useState([]);
     const [sabitOranlar, setSabitOranlar] = useState([]);
 
@@ -15,14 +14,11 @@ function DalgicPompa() {
     const [showModal, setShowModal] = useState(false);
     const [pendingChanges, setPendingChanges] = useState([]);
 
-    const [curveModalOpen, setCurveModalOpen] = useState(false);
-    const [selectedPumpId, setSelectedPumpId] = useState(null);
-    const [selectedPumpName, setSelectedPumpName] = useState("");
+    const headers = ["Ekipman Modeli", "Ekipman Tipi", "kW", "Alış Fiyatı (€)", "Yurt İçi Satış Yİ (€)", "Yurt Dışı Satış YD (€)"];
+    const fields = ["ekipman_adi", "ekipman_tipi", "kw", "alis_fiyati", "yi_satis", "yd_satis"];
 
-    const headers = ["@", "Pompa Modeli", "Pompa Tipi", "kW", "Alış Fiyatı (€)", "Yurt İçi Satış Yİ (€)", "Yurt Dışı Satış YD (€)"];
-    const fields = ["curve_action", "pompa_adi", "pompa_tipi", "kw", "alis_fiyati", "yi_satis", "yd_satis"];
-
-    const duzenlenebilirFields = ["alis_fiyati", "pompa_adi", "pompa_tipi", "kw"];
+    // 🚀 DÜZELTME 1: Çift tetiklemeyi önlemek için ekipman_adi'ni tek bir döngüde yöneteceğiz
+    const duzenlenebilirFields = ["ekipman_adi", "alis_fiyati", "ekipman_tipi", "kw"];
 
     const oranHeaders = ["Yurt İçi Satış Oranı (Yİ)", "Yurt Dışı Satış Oranı (YD)"];
     const oranFields = ["yi_katsayi", "yd_katsayi"];
@@ -30,11 +26,11 @@ function DalgicPompa() {
     const fetchPumpsData = async () => {
         try {
             setLoading(true);
-            const response = await API.getSubmersibleCosts();
+            const response = await API.getIlerAritmaEquipmentsCosts();
 
-            const formatted = response.data.map(item => ({
+            const formatted = (response.data || []).map(item => ({
                 ...item,
-                name: item.pompa_adi
+                name: item.ekipman_adi
             }));
 
             setPumpsData(JSON.parse(JSON.stringify(formatted)));
@@ -54,7 +50,7 @@ function DalgicPompa() {
             setOriginalOranData(JSON.parse(JSON.stringify(ilkOranlar)));
 
         } catch (error) {
-            console.error("Dalgıç pompa verileri yüklenirken hata oluştu:", error);
+            console.error("Ekipman verileri yüklenirken hata oluştu:", error);
         } finally {
             setLoading(false);
         }
@@ -64,24 +60,13 @@ function DalgicPompa() {
         fetchPumpsData();
     }, []);
 
-    const handleOpenCurveModal = (pumpId, pumpName) => {
-        const isNewPump = String(pumpId).startsWith("new_");
-        if (isNewPump) {
-            alert("Eğri yüklemek/düzenlemek için önce pompayı kaydetmelisiniz.");
-            return;
-        }
-        setSelectedPumpId(pumpId);
-        setSelectedPumpName(pumpName);
-        setCurveModalOpen(true);
-    };
-
     const handleAddNewRow = () => {
         const newRow = {
             id: `new_${Date.now()}`,
-            pompa_adi: "Yeni Pompa Modeli",
-            name: "Yeni Pompa Modeli",
-            pompa_tipi: "submersible",
-            kw: 0, // 🚀 1. DÜZELTME: kW -> kw yapıldı ve güvenli sayısal başlangıç değeri (0) verildi.
+            ekipman_adi: "Yeni Ekipman Modeli",
+            name: "Yeni Ekipman Modeli",
+            ekipman_tipi: "-",
+            kw: 0,
             alis_fiyati: 0,
             yi_satis: 0,
             yd_satis: 0,
@@ -94,19 +79,22 @@ function DalgicPompa() {
         const resolvedData = typeof newData === "function" ? newData(pumpsData) : newData;
         if (!resolvedData || !Array.isArray(resolvedData)) return;
 
-        const currentOran = sabitOranlar[0] || { yi_katsayi: 1.30, yd_katsayi: 1.45 };
+        const currentOran = {
+            yi_katsayi: sabitOranlar[0]?.yi_katsayi || 1.30,
+            yd_katsayi: sabitOranlar[0]?.yd_katsayi || 1.45
+        };
 
         const recalculated = resolvedData.map(item => {
             if (item.isDeleted) return item;
 
             const alis = Number(item.alis_fiyati) || 0;
-            const guncelAd = item.pompa_adi !== undefined ? String(item.pompa_adi).trim() : item.name;
+            const guncelAd = item.ekipman_adi !== undefined ? String(item.ekipman_adi).trim() : item.name;
 
             return {
                 ...item,
-                pompa_adi: guncelAd,
+                ekipman_adi: guncelAd,
                 name: guncelAd,
-                pompa_tipi: item.pompa_tipi || "submersible",
+                ekipman_tipi: item.ekipman_tipi || "-",
                 kw: item.kw,
                 alis_fiyati: alis,
                 yi_satis: (alis * Number(currentOran.yi_katsayi)).toFixed(2),
@@ -121,6 +109,9 @@ function DalgicPompa() {
         const changes = [];
         const guncelOranRow = sabitOranlar[0] || {};
         const eskiOranRow = originalOranData[0] || {};
+        
+        // 🚀 DÜZELTME 2: Hedef tablo ismi doğru set edildi
+        const DB_TABLE = "ileri_aritma_ekipmanlari";
 
         pumpsData.forEach((item) => {
             if (item.isDeleted) {
@@ -128,11 +119,11 @@ function DalgicPompa() {
 
                 changes.push({
                     type: "DELETE",
-                    tableName: "submersible_pumps",
+                    tableName: DB_TABLE,
                     id: item.id,
                     columnName: "Tümü",
                     newValue: null,
-                    rowName: item.pompa_adi,
+                    rowName: item.ekipman_adi,
                     oldValue: item.alis_fiyati
                 });
                 return;
@@ -142,16 +133,16 @@ function DalgicPompa() {
             if (String(item.id).startsWith("new_")) {
                 changes.push({
                     type: "INSERT",
-                    tableName: "submersible_pumps",
+                    tableName: DB_TABLE,
                     id: undefined,
-                    columnName: "pompa_adi",
-                    newValue: item.pompa_adi,
-                    rowName: item.pompa_adi,
+                    columnName: "ekipman_adi",
+                    newValue: item.ekipman_adi,
+                    rowName: item.ekipman_adi,
                     oldValue: "",
                     additionalData: {
                         alis_fiyati: Number(item.alis_fiyati) || 0,
-                        pompa_tipi: item.pompa_tipi,
-                        kw: Number(item.kw) || 0 // 🚀 2. DÜZELTME: Yeni satır kaydında kw parametresi additionalData'ya eklendi.
+                        ekipman_tipi: item.ekipman_tipi,
+                        kw: Number(item.kw) || 0
                     }
                 });
                 return;
@@ -160,18 +151,7 @@ function DalgicPompa() {
             const originalItem = originalData.find((o) => String(o.id) === String(item.id));
 
             if (originalItem) {
-                if (originalItem.pompa_adi !== item.pompa_adi) {
-                    changes.push({
-                        type: "UPDATE",
-                        tableName: "submersible_pumps",
-                        id: originalItem.id,
-                        columnName: "pompa_adi",
-                        newValue: item.pompa_adi,
-                        rowName: originalItem.pompa_adi,
-                        oldValue: originalItem.pompa_adi
-                    });
-                }
-
+                // 🚀 DÜZELTME 3: Çift log basmayı engellemek için tüm kontrolleri bu döngü devraldı
                 duzenlenebilirFields.forEach((field) => {
                     const eskiDeger = originalItem[field];
                     const yeniDeger = item[field];
@@ -182,26 +162,25 @@ function DalgicPompa() {
                         if (eskiFloat !== yeniFloat) {
                             changes.push({
                                 type: "UPDATE",
-                                tableName: "submersible_pumps",
+                                tableName: DB_TABLE,
                                 id: originalItem.id,
                                 columnName: field,
                                 newValue: Number(yeniFloat),
-                                rowName: originalItem.pompa_adi,
+                                rowName: originalItem.ekipman_adi,
                                 oldValue: Number(eskiFloat)
                             });
                         }
                     } else if (field === "kw") {
-                        // 🚀 3. DÜZELTME: kw sayısal bir değer olduğundan float hassasiyetiyle karşılaştırıldı
                         const eskiKw = parseFloat(eskiDeger || 0).toFixed(2);
                         const yeniKw = parseFloat(yeniDeger || 0).toFixed(2);
                         if (eskiKw !== yeniKw) {
                             changes.push({
                                 type: "UPDATE",
-                                tableName: "submersible_pumps",
+                                tableName: DB_TABLE,
                                 id: originalItem.id,
                                 columnName: field,
                                 newValue: Number(yeniKw),
-                                rowName: originalItem.pompa_adi,
+                                rowName: originalItem.ekipman_adi,
                                 oldValue: Number(eskiKw)
                             });
                         }
@@ -209,11 +188,11 @@ function DalgicPompa() {
                         if (eskiDeger !== yeniDeger) {
                             changes.push({
                                 type: "UPDATE",
-                                tableName: "submersible_pumps",
+                                tableName: DB_TABLE,
                                 id: originalItem.id,
                                 columnName: field,
                                 newValue: yeniDeger,
-                                rowName: originalItem.pompa_adi,
+                                rowName: originalItem.ekipman_adi,
                                 oldValue: eskiDeger
                             });
                         }
@@ -232,7 +211,7 @@ function DalgicPompa() {
 
                 changes.push({
                     type: "UPDATE",
-                    tableName: "submersible_pumps",
+                    tableName: DB_TABLE,
                     id: firstPumpId,
                     columnName: oranField,
                     newValue: Number(guncelOran),
@@ -264,7 +243,7 @@ function DalgicPompa() {
         const ydKatsayi = currentOran.yd_katsayi !== undefined && currentOran.yd_katsayi !== "" ? Number(currentOran.yd_katsayi) : Number(eskiOranlar.yd_katsayi);
 
         setPumpsData((prevPumps) => {
-            const recalculated = originalData.map(item => {
+            return originalData.map(item => {
                 const anlikItem = prevPumps.find(p => p.id === item.id) || item;
                 if (anlikItem.isDeleted) return anlikItem;
 
@@ -275,7 +254,6 @@ function DalgicPompa() {
                     yd_satis: (alis * ydKatsayi).toFixed(2)
                 };
             });
-            return [...recalculated];
         });
     };
 
@@ -303,10 +281,11 @@ function DalgicPompa() {
                 updates: updatesPayload
             });
 
-            const response = await API.getSubmersibleCosts();
-            const freshData = response.data.map(item => ({
+            // 🚀 DÜZELTME 4: Kayıttan sonra yanlış tablo (Submersible) yerine İleri Arıtma tablosu çekiliyor.
+            const response = await API.getIlerAritmaEquipmentsCosts();
+            const freshData = (response.data || []).map(item => ({
                 ...item,
-                name: item.pompa_adi
+                name: item.ekipman_adi
             }));
 
             setPumpsData(JSON.parse(JSON.stringify(freshData)));
@@ -327,12 +306,14 @@ function DalgicPompa() {
             setPendingChanges([]);
 
         } catch (error) {
-            console.error("Dalgıç pompa fiyatları güncellenirken teknik hata:", error);
+            console.error("Ekipman fiyatları güncellenirken teknik hata:", error);
             alert("Veriler kaydedilirken bir hata meydana geldi.");
         } finally {
             setLoading(false);
         }
     };
+
+    const visiblePumpsData = useMemo(() => pumpsData.filter(p => !p.isDeleted), [pumpsData]);
 
     if (loading) {
         return (
@@ -344,14 +325,12 @@ function DalgicPompa() {
         );
     }
 
-    const visiblePumpsData = pumpsData.filter(p => !p.isDeleted);
-
     return (
         <div>
             <div className="d-flex justify-content-between align-items-center mb-3">
                 <div className="mb-2 d-flex align-items-center" style={{ color: "#94a3b8" }}>
                     <i className="bi bi-gear-fill me-2 text-success"></i>
-                    <span className="fw-semibold small">Pompa Yönetimi</span>
+                    <span className="fw-semibold small">İleri Arıtma Ekipman Yönetimi</span>
                 </div>
                 <div className="d-flex gap-2">
                     <button className="btn btn-outline-primary btn-sm px-3" onClick={handleAddNewRow}>
@@ -368,18 +347,22 @@ function DalgicPompa() {
                     <i className="bi bi-sliders me-2 text-success"></i>
                     <span className="fw-semibold small">Oran Katsayıları</span>
                 </div>
-                <ExcelGrid
-                    headers={oranHeaders}
-                    data={sabitOranlar}
-                    fields={oranFields}
-                    onDataChange={handleOranDataChange}
-                />
+                <div className="row">
+                    <div className="col-12 col-md-5">
+                        <ExcelGrid
+                            headers={oranHeaders}
+                            data={sabitOranlar}
+                            fields={oranFields}
+                            onDataChange={handleOranDataChange}
+                        />
+                    </div>
+                </div>
             </div>
 
             <div className="mt-4">
                 <div className="mb-2 d-flex align-items-center" style={{ color: "#94a3b8" }}>
                     <i className="bi bi-table me-2 text-secondary"></i>
-                    <span className="fw-semibold small">Pompa Fiyat Listesi</span>
+                    <span className="fw-semibold small">Ekipman Fiyat Listesi</span>
                 </div>
                 <ExcelGrid
                     headers={headers}
@@ -387,7 +370,6 @@ function DalgicPompa() {
                     fields={fields}
                     onDataChange={handleGridDataChange}
                     isMainTable={true}
-                    onActionClick={(row) => handleOpenCurveModal(row.id, row.pompa_adi)}
                 />
             </div>
 
@@ -397,19 +379,8 @@ function DalgicPompa() {
                 onConfirm={handleConfirmSave}
                 changesList={pendingChanges}
             />
-
-            <PumpCurveUpdateModal
-                show={curveModalOpen}
-                onClose={() => {
-                    setCurveModalOpen(false);
-                    setSelectedPumpId(null);
-                    setSelectedPumpName("");
-                }}
-                pumpId={selectedPumpId}
-                pumpName={selectedPumpName}
-            />
         </div>
     );
 }
 
-export default DalgicPompa;
+export default IleriAritmaEquipments;

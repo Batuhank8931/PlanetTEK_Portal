@@ -8,6 +8,8 @@ import IscilikMaliyetleri from "./FiyatlarComponents/IscilikMaliyetleri";
 import Filtration from "./FiyatlarComponents/Filtration";
 import DalgicPompa from "./FiyatlarComponents/DalgicPompa";
 import CamurSusuzlastirma from "./FiyatlarComponents/CamurSusuzlastirma";
+import IleriAritmaEquipments from "./FiyatlarComponents/IlerAritmaEquipments";
+
 
 function FiyatlarPage() {
   const [activeTab, setActiveTab] = useState("anaUniteler");
@@ -22,6 +24,7 @@ function FiyatlarPage() {
     { id: "dalgicpompa", label: "Pompalar" },
     { id: "filtration", label: "Filtrasyon" },
     { id: "camursusuzlastirma", label: "Çamur Susuzlaştırma" },
+    { id: "ileriaritmaequipments", label: "İleri Aritma Ekipmanları" },
   ];
 
   return (
@@ -99,6 +102,7 @@ function FiyatlarPage() {
             {activeTab === "dalgicpompa" && <DalgicPompa />}
             {activeTab === "filtration" && <Filtration />}
             {activeTab === "camursusuzlastirma" && <CamurSusuzlastirma />}
+            {activeTab === "ileriaritmaequipments" && <IleriAritmaEquipments />}
 
           </motion.div>
         </AnimatePresence>
