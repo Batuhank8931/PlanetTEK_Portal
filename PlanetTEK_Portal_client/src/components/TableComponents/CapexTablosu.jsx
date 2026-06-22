@@ -37,6 +37,7 @@ function CapexTablosu() {
 
     const [loading, setLoading] = useState(false);
     const [localRows, setLocalRows] = useState([]);
+    const [history, setHistory] = useState([]); // 👈 Geri alma geçmişi için state eklendi
 
     const priceData = useMemo(() => {
         return {
@@ -46,6 +47,7 @@ function CapexTablosu() {
         };
     }, [teklifDili]);
 
+    // Store ve yerel state'i senkronize eden fonksiyon
     const updateStore = useCallback((updatedRows) => {
         const finalRowsWithNumbers = generateWBSNumbers(updatedRows);
         setLocalRows(finalRowsWithNumbers);
@@ -54,6 +56,28 @@ function CapexTablosu() {
             capextablosu: finalRowsWithNumbers
         });
     }, [formData?.tables, updateSection]);
+
+    // ↶ Geri Al fonksiyonu
+    const handleUndo = useCallback(() => {
+        if (history.length === 0) return;
+
+        // Geçmişteki son durumu al ve havuzdan çıkar
+        const previousState = history[history.length - 1];
+        setHistory(prev => prev.slice(0, -1));
+
+        // Numaraları koruyarak store ve yerel state'e bas
+        setLocalRows(previousState);
+        updateSection("tables", {
+            ...formData?.tables,
+            capextablosu: previousState
+        });
+    }, [history, formData?.tables, updateSection]);
+
+    // Mevcut aktif satırların derin bir kopyasını (deep copy) geçmişe atan yardımcı fonksiyon
+    const saveToHistory = useCallback(() => {
+        const activeRows = storeCapex && storeCapex.length > 0 ? storeCapex : localRows;
+        setHistory(prev => [...prev, JSON.parse(JSON.stringify(activeRows))]);
+    }, [storeCapex, localRows]);
 
     useEffect(() => {
         if (storeCapex && storeCapex.length > 0) {
@@ -87,6 +111,10 @@ function CapexTablosu() {
         try {
             const rawFreshData = await capexHesapFonksiyonu(formData, priceData);
             const freshDataWithNo = generateWBSNumbers(rawFreshData);
+            
+            // Yenileme işlemi yapıldığında geçmişi temizlemek veya korumak tercih edilebilir; koruyoruz:
+            saveToHistory(); 
+
             updateSection("tables", {
                 ...formData?.tables,
                 capextablosu: freshDataWithNo
@@ -100,11 +128,14 @@ function CapexTablosu() {
     };
 
     const handleCellChange = (id, field, val) => {
+        // Değişiklik uygulanmadan hemen önce eski halini hafızaya alıyoruz
+        saveToHistory();
+
         const activeRows = storeCapex && storeCapex.length > 0 ? storeCapex : localRows;
         const updated = activeRows.map(row => {
             if (row.id === id) {
                 const updatedRow = { ...row, [field]: val };
-                if (field === "piece" || field === "unitPrice" || field === "discount") {
+                if (field === "piece" || field === "unitPrice" || field === "discount" || field === "isOptional") {
                     const piece = parseFloat(updatedRow.piece) || 0;
                     const unitPrice = parseFloat(updatedRow.unitPrice) || 0;
                     const discount = parseFloat(updatedRow.discount) || 0;
@@ -119,6 +150,9 @@ function CapexTablosu() {
     };
 
     const insertAfterRow = (index, selectedType) => {
+        // Satır eklenmeden hemen önce mevcut tabloyu hafızaya alıyoruz
+        saveToHistory();
+
         const activeRows = storeCapex && storeCapex.length > 0 ? storeCapex : localRows;
         const newRow = {
             id: "_" + Math.random().toString(36).substr(2, 9),
@@ -138,16 +172,15 @@ function CapexTablosu() {
     };
 
     const deleteRow = (id) => {
+        // Satır silinmeden hemen önce mevcut tabloyu hafızaya alıyoruz
+        saveToHistory();
+
         const activeRows = storeCapex && storeCapex.length > 0 ? storeCapex : localRows;
         const updated = activeRows.filter(row => String(row.id) !== String(id));
         updateStore(updated);
     };
 
     return (
-        /* 🚀 DEĞİŞİKLİK: 
-          w-100 yanına "overflow-x: 'auto'" eklendi. 
-          Böylece tablo ekran dışına taşarsa telefonda otomatik kaydırma çubuğu çıkacak.
-        */
         <div className="w-100" style={{ position: "relative", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
             {/* Loading Arayüzü */}
             {loading && (
@@ -163,10 +196,6 @@ function CapexTablosu() {
                 </div>
             )}
 
-            {/* 🚀 TAVSİYE/DÜZENLEME:
-              Tablonun geniş ekranda normal, mobilde ise sıkışmadan minimum 900px genişlikte 
-              kalması ve düzgün scroll edilebilmesi için sarmalayıcı bir div daha ekledik.
-            */}
             <div style={{ minWidth: "950px" }}>
                 <CapexTableView
                     numberedRows={storeCapex && storeCapex.length > 0 ? storeCapex : localRows}
@@ -174,8 +203,9 @@ function CapexTablosu() {
                     insertAfterRow={insertAfterRow}
                     deleteRow={deleteRow}
                     handleRefresh={handleRefresh}
+                    handleUndo={handleUndo}             // 👈 Alt bileşene aktarıldı
+                    historyLength={history.length}      // 👈 Sıfır yerine dinamik uzunluk paslandı
                     teklifDili={teklifDili}
-                    historyLength={0}
                 />
             </div>
         </div>

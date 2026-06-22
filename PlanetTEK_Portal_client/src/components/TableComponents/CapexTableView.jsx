@@ -156,7 +156,7 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
                                 cursor: historyLength === 0 ? "not-allowed" : "pointer"
                             }}
                         >
-                            ↶ Geri Al
+                            ↶
                         </button>
                     </div>
                 </div>
