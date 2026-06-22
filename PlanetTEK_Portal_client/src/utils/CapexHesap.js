@@ -9,7 +9,8 @@ import {
     resolveIleriAritmaPrices,
     resolveFiltrationPrices,
     resolveSusuzlastirmaPrices,
-    resolveOthersPrices
+    resolveOthersPrices,
+    resolveMontajPrices
 } from "./equipmentPriceResolvers";
 
 /**
@@ -25,6 +26,7 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
     const customerInfo = formData?.customerInfo;
     const planetTekIndirim = parseFloat(customerInfo?.planetTekIndirim) ?? 5;
     const ekipmanIndirim = parseFloat(customerInfo?.ekipmanIndirim) ?? 10;
+
 
     const equipmentsObject = formData.equipments || {};
     const { modulesState = {} } = equipmentsObject;
@@ -51,6 +53,7 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
 
     const planetDiskDetails = formData.planetDiskDetails || {};
     const rbcModeli = planetDiskDetails?.tasarim?.aritmaParametreleri?.RBCUnite || "MX";
+    const UniteTipi = planetDiskDetails.tasarim?.aritmaParametreleri?.kasaTipi || "Kapaklı";
     const yerlesimListesi = planetDiskDetails?.tasarim?.yerlesimSiralanisi || [];
     const lamellaDetaylar = planetDiskDetails?.tasarim?.lamella || [];
 
@@ -79,6 +82,7 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
     // Filtrasyon Metrikleri
     const sistemAdet = parseInt(filtrationObj?.sistemAdet) || 1;
 
+    const teklifDili = formData?.customerInfo?.teklifDili || "Yabancı";
 
     const klorlama = filtrationObj?.onKlorlama;
     const beslemePompasi = filtrationObj?.pompalar?.besleme;
@@ -101,18 +105,20 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
         ileriAritmaPrices,
         filtrationPrices,
         susuzlastirmaPrices,
-        othersPrices
+        othersPrices,
+        montajPrices
     ] = await Promise.all([
         resolveScreenPrices(onAritmaObj, priceData),
         resolveTerfiPompasiPrices(feedPumpObj, priceData),
         resolveDebiDagitimPrices(feedPumpObj, priceData),
-        resolveRBCPrices(planetDiskDetails, priceData),
+        resolveRBCPrices(planetDiskDetails, priceData, UniteTipi),
         resolveLamellaPrices(planetDiskDetails, priceData),
         resolveLamellaPumpPrices(lamellaPomapasiModeli, priceData),
         resolveIleriAritmaPrices(ileriAritmaObj, priceData),
         resolveFiltrationPrices(filtrationObj, priceData),
         resolveSusuzlastirmaPrices(sludgeObj, priceData),
-        resolveOthersPrices(formData, priceData)
+        resolveOthersPrices(formData, priceData),
+        resolveMontajPrices(formData, priceData)
     ]);
 
     // 5. Ana Şablon Tanımı (baseTemplate)
@@ -179,9 +185,25 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
 
         { id: "1_alt_biyolojik", type: 1, label: "Biyolojik Arıtma Üniteleri (İkincil Arıtma)" },
         {
+            id: "2_rbc_kapakli",
+            type: 3,
+            piece: UniteTipi === "Kapaklı" ? toplamRbcAdeti : 0,
+            label: `PlanetDISK® ${rbcModeli} 1 DBD Ünitesi;\n- Epoksi Boyalı AISI 1045 (C45) Karbon Çelik Dolu Mil\n- Islak Parçalar SS304 Paslanmaz ve Galvaniz Kaplı Çelik\n- Mil Başına ${milBasinaDisk} Adet Disk Yüzey Alanı / Ünite`,
+            unitPrice: rbcPrices.kapakli,
+            discount: planetTekIndirim
+        },
+        {
+            id: "2_rbc_sase",
+            type: 3,
+            piece: UniteTipi === "Şase" ? toplamRbcAdeti : 0,
+            label: `PlanetDISK® ${rbcModeli} 1 DBD Rotor;\n- Epoksi Boyalı AISI 1045 (C45) Karbon Çelik Dolu Mil\n- Islak Parçalar SS304 Paslanmaz ve Galvaniz Kaplı Çelik\n- Mil Başına ${milBasinaDisk} Adet Disk Yüzey Alanı / Rotor`,
+            unitPrice: rbcPrices.sase,
+            discount: planetTekIndirim
+        },
+        {
             id: "2_rbc_kapaksiz",
             type: 3,
-            piece: toplamRbcAdeti,
+            piece: UniteTipi === "Kapaksız" ? toplamRbcAdeti : 0,
             label: `PlanetDISK® ${rbcModeli} 1 DBD Ünitesi (Kapaksız) ;\n- Epoksi Boyalı AISI 1045 (C45) Karbon Çelik Dolu Mil\n- Islak Parçalar SS304 Paslanmaz ve Galvaniz Kaplı Çelik\n- Mil Başına ${milBasinaDisk} Adet Disk Yüzey Alanı / Ünite`,
             unitPrice: rbcPrices.kapaksizUnite,
             discount: planetTekIndirim
@@ -189,10 +211,12 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
         {
             id: "2_rbc_kapak",
             type: 3,
-            piece: toplamRbcAdeti,
+            // Sadece UniteTipi "Kapaksız" ise adet alacak, aksi halde 0 olacak ve render edilmeyecek
+            piece: UniteTipi === "Kapaksız" ? toplamRbcAdeti : 0,
             label: `PlanetDISK® ${rbcModeli} 1 DBD Ünitesi Kapağı`,
             unitPrice: rbcPrices.kapak,
-            discount: planetTekIndirim
+            discount: planetTekIndirim,
+            isOptional: true
         },
         {
             id: "2_lamella_seperator",
@@ -367,19 +391,24 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
         { id: "6_insaat_tank_camur", type: 3, piece: isCamurAktif ? 1 : 0, label: "Çamur Tankı", unitPrice: 0, discount: 0, isUrgent: true },
 
         { id: "1_ana_montaj", type: 0, label: "MONTAJ EKİPMANLARI" },
-        { id: "7_montaj_borulama_tesisat", type: 3, piece: 1, label: "Bütün borulama ve elektrik tesisatı", unitPrice: othersPrices.borulamaTesisat, discount: ekipmanIndirim },
+        { id: "7_montaj_borulama_tesisat", type: 3, piece: 1, label: "Bütün borulama ve elektrik tesisatı", unitPrice: rbcPrices.tesisat, discount: ekipmanIndirim },
 
         { id: "1_ana_elektrik", type: 0, label: "ELEKTRİK İŞLERİ" },
-        { id: "7_elektrik_kontrol_panosu", type: 3, piece: 1, label: "PlanetDISK® Kontrol Panosu", unitPrice: othersPrices.kontrolPanosu, discount: ekipmanIndirim },
+        { id: "7_elektrik_kontrol_panosu", type: 3, piece: 1, label: "PlanetDISK® Kontrol Panosu", unitPrice: rbcPrices.pano, discount: ekipmanIndirim },
 
         { id: "1_ana_nakliye", type: 0, label: "NAKLİYE" },
-        { id: "7_nakliye_tir", type: 3, piece: 1, label: "Tır", unitPrice: othersPrices.nakliyeTir, discount: 0, isShippingStyle: true },
+        { id: "7_konteyner", type: 3, piece: 1, label: "40' HC konteyner", unitPrice: othersPrices.konteyner, discount: 0, isOptional: true },
+        { id: "7_nakliye_tir", type: 3, piece: 1, label: "Tır", unitPrice: othersPrices.nakliyeTir, discount: 0, isOptional: true },
 
-        { id: "1_ana_muhendislik", type: 0, label: "PROJE, MONTAJ, DEVREYE ALMA, EĞİTİM ve MÜHENDİSLİK" },
-        { id: "7_muhendislik_genel_paket", type: 3, piece: 1, label: "Mühendislik Hizmetleri Genel Paketi", unitPrice: othersPrices.muhendislikPaket, discount: ekipmanIndirim },
+        ...(teklifDili === "Yerli" ? [
+            { id: "1_ana_muhendislik", type: 0, label: "PROJE, MONTAJ, DEVREYE ALMA, EĞİTİM ve MÜHENDİSLİK" },
+            { id: "7_muhendislik_genel_paket", type: 3, piece: 1, label: "Mühendislik Hizmetleri Genel Paketi", unitPrice: montajPrices.montajBedeli, discount: ekipmanIndirim },
+            { id: "1_ana_pod", type: 0, label: "POD HAZIRLANMASI ve ONAYININ ALINMASI-Harçlar Hariç" },
+            { id: "7_pod_resmi_onay_yonetimi", type: 3, piece: 1, label: "Resmi Onay Süreçleri Yönetimi", unitPrice: 2300, discount: 0 }
 
-        { id: "1_ana_pod", type: 0, label: "POD HAZIRLANMASI ve ONAYININ ALINMASI-Harçlar Hariç" },
-        { id: "7_pod_resmi_onay_yonetimi", type: 3, piece: 1, label: "Resmi Onay Süreçleri Yönetimi", unitPrice: othersPrices.podResmiOnay, discount: 0 }
+
+        ] : []),
+
     ];
 
     // 6. Matematiksel Hesaplama Motoru

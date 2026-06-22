@@ -110,7 +110,6 @@ function LamellaParameters() {
     let targetCamurPompasiObj = currentCamurPompasiObj;
     if (!currentCamurPompasiId && centrifugePumps.length > 0) {
       const firstPump = centrifugePumps[0];
-      console.log(firstPump);
       targetCamurPompasiObj = {
         id: firstPump.id,
         name: firstPump.name,

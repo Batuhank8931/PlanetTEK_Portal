@@ -16,7 +16,8 @@ const TEXT_FIELDS = [
   "kapasite",
   "parametre_adi",
   "parametre_key",
-  "plakaboyut"
+  "plakaboyut", "mekKisi", "mekGun",
+  "elkKisi", "elkGun"
 ];
 
 const ExcelGrid = ({ headers, data, fields, onDataChange, isMainTable = false, onActionClick }) => {

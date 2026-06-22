@@ -2,13 +2,16 @@ import React from "react";
 
 // 🚀 PARA BİRİMİ OLMAYAN (METİNSEL VEYA TEKNİK SAYISAL) ALANLAR
 const NON_MONETARY_FIELDS = [
-    "model", "pompa_adi", "pompa_tipi", "ekipman_adi", "ekipman_tipi", 
+    "model", "pompa_adi", "pompa_tipi", "ekipman_adi", "ekipman_tipi",
     "kw", "ad", "kapasite_birimi", "tipi", "kapasite", "plakaboyut",
     "parametre_adi", "parametre_key",
-    "debi", "geri_yikama_debi", "besleme_kw", "geri_yikama_kw" // 🌟 Yeni eklenen teknik ölçüler
+    "debi", "geri_yikama_debi", "besleme_kw",
+    "geri_yikama_kw", "mekkisi", "mekgun",
+    "elkkisi", "elkgun" 
 ];
 
 function PriceChangeUpdateConfirmationModal({ show, onClose, onConfirm, changesList }) {
+
     if (!show) return null;
 
     return (
@@ -74,10 +77,10 @@ function PriceChangeUpdateConfirmationModal({ show, onClose, onConfirm, changesL
                                     <tbody>
                                         {changesList.map((change, index) => {
                                             const colNameLower = change.columnName ? change.columnName.toLowerCase() : "";
-                                            
+
                                             // Çarpan katsayıları takibi
                                             const isRateOrCoefficient = colNameLower.includes("katsayi") || colNameLower.includes("oran");
-                                            
+
                                             // Metinsel veya teknik süzme (Debi, kW, ad vb. durumlarda yanına € basılmasını engeller)
                                             const isNonMonetary = NON_MONETARY_FIELDS.includes(colNameLower);
 
@@ -129,8 +132,8 @@ function PriceChangeUpdateConfirmationModal({ show, onClose, onConfirm, changesL
                                                     </td>
                                                     <td className="py-2 text-success"><i className="bi bi-chevron-right"></i></td>
                                                     <td className="fw-bold py-2 text-wrap" style={{ color: change.type === "DELETE" ? "#ef4444" : "#4ade80", fontSize: change.type === "INSERT" ? "11px" : "12px" }}>
-                                                        {change.type === "DELETE" ? "SİLİNECEK" : 
-                                                         change.type === "INSERT" ? renderInsertOrDeleteSummary() : `${formatValue(change.newValue)}${unit}`}
+                                                        {change.type === "DELETE" ? "SİLİNECEK" :
+                                                            change.type === "INSERT" ? renderInsertOrDeleteSummary() : `${formatValue(change.newValue)}${unit}`}
                                                     </td>
                                                 </tr>
                                             );

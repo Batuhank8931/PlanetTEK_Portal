@@ -144,7 +144,7 @@ export async function resolveDebiDagitimPrices(feedPumpObj, priceData) {
  * 4. RBC (PlanetDISK ve Kapak) Fiyatları (Dinamik DB Sürümü)
  * priceData: { teklifDili: "Yerli" } veya { isYurtIci: true }
  */
-export async function resolveRBCPrices(planetDiskDetails, priceData) {
+export async function resolveRBCPrices(planetDiskDetails, priceData, UniteTipi) {
 
     const isYurtIci = priceData?.teklifDili === "Yerli" || priceData?.isYurtIci === true;
 
@@ -165,16 +165,23 @@ export async function resolveRBCPrices(planetDiskDetails, priceData) {
         const response = await API.getMainUnits();
         const mainUnits = response?.data?.data || response?.data || [];
 
+
         if (mainUnits.length > 0) {
             // Toplam adedi 'sale_amount' kolonu ile eşleştiriyoruz (Varsayılan model: MX1)
             const rbcSatiri = mainUnits.find(
                 item => parseInt(item.sale_amount) === toplamRbcAdedi && String(item.model).toUpperCase() === "MX1"
             );
 
+
             if (rbcSatiri) {
                 return {
                     kapaksizUnite: isYurtIci ? parseFloat(rbcSatiri.yi_kapaksiz) : parseFloat(rbcSatiri.yd_kapaksiz),
-                    kapak: isYurtIci ? parseFloat(rbcSatiri.kapak_fiyati_yi) : parseFloat(rbcSatiri.kapak_fiyati_yd)
+                    kapak: isYurtIci ? parseFloat(rbcSatiri.kapak_fiyati_yi) : parseFloat(rbcSatiri.kapak_fiyati_yd),
+                    kapakli: ((isYurtIci ? parseFloat(rbcSatiri.yi_kapaksiz) : parseFloat(rbcSatiri.yd_kapaksiz)) + (isYurtIci ? parseFloat(rbcSatiri.kapak_fiyati_yi) : parseFloat(rbcSatiri.kapak_fiyati_yd))),
+                    pano: isYurtIci ? parseFloat(rbcSatiri.pYi) : parseFloat(rbcSatiri.pYd),
+                    tesisat: isYurtIci ? parseFloat(rbcSatiri.tYi) : parseFloat(rbcSatiri.tYd),
+                    sase: isYurtIci ? parseFloat(rbcSatiri.sase_fiyati_yi) : parseFloat(rbcSatiri.sase_fiyati_yd),
+
                 };
             }
             console.warn(`Toplam adet (${toplamRbcAdedi}) ile eşleşen sale_amount DB satırı bulunamadı.`);
@@ -543,10 +550,73 @@ export async function resolveSusuzlastirmaPrices(sludgeObj, priceData) {
  */
 export function resolveOthersPrices(formData, priceData) {
     return {
-        borulamaTesisat: 19637,
-        kontrolPanosu: 13027,
+        konteyner: 13027,
         nakliyeTir: 0,
-        muhendislikPaket: 0,
-        podResmiOnay: 2300
     };
+}
+
+
+export async function resolveMontajPrices(formData, priceData) {
+    try {
+        // 1️⃣ Ünite Adedini Hesapla (isLamella === false olan RBC adetleri)
+        const yerlesimArray = formData?.planetDiskDetails?.tasarim?.yerlesimSiralanisi || [];
+        const toplamRbcAdedi = yerlesimArray
+            .filter(item => item && item.isLamella === false)
+            .reduce((sum, item) => sum + (parseInt(item.adet) || 0), 0);
+
+        // 2️⃣ Modül Durumlarını Kontrol Et (Filtrasyon ve Çamur)
+        const modulesState = formData?.equipments?.modulesState || {};
+        const isFiltrasyonChecked = modulesState.filtrasyon?.checked || false;
+        const isCamurAktif = modulesState.sludgeDewatering?.checked || false;
+
+        // 3️⃣ Koşullara Göre `grup_tipi` Belirle
+        let hedefGrupTipi = "Standart";
+        if (isFiltrasyonChecked && isCamurAktif) {
+            hedefGrupTipi = "Filtrasyon_Camur";
+        } else if (isFiltrasyonChecked) {
+            hedefGrupTipi = "Filtrasyon";
+        } else if (isCamurAktif) {
+            hedefGrupTipi = "Camur";
+        }
+
+        // 4️⃣ Veritabanından taze işçilik maliyetlerini doğrudan burada çekiyoruz
+        const response = await API.getUnitLaborCosts();
+        const laborCostsData = response?.data || [];
+
+        // 5️⃣ İlgili Gruba Ait Satırları Filtrele
+        const grupSatirlari = laborCostsData.filter(
+            (row) => row.grup_tipi === hedefGrupTipi
+        );
+
+        // Eğer o gruba ait veri yoksa fallback olarak 0 dönsün
+        if (grupSatirlari.length === 0) {
+            console.warn(`Veritabanında ${hedefGrupTipi} grubuna ait işçilik maliyeti bulunamadı.`);
+            return { montajBedeli: 0 };
+        }
+
+        // 6️⃣ Tam Eşleşen Ünite Sayısını Ara
+        let secilenSatir = grupSatirlari.find(
+            (row) => Number(row.unite_sayisi) === toplamRbcAdedi
+        );
+
+        // 7️⃣ FALLBACK: Eğer tam ünite sayısı yoksa, o grubun EN BÜYÜK ünite sayılı satırını seç
+        if (!secilenSatir) {
+            secilenSatir = grupSatirlari.reduce((maxRow, currentSpec) => {
+                return Number(currentSpec.unite_sayisi) > Number(maxRow.unite_sayisi) ? currentSpec : maxRow;
+            }, grupSatirlari[0]);
+            console.log(`Tam ünite sayısı (${toplamRbcAdedi}) bulunamadı. Maksimum ünite satırı seçildi.`);
+        }
+
+        // 8️⃣ Toplam Maliyeti Dönüştür ve Gönder
+        const montajBedeli = secilenSatir ? Number(secilenSatir.toplamMaliyet) : 0;
+
+        return {
+            montajBedeli: montajBedeli
+        };
+
+    } catch (error) {
+        console.error("resolveMontajPrices içerisinde hata oluştu, fallback değer dönüyor:", error);
+        // API isteği veya herhangi bir şey patlarsa sistem tıkanmasın diye güvenli varsayılan değer
+        return { montajBedeli: 0 };
+    }
 }

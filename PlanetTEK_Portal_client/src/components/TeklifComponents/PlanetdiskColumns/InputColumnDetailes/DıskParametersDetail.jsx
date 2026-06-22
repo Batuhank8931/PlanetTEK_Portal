@@ -15,6 +15,7 @@ function DiskParameters() {
 
     const currentRBCUnite = aritmaParametreleri.RBCUnite || "MX";
     const currentAtiksutype = aritmaParametreleri.atiksutype || "evsel";
+    const currentKasaTipi = aritmaParametreleri.kasaTipi || "Kapaklı"; // Default değer koruması
 
     const getDiskSinirlari = (uniteType, wastewaterType, matris) => {
         const aktifMatris = matris || diskSinirlariMatrisi;
@@ -26,7 +27,7 @@ function DiskParameters() {
         return uniteSinirlari[wastewaterType] || uniteSinirlari["evsel"];
     };
 
-    // 1. API Çağrısı ve Store İlk Kurulumu (Geri gelindiğinde el değerlerini korur)
+    // 1. API Çağrısı ve Store İlk Kurulumu
     useEffect(() => {
         const fetchAndInitParameters = async () => {
             try {
@@ -53,7 +54,6 @@ function DiskParameters() {
                 const currentStore = useTeklifStore.getState().formData.planetDiskDetails || {};
                 const currentParams = currentStore.tasarim?.aritmaParametreleri || {};
 
-                // Eğer store'da hiç adet yoksa API'den gelen varsayılanları ata
                 if (currentParams.maxDisk === undefined || currentParams.minDisk === undefined) {
                     const sinirlar = getDiskSinirlari(currentRBCUnite, currentAtiksutype, matris);
                     
@@ -66,7 +66,9 @@ function DiskParameters() {
                                 RBCUnite: currentRBCUnite,
                                 minDisk: sinirlar.minDisk,
                                 maxDisk: sinirlar.maxDisk,
-                                isDiskCountsManual: false // Başlangıçta manuel değil
+                                isDiskCountsManual: false,
+                                // İlk kurulumda MX ise varsayılan kasayı ekle
+                                kasaTipi: currentRBCUnite === "MX" ? "Kapaklı" : undefined
                             }
                         }
                     });
@@ -82,11 +84,9 @@ function DiskParameters() {
         fetchAndInitParameters();
     }, []);
 
-    // 2. Takip Efekti (Sadece kullanıcı arayüzden Model veya Atıksu Tipi değiştirdiğinde otomatik kilitler)
+    // 2. Takip Efekti
     useEffect(() => {
         if (loading || !diskSinirlariMatrisi || Object.keys(diskSinirlariMatrisi).length === 0) return;
-
-        // KONTROL: Eğer kullanıcı el ile sayıları değiştirdiyse ve sayfa yenilenmiş/geri gelinmişse API değerleriyle EZME.
         if (aritmaParametreleri.isDiskCountsManual === true) return;
 
         const sinirlar = getDiskSinirlari(currentRBCUnite, currentAtiksutype);
@@ -127,7 +127,6 @@ function DiskParameters() {
         });
     };
 
-    // Kullanıcı + / - butonlarına bastığında tetiklenir
     const handleStepChange = (name, type) => {
         let min = safeDiskData.minDisk;
         let max = safeDiskData.maxDisk;
@@ -144,7 +143,6 @@ function DiskParameters() {
             if (max < min) min = max;
         }
 
-        // Değişiklik el ile yapıldığı için kilidi aktif ediyoruz
         updateStore({
             ...aritmaParametreleri,
             minDisk: min,
@@ -153,21 +151,31 @@ function DiskParameters() {
         });
     };
 
-    // Kullanıcı dropdown listesinden seriyi değiştirdiğinde tetiklenir
     const handleModelChange = (e) => {
         const { value } = e.target;
         const yeniSinirlar = getDiskSinirlari(value, currentAtiksutype);
 
-        // Kullanıcı yeni bir model seçtiği için el kilidini (isDiskCountsManual) kaldırıyoruz 
-        // ki yeni modelin fabrika/API sınırları otomatik yüklenebilsin.
         updateStore({
             ...aritmaParametreleri,
             RBCUnite: value,
             minDisk: yeniSinirlar.minDisk,
             maxDisk: yeniSinirlar.maxDisk,
-            isDiskCountsManual: false 
+            isDiskCountsManual: false,
+            // MX seçildiyse varsayılan "Kapaklı" ata, değilse parametreyi kaldır
+            kasaTipi: value === "MX" ? "Kapaklı" : undefined 
         });
     };
+
+    const handleKasaTipiChange = (e) => {
+        const { value } = e.target;
+        updateStore({
+            ...aritmaParametreleri,
+            kasaTipi: value
+        });
+    };
+
+    // MX seçildiyse sütun genişliklerini dinamik ayarlamak için bootstrap class'ı
+    const columnClass = safeDiskData.RBCUnite === "MX" ? "col-3" : "col-4";
 
     return (
         <div className="card-body p-0 px-4">
@@ -181,7 +189,7 @@ function DiskParameters() {
             <div className="p-3 rounded mb-3" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
                 <div className="row g-2">
                     {/* Model / Tipi */}
-                    <div className="col-4">
+                    <div className={columnClass}>
                         <label className="text-white-50 mb-1 d-block text-truncate" style={{ fontSize: "11px" }}>Model / Tipi</label>
                         <select
                             name="RBCUnite"
@@ -195,8 +203,26 @@ function DiskParameters() {
                         </select>
                     </div>
 
+                    {/* Koşullu Kasa Tipi Dropdown (Yalnızca MX ise görünür) */}
+                    {safeDiskData.RBCUnite === "MX" && (
+                        <div className={columnClass}>
+                            <label className="text-white-50 mb-1 d-block text-truncate" style={{ fontSize: "11px" }}>Kasa Yapısı</label>
+                            <select
+                                name="kasaTipi"
+                                value={currentKasaTipi}
+                                onChange={handleKasaTipiChange}
+                                className="form-select form-select-sm bg-dark text-white border-0"
+                                style={{ fontSize: "12px", height: "31px" }}
+                            >
+                                <option value="Kapaklı">Kapaklı</option>
+                                <option value="Kapaksız">Kapaksız</option>
+                                <option value="Şase">Şase</option>
+                            </select>
+                        </div>
+                    )}
+
                     {/* Max Disk Adedi */}
-                    <div className="col-4">
+                    <div className={columnClass}>
                         <label className="text-white-50 mb-1 d-block text-truncate" style={{ fontSize: "11px" }}>Max Disk Adedi</label>
                         <div className="d-flex align-items-center bg-dark rounded" style={{ height: "31px", overflow: "hidden" }}>
                             <button
@@ -222,7 +248,7 @@ function DiskParameters() {
                     </div>
 
                     {/* Min Disk Adedi */}
-                    <div className="col-4">
+                    <div className={columnClass}>
                         <label className="text-white-50 mb-1 d-block text-truncate" style={{ fontSize: "11px" }}>Min Disk Adedi</label>
                         <div className="d-flex align-items-center bg-dark rounded" style={{ height: "31px", overflow: "hidden" }}>
                             <button

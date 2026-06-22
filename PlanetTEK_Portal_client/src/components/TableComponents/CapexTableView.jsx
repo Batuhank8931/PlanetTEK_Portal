@@ -48,6 +48,14 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
         return "#151f32";
     };
 
+    // İndirim sonrası toplam fiyatı hesaplama (Sadece normal satırlar ve opsiyonel olmayanlar)
+    const totalNetPrice = numberedRows.reduce((sum, row) => {
+        if (row.type === 3 && !row.isUrgent && !row.isOptional && row.piece > 0) {
+            return sum + (row.netTotal || 0);
+        }
+        return sum;
+    }, 0);
+
     return (
         <div className="d-flex flex-column w-100">
             <style>{`
@@ -55,22 +63,58 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
                 .capex-row:last-child { border-bottom: none; }
                 .capex-input:focus { outline: none; background-color: rgba(255, 255, 255, 0.05) !important; }
                 .header-title-cell { font-size: 11px; font-weight: 800; color: #94a3b8; background-color: #090d16; text-transform: uppercase; letter-spacing: 0.6px; }
-                
-                .action-dropdown { position: relative; display: inline-block; }
+                .action-dropdown { 
+                    position: relative; 
+                    display: inline-block; 
+                }
+
                 .dropdown-menu-custom { 
                     position: absolute; 
                     background-color: #1e293b; 
                     border: 1px solid #475569; 
                     border-radius: 6px; 
-                    z-index: 999; 
-                    right: 110%; 
-                    top: 50%;
-                    transform: translateY(-50%);
-                    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.5); 
+                    z-index: 999999 !important; /* Tablo başlıklarının ve diğer her şeyin üstüne çıkması için */
+                    right: 0; /* Butonun sağ hizasına sıfırla (Sola doğru açılır) */
+                    top: 100%; /* Artık butonun solunda değil, tam altında açılacak */
+                    margin-top: 4px; /* Butonla arasında hafif bir boşluk */
+                    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7), 0 8px 10px -6px rgba(0, 0, 0, 0.7); 
                 }
-                
                 .dropdown-item-custom { padding: 8px 14px; font-size: 11px; color: #cbd5e1; cursor: pointer; white-space: nowrap; text-align: left; }
                 .dropdown-item-custom:hover { background-color: #334155; color: #fff; }
+
+                /* Premium & Modern Opsiyonel Seçim Noktası */
+                .optional-indicator-dot {
+                    position: absolute;
+                    top: 4px;
+                    right: 4px;
+                    width: 7px;
+                    height: 7px;
+                    border-radius: 50%;
+                    background-color: transparent;
+                    border: 1px solid #475569;
+                    cursor: pointer;
+                    transition: all 0.25s ease;
+                }
+                
+                /* Satıra hover olunca belirginleşsin */
+                .capex-row:hover .optional-indicator-dot {
+                    border-color: #94a3b8;
+                    box-shadow: 0 0 4px rgba(255, 255, 255, 0.1);
+                }
+                
+                /* Aktif olduğundaki Neon Glow Efekti */
+                .optional-dot-active {
+                    background-color: #38bdf8 !important;
+                    border-color: #38bdf8 !important;
+                    box-shadow: 0 0 8px #38bdf8, 0 0 12px rgba(56, 189, 248, 0.4) !important;
+                }
+
+                /* Opsiyonel Seçildiğinde Hücrenin Hafif Soft Arka Planı (Badge Havası) */
+                .optional-cell-selected {
+                    background-color: rgba(56, 189, 248, 0.06);
+                    border-radius: 4px;
+                    padding-right: 16px !important;
+                }
             `}</style>
 
             <div className="d-flex flex-column rounded-3 overflow-hidden" style={{ border: "1px solid #334155" }}>
@@ -98,7 +142,7 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
                             🔄 Yenile
                         </button>
 
-                        {/*  Butonu */}
+                        {/* Geri Al Butonu */}
                         <button
                             onClick={handleUndo}
                             disabled={!handleUndo || historyLength === 0}
@@ -112,28 +156,28 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
                                 cursor: historyLength === 0 ? "not-allowed" : "pointer"
                             }}
                         >
-                            ↶ 
+                            ↶ Geri Al
                         </button>
                     </div>
                 </div>
 
                 {/* TABLO BAŞLIĞI */}
                 <div className="d-flex align-items-stretch border-bottom" style={{ borderBottomColor: "#334155" }}>
-                    <div className="p-2 px-2 header-title-cell text-center" style={{ width: "7%" }}>No</div>
+                    <div className="p-2 px-2 header-title-cell text-center" style={{ width: "4%" }}>No</div>
                     <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                    <div className="p-2 px-3 header-title-cell" style={{ width: "36%" }}>Tanım</div>
+                    <div className="p-2 px-3 header-title-cell" style={{ width: "46%" }}>Tanım</div>
                     <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                    <div className="p-2 px-2 header-title-cell text-center" style={{ width: "7%" }}>Adet</div>
+                    <div className="p-2 px-2 header-title-cell text-center" style={{ width: "5%" }}>Adet</div>
                     <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
                     <div className="p-2 px-2 header-title-cell text-end" style={{ width: "11%" }}>Birim Fiyat</div>
                     <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
                     <div className="p-2 px-2 header-title-cell text-end" style={{ width: "11%" }}>Toplam Fiyat</div>
                     <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                    <div className="p-2 px-2 header-title-cell text-center" style={{ width: "10%" }}>İndirim Oranı</div>
+                    <div className="p-2 px-2 header-title-cell text-center" style={{ width: "7%" }}>İndirim Oranı</div>
                     <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
                     <div className="p-2 px-2 header-title-cell text-end" style={{ width: "12%" }}>İndirim Sonrası</div>
                     <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                    <div className="p-2 header-title-cell text-center" style={{ width: "6%" }}>Aksiyon</div>
+                    <div className="p-2 header-title-cell text-center" style={{ width: "4%" }}>X</div>
                 </div>
 
                 {/* TABLO GÖVDESİ */}
@@ -150,14 +194,19 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
                         else if (row.isShippingStyle) { totalStr = "-"; netStr = "Bilgi Amaçlı"; }
                         else if (row.unitPrice === 0 && row.type === 3) { totalStr = "-"; netStr = "-"; }
 
+                        // Eğer opsiyonel seçildiyse metni değiştir
+                        if (row.type === 3 && row.isOptional) {
+                            netStr = "Opsiyonel";
+                        }
+
                         return (
                             <div key={row.id} className="d-flex align-items-stretch capex-row" style={{ backgroundColor: getRowBg(row) }}>
-                                <div className="p-2 px-2 d-flex align-items-center justify-content-center text-white-50 fw-bold" style={{ width: "7%", fontSize: "11px" }}>
+                                <div className="p-2 px-2 d-flex align-items-center justify-content-center text-white-50 fw-bold" style={{ width: "4%", fontSize: "11px" }}>
                                     {row.computedNo}
                                 </div>
                                 <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
 
-                                <div className="p-2 px-3 d-flex align-items-center" style={{ width: "36%" }}>
+                                <div className="p-2 px-3 d-flex align-items-center" style={{ width: "46%" }}>
                                     {row.type < 3 ? (
                                         <input
                                             type="text"
@@ -177,7 +226,7 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
                                 </div>
 
                                 <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                                <div className="p-1 d-flex align-items-center justify-content-center" style={{ width: "7%" }}>
+                                <div className="p-1 d-flex align-items-center justify-content-center" style={{ width: "5%" }}>
                                     {row.type < 3 || row.isUrgent ? null : (
                                         <input type="number" className="form-control form-control-sm text-center text-white bg-transparent border-0 p-0 capex-input fw-bold" style={{ fontSize: "12px", boxShadow: "none" }} value={row.piece} onChange={(e) => handleCellChange(row.id, "piece", e.target.value)} />
                                     )}
@@ -194,7 +243,7 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
                                     {row.type < 3 ? null : totalStr}
                                 </div>
                                 <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                                <div className="p-1 d-flex align-items-center justify-content-center" style={{ width: "10%" }}>
+                                <div className="p-1 d-flex align-items-center justify-content-center" style={{ width: "7%" }}>
                                     {row.type < 3 || row.isUrgent || row.isShippingStyle ? null : (
                                         <div className="d-flex align-items-center justify-content-center gap-1 w-100">
                                             <input type="number" className="form-control form-control-sm text-center text-white-50 bg-transparent border-0 p-0 capex-input" style={{ fontSize: "11.5px", boxShadow: "none", width: "45%" }} value={row.discount} onChange={(e) => handleCellChange(row.id, "discount", e.target.value)} />
@@ -203,12 +252,31 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
                                     )}
                                 </div>
                                 <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                                <div className="p-1 px-2 d-flex align-items-center justify-content-end fw-bold" style={{ width: "12%", fontSize: "12px", color: row.isUrgent ? "#94a3b8" : row.piece === 0 ? "#94a3b8" : "#4ade80" }}>
+
+                                {/* İNDİRİM SONRASI HÜCRESİ (Yeni Minimalist Tasarım) */}
+                                <div
+                                    className={`p-1 px-3 d-flex align-items-center justify-content-end fw-bold position-relative ${row.type === 3 && row.isOptional ? 'optional-cell-selected' : ''}`}
+                                    style={{
+                                        width: "12%",
+                                        fontSize: "12px",
+                                        color: row.isUrgent ? "#94a3b8" : row.piece === 0 ? "#94a3b8" : row.isOptional ? "#38bdf8" : "#4ade80",
+                                        transition: "all 0.2s ease"
+                                    }}
+                                >
                                     {row.type < 3 ? null : netStr}
+
+                                    {/* Akıllı CSS Boncuk / Switch Butonu */}
+                                    {row.type === 3 && !row.isUrgent && (
+                                        <div
+                                            className={`optional-indicator-dot ${row.isOptional ? 'optional-dot-active' : ''}`}
+                                            onClick={() => handleCellChange(row.id, "isOptional", !row.isOptional)}
+                                            title={row.isOptional ? "Toplam fiyata geri ekle" : "Opsiyonel yap (Toplamdan çıkar)"}
+                                        />
+                                    )}
                                 </div>
                                 <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
 
-                                <div className="p-1 d-flex align-items-center justify-content-center gap-2" style={{ width: "6%" }}>
+                                <div className="p-1 d-flex align-items-center justify-content-center gap-2" style={{ width: "4%" }}>
                                     <div className="action-dropdown d-flex align-items-center justify-content-center" style={{ width: "24px", height: "24px" }}>
                                         <button
                                             type="button"
@@ -221,7 +289,7 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
                                         >
                                             +
                                         </button>
-                                        
+
                                         {activeMenuId === row.id && (
                                             <div className="dropdown-menu-custom" onClick={(e) => e.stopPropagation()}>
                                                 <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 0); setActiveMenuId(null); }}>+ Ana Başlık</div>
@@ -245,6 +313,20 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
                         );
                     })}
                 </div>
+
+                {/* EN ALT TOPLAM FİYAT ALANI */}
+                <div className="d-flex align-items-center justify-content-between p-3" style={{ backgroundColor: "#0f172a", borderTop: "2px solid #334155" }}>
+                    <div className="text-white-50 fw-medium animate-fade" style={{ fontSize: "11px", letterSpacing: "0.3px" }}>
+                        * <span style={{ color: "#38bdf8" }}>Neon mavi</span> işaretli opsiyonel kalemler genel toplama dahil edilmemiştir.
+                    </div>
+                    <div className="d-flex align-items-center gap-3">
+                        <span className="fw-bold text-uppercase" style={{ fontSize: "12px", color: "#94a3b8", letterSpacing: "1px" }}>İndirim Sonrası Genel Toplam:</span>
+                        <span className="fw-extrabold text-white px-3 py-1 rounded bg-success bg-opacity-20" style={{ fontSize: "16px", border: "1px solid #22c55e", boxShadow: "0 0 10px rgba(34, 197, 94, 0.15)" }}>
+                            {totalNetPrice.toLocaleString()} €
+                        </span>
+                    </div>
+                </div>
+
             </div>
         </div>
     );

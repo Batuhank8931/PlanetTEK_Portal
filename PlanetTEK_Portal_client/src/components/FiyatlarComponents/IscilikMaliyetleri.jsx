@@ -66,12 +66,32 @@ function IscilikMaliyetleri() {
         setLaborCostsData(prev => [...prev, newRow]);
     };
 
-    // 🛠️ Grid üzerinde herhangi bir veri (ad veya sayısal veri) değiştiğinde doğrudan state'e yansıtır
+    // 🛠️ Grid üzerinde herhangi bir veri (ad veya sayısal veri) değiştiğinde anlık formül hesabı yapar
     const handleGridDataChange = (newData) => {
         const resolvedData = typeof newData === "function" ? newData(laborCostsData) : newData;
         if (!resolvedData || !Array.isArray(resolvedData)) return;
 
-        setLaborCostsData(resolvedData);
+        // Formülü tüm satırlara anlık olarak uyguluyoruz
+        const calculatedData = resolvedData.map(item => {
+            const mekKisi = Number(item.mekKisi) || 0;
+            const mekGun = Number(item.mekGun) || 0;
+            const elkKisi = Number(item.elkKisi) || 0;
+            const elkGun = Number(item.elkGun) || 0;
+            
+            const gunlikMekMaliyet = Number(item.gunlikMekMaliyet) || 0;
+            const gunlukYemek = Number(item.gunlukYemek) || 0;
+            const digerGunluk = Number(item.digerGunluk) || 0;
+
+            // Veritabanındaki GENERATED ALWAYS AS formül simülasyonu
+            const hesaplananToplam = ((mekKisi * mekGun) + (elkKisi * elkGun)) * (gunlikMekMaliyet + gunlukYemek + digerGunluk);
+
+            return {
+                ...item,
+                toplamMaliyet: parseFloat(hesaplananToplam.toFixed(2)) // decimal(12,2) uyumluluğu için yuvarlama
+            };
+        });
+
+        setLaborCostsData(calculatedData);
     };
 
     // 🔍 Değişiklikleri tek bir havuz üzerinden tarayan fonksiyon
@@ -110,8 +130,8 @@ function IscilikMaliyetleri() {
                         elkKisi: Number(item.elkKisi) || 0, elkGun: Number(item.elkGun) || 0,
                         gunlikMekMaliyet: Number(item.gunlikMekMaliyet) || 0,
                         gunlukYemek: Number(item.gunlukYemek) || 0,
-                        digerGunluk: Number(item.digerGunluk) || 0,
-                        toplamMaliyet: Number(item.toplamMaliyet) || 0
+                        digerGunluk: Number(item.digerGunluk) || 0
+                        // NOT: Veritabanında toplamMaliyet GENERATED ALWAYS AS olduğundan INSERT payload'una eklemiyoruz. DB otomatik hesaplayacak.
                     }
                 });
                 return;
@@ -122,6 +142,9 @@ function IscilikMaliyetleri() {
 
             if (originalItem) {
                 fields.forEach((field) => {
+                    // KORUMA: toplamMaliyet sanal kolon olduğundan veritabanına UPDATE isteği olarak gönderilemez.
+                    if (field === "toplamMaliyet") return;
+
                     const esitMi = field === "ad"
                         ? String(originalItem[field]).trim() === String(item[field]).trim()
                         : Number(originalItem[field] || 0) === Number(item[field] || 0);

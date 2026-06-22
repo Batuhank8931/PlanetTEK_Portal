@@ -5,10 +5,12 @@ import PriceChangeUpdateConfirmationModal from "../modals/PriceChangeUpdateConfi
 
 function AnaUnite() {
   const [anaUniteler, setAnaUniteler] = useState([]);
-  const [sabitBilesenler, setSabitBilesenler] = useState([]);
+  const [sabitBilesenlerbir, setSabitBilesenlerbir] = useState([]);
+  const [sabitBilesenleriki, setSabitBilesenleriki] = useState([]);
 
   const [originalData, setOriginalData] = useState([]);
-  const [originalSabitData, setOriginalSabitData] = useState([]);
+  const [originalSabitbirData, setOriginalSabitbirData] = useState([]);
+  const [originalSabitikiData, setOriginalSabitikiData] = useState([]);
 
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
@@ -55,12 +57,17 @@ function AnaUnite() {
 
       const referans = formattedData[0] || {};
       const ilkSabitler = [
-        { id: "kapak", name: "Kapak Birim Fiyatı", fiyat_yd: referans.kapak_fiyati_yd || 0, fiyat_yi: referans.kapak_fiyati_yi || 0 },
+        { id: "kapak", name: "Kapak Birim Fiyatı", fiyat_yd: referans.kapak_fiyati_yd || 0, fiyat_yi: referans.kapak_fiyati_yi || 0 }
+      ];
+
+      const ikiSabitler = [
         { id: "sase", name: "Gövde-Şase Birim Fiyatı", fiyat_yd: referans.sase_fiyati_yd || 0, fiyat_yi: referans.sase_fiyati_yi || 0 }
       ];
 
-      setSabitBilesenler(ilkSabitler);
-      setOriginalSabitData(JSON.parse(JSON.stringify(ilkSabitler)));
+      setSabitBilesenlerbir(ilkSabitler);
+      setSabitBilesenleriki(ikiSabitler);
+      setOriginalSabitbirData(JSON.parse(JSON.stringify(ilkSabitler)));
+      setOriginalSabitikiData(JSON.parse(JSON.stringify(ikiSabitler)));
 
     } catch (error) {
       console.error("Ana üniteler yüklenirken hata oluştu:", error);
@@ -116,8 +123,9 @@ function AnaUnite() {
   const handleSaveClick = () => {
     const changes = [];
 
-    const kapakRow = sabitBilesenler.find(r => r.id === "kapak") || {};
-    const saseRow = sabitBilesenler.find(r => r.id === "sase") || {};
+    // 🌟 ARTIK YENİ STATE'LERDEN VERİ ÇEKİLİYOR
+    const kapakRow = sabitBilesenlerbir[0] || {};
+    const saseRow = sabitBilesenleriki[0] || {};
 
     anaUniteler.forEach((unite) => {
       if (unite.isDeleted) {
@@ -245,13 +253,19 @@ function AnaUnite() {
       setOriginalData(JSON.parse(JSON.stringify(formattedData)));
 
       const referans = formattedData[0] || {};
-      const yeniSabitler = [
-        { id: "kapak", name: "Kapak Birim Fiyatı", fiyat_yd: referans.kapak_fiyati_yd || 0, fiyat_yi: referans.kapak_fiyati_yi || 0 },
+
+      const ilkSabitler = [
+        { id: "kapak", name: "Kapak Birim Fiyatı", fiyat_yd: referans.kapak_fiyati_yd || 0, fiyat_yi: referans.kapak_fiyati_yi || 0 }
+      ];
+
+      const ikiSabitler = [
         { id: "sase", name: "Gövde-Şase Birim Fiyatı", fiyat_yd: referans.sase_fiyati_yd || 0, fiyat_yi: referans.sase_fiyati_yi || 0 }
       ];
 
-      setSabitBilesenler(yeniSabitler);
-      setOriginalSabitData(JSON.parse(JSON.stringify(yeniSabitler)));
+      setSabitBilesenlerbir(ilkSabitler);
+      setSabitBilesenleriki(ikiSabitler);
+      setOriginalSabitbirData(JSON.parse(JSON.stringify(ilkSabitler)));
+      setOriginalSabitikiData(JSON.parse(JSON.stringify(ikiSabitler)));
       setPendingChanges([]);
 
     } catch (error) {
@@ -304,13 +318,26 @@ function AnaUnite() {
       <div className="mt-5">
         <div className="mb-2 d-flex align-items-center" style={{ color: "#94a3b8" }}>
           <i className="bi bi-gear-fill me-2 text-success"></i>
-          <span className="fw-semibold small">Sabit Ek Bileşen Fiyat Ayarları</span>
+          <span className="fw-semibold small">MX1 Kapak Fiyatı</span>
         </div>
         <ExcelGrid
           headers={sabitHeaders}
-          data={sabitBilesenler}
+          data={sabitBilesenlerbir}
           fields={sabitFields}
-          onDataChange={setSabitBilesenler}
+          onDataChange={setSabitBilesenlerbir}
+        />
+      </div>
+
+      <div className="mt-5">
+        <div className="mb-2 d-flex align-items-center" style={{ color: "#94a3b8" }}>
+          <i className="bi bi-gear-fill me-2 text-success"></i>
+          <span className="fw-semibold small">MX1 Şase Fiyatı</span>
+        </div>
+        <ExcelGrid
+          headers={sabitHeaders}
+          data={sabitBilesenleriki}
+          fields={sabitFields}
+          onDataChange={setSabitBilesenleriki}
         />
       </div>
 

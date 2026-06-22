@@ -22,7 +22,7 @@ const ALLOWED_TABLES = {
     ],
     submersible_pumps: ["pompa_adi", "pompa_tipi", "kw", "alis_fiyati", "yd_katsayi", "yi_katsayi"],
     ileri_aritma_ekipmanlari: ["ekipman_adi", "ekipman_tipi", "kw", "alis_fiyati", "yd_katsayi", "yi_katsayi"],
-    
+
     // 🚀 YENİ NORMALE GÖRE EKLENEN FİLTRASYON VE KLORLAMA TABLOLARIMIZ:
     filtration_equipments: ["debi", "ekipman_tipi", "yi_oran", "yd_oran", "alis_fiyat"],
     filtration_feed_pumps: ["debi", "kw", "yi_oran", "yd_oran", "alis_fiyat"],
@@ -35,7 +35,9 @@ const ALLOWED_TABLES = {
     lamella_data: ["tipi", "yd_fiyat", "yi_fiyat"],
     stainless_steel_data: ["fiyat"],
     flow_distribution: ["ad", "yd", "yi"],
-    unit_labor_costs: ["mekKisi", "mekGun", "elkKisi", "elkGun", "gunlikMekMaliyet", "gunlukYemek", "digerGunluk", "toplamMaliyet"],
+    unit_labor_costs: [
+        "grup_tipi", "unite_sayisi", "ad", "mekKisi", "mekGun", "elkKisi",
+        "elkGun", "gunlikMekMaliyet", "gunlukYemek", "digerGunluk"],
     sludge_dewatering_costs: ["ekipman_tipi", "kapasite_degeri", "kapasite_birimi", "alis_fiyati", "yi_oran", "yd_oran"]
 };
 
@@ -391,6 +393,15 @@ const updateAddDeleteIleriAritmaEquipments = async (connection, item, userId, lo
     });
 };
 
+// 9. Ileri Aritma Equipments Bölümü
+// 10. Unit Labor Costs Bölümü
+const updateAddDeleteLaborCosts = async (connection, item, userId, loglar) => {
+    return executeCommonCoreEngine(connection, "unit_labor_costs", item, userId, loglar, async (conn, id, col, val) => {
+        // Hücre güncellendikten sonra istersen log notuna ekstra bilgi ekleyebilirsin
+        return ` (İşçilik maliyet bileşeni [${col}] güncellendi, toplam maliyet otomatik yeniden hesaplandı.)`;
+    });
+};
+
 
 // ====================================================================
 // 🎛️ ANA ORKESTRA ŞEFİ ENDPOINT (ROUTE TETİKLEYİCİSİ)
@@ -449,6 +460,10 @@ const updatePriceData = async (req, res) => {
             }
             else if (tableName === "ileri_aritma_ekipmanlari") {
                 resObj = await updateAddDeleteIleriAritmaEquipments(connection, item, userId, loglar);
+            }
+
+            else if (tableName === "unit_labor_costs") {
+                resObj = await updateAddDeleteLaborCosts(connection, item, userId, loglar);
             }
 
             silinenSatir += resObj.deleted;
