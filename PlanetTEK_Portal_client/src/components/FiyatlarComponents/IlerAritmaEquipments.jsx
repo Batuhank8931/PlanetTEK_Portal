@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useCallback } from "react";
 import ExcelGrid from "./ExcelGrid";
 import API from "../../utils/utilRequest";
 import PriceChangeUpdateConfirmationModal from "../modals/PriceChangeUpdateConfirmationModal";
+import AlertModal from "../modals/AlertModal";
 
 function IleriAritmaEquipments() {
     const [pumpsData, setPumpsData] = useState([]);
@@ -13,6 +14,14 @@ function IleriAritmaEquipments() {
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [pendingChanges, setPendingChanges] = useState([]);
+
+    // 🌟 AlertModal kontrolü için state
+    const [alertConfig, setAlertConfig] = useState({
+        show: false,
+        title: "",
+        message: "",
+        type: "success"
+    });
 
     const headers = ["Ekipman Modeli", "Ekipman Tipi", "kW", "Alış Fiyatı (€)", "Yurt İçi Satış Yİ (€)", "Yurt Dışı Satış YD (€)"];
     const fields = ["ekipman_adi", "ekipman_tipi", "kw", "alis_fiyati", "yi_satis", "yd_satis"];
@@ -109,7 +118,7 @@ function IleriAritmaEquipments() {
         const changes = [];
         const guncelOranRow = sabitOranlar[0] || {};
         const eskiOranRow = originalOranData[0] || {};
-        
+
         // 🚀 DÜZELTME 2: Hedef tablo ismi doğru set edildi
         const DB_TABLE = "ileri_aritma_ekipmanlari";
 
@@ -222,7 +231,12 @@ function IleriAritmaEquipments() {
         });
 
         if (changes.length === 0) {
-            alert("Değişen bir veri bulunamadı.");
+            setAlertConfig({
+                show: true,
+                title: "Uyarı",
+                message: "Değişen bir veri bulunamadı.",
+                type: "warning"
+            });
             return;
         }
 
@@ -307,7 +321,12 @@ function IleriAritmaEquipments() {
 
         } catch (error) {
             console.error("Ekipman fiyatları güncellenirken teknik hata:", error);
-            alert("Veriler kaydedilirken bir hata meydana geldi.");
+            setAlertConfig({
+                show: true,
+                title: "Veriler kaydedilirken sistemsel bir hata meydana geldi",
+                message: error,
+                type: "error"
+            });
         } finally {
             setLoading(false);
         }
@@ -378,6 +397,13 @@ function IleriAritmaEquipments() {
                 onClose={() => setShowModal(false)}
                 onConfirm={handleConfirmSave}
                 changesList={pendingChanges}
+            />
+            <AlertModal
+                show={alertConfig.show}
+                title={alertConfig.title}
+                message={alertConfig.message}
+                type={alertConfig.type}
+                onClose={() => setAlertConfig(prev => ({ ...prev, show: false }))}
             />
         </div>
     );

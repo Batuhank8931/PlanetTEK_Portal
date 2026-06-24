@@ -53,6 +53,7 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
 
     const planetDiskDetails = formData.planetDiskDetails || {};
     const rbcModeli = planetDiskDetails?.tasarim?.aritmaParametreleri?.RBCUnite || "MX";
+    const atiksuType = planetDiskDetails?.tasarim?.aritmaParametreleri?.atiksutype || "evsel";
     const UniteTipi = planetDiskDetails.tasarim?.aritmaParametreleri?.kasaTipi || "Kapaklı";
     const yerlesimListesi = planetDiskDetails?.tasarim?.yerlesimSiralanisi || [];
     const lamellaDetaylar = planetDiskDetails?.tasarim?.lamella || [];
@@ -216,6 +217,16 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
             label: `PlanetDISK® ${rbcModeli} 1 DBD Ünitesi Kapağı`,
             unitPrice: rbcPrices.kapak,
             discount: planetTekIndirim,
+            isOptional: true
+        },
+        {
+            id: "2_rbc_blower",
+            type: 3,
+            // Sadece UniteTipi "Kapaksız" ise adet alacak, aksi halde 0 olacak ve render edilmeyecek
+            piece: atiksuType === "endustriyel" ? toplamRbcAdeti : 0,
+            label: `PlanetDISK® ${rbcModeli} Blower`,
+            unitPrice: 1000,
+            discount: ekipmanIndirim,
             isOptional: true
         },
         {

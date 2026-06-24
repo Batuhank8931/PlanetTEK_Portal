@@ -93,6 +93,7 @@ const getAllPumpCurves = async (req, res) => {
             SELECT 
                 p.id,
                 p.pompa_adi AS name,
+                p.kw,
                 -- Eğri noktalarını "flow_rate: head_mss" key-value objesine dönüştürüyoruz
                 JSON_OBJECTAGG(c.flow_rate, c.head_mss) AS mssData
             FROM submersible_pumps p
@@ -108,6 +109,7 @@ const getAllPumpCurves = async (req, res) => {
         const formattedResult = rows.map(row => ({
             id: row.id,
             name: row.name,
+            kw: row.kw,
             mssData: typeof row.mssData === 'string' ? JSON.parse(row.mssData) : row.mssData
         }));
 

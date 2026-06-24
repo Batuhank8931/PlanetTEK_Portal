@@ -102,7 +102,7 @@ function IleriAritmaPumpSelections() {
         const maxStep = steps[steps.length - 1];
 
         if (qSaat < minStep || qSaat > maxStep) return null;
-        
+
         const getSafeValue = (keyNum) => {
             if (pump.mssData[keyNum] !== undefined) return Number(pump.mssData[keyNum]);
             if (pump.mssData[keyNum.toFixed(2)] !== undefined) return Number(pump.mssData[keyNum.toFixed(2)]);
@@ -183,6 +183,7 @@ function IleriAritmaPumpSelections() {
         if (pumpDatabase.length === 0) return;
 
         let pumpString = "---";
+        let pumpkW = 0;
         const hourlyFlowNum = parseFloat(nextHourly) || 0;
         const parsedNextMss = parseFloat(nextMss) || 5.9;
 
@@ -223,6 +224,8 @@ function IleriAritmaPumpSelections() {
 
         if (hourlyFlowNum > 0 && targetPump) {
             pumpString = `${targetPump.name}`;
+            const rawKw = targetPump.kw !== undefined ? targetPump.kw : targetPump.pompa_kw;
+            pumpkW = rawKw ? parseFloat(rawKw) : 0;
         } else if (hourlyFlowNum > 0 && !targetPump) {
             pumpString = "Kapasite Aşımı";
         }
@@ -238,6 +241,7 @@ function IleriAritmaPumpSelections() {
                     pompaAdeti: targetPump ? simAdet : 0,
                     hesaplananDebi: simQ,
                     geridevirPompasi: pumpString,
+                    pumpkW: pumpkW, // Store'a güvenle yazılıyor
                     isManualUserControl: isManual,
                     calculatedDebi: debi,
                     calculatedAzot: girisToplamAzot

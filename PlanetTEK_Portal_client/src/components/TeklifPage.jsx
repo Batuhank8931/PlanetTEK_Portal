@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTeklifStore } from "../utils/teklifStore";
+import AlertModal from "./modals/AlertModal";
 
 import SelectCustomer from "./TeklifComponents/SelectCustomer_step_1";
 import SelectPlanetDisk from "./TeklifComponents/SelectPlanetDisk_step_2";
@@ -18,6 +19,14 @@ function TeklifPage() {
   const [showModal, setShowModal] = useState(false);
   const [direction, setDirection] = useState(1);
 
+  // 🌟 AlertModal kontrolü için state
+  const [alertConfig, setAlertConfig] = useState({
+    show: false,
+    title: "",
+    message: "",
+    type: "success"
+  });
+
   const steps = [
     { id: 1, label: "Müşteri Seçimi", icon: "bi-building" },
     { id: 2, label: "Planet Disk", icon: "bi-disc" },
@@ -29,11 +38,11 @@ function TeklifPage() {
   // Doğrudan bir adıma zıplamayı sağlayan yeni fonksiyon
   const handleStepClick = (targetStepId) => {
     if (targetStepId === currentStep) return;
-    
+
     // Hedef adım mevcut adımdan büyükse ileri (1), küçükse geri (-1) animasyonu ayarla
     const nextDirection = targetStepId > currentStep ? 1 : -1;
     setDirection(nextDirection);
-    
+
     // Aradaki adımlara uğramadan direkt store'u hedef adıma güncelle
     setCurrentStepStore(targetStepId);
   };
@@ -53,7 +62,13 @@ function TeklifPage() {
   };
 
   const handleSubmit = () => {
-    alert("Teklif başarıyla oluşturuldu! Veriler konsolda.");
+    // Oski alert satırını sil, yerine bunu ekle:
+    setAlertConfig({
+      show: true,
+      title: "İşlem Tamamlandı",
+      message: "Teklif başarıyla oluşturuldu!",
+      type: "success"
+    });
   };
 
   const handleResetForm = () => {
@@ -134,8 +149,8 @@ function TeklifPage() {
               if (isCompleted) textColor = "#94a3b8";
 
               return (
-                <div 
-                  key={step.id} 
+                <div
+                  key={step.id}
                   className="d-flex align-items-center"
                   onClick={() => handleStepClick(step.id)} // Tıklanınca direkt o adıma geçiş sağlandı
                   style={{ cursor: "pointer" }} // Kullanıcıya tıklanabilir olduğunu hissettirmek için imleç
@@ -156,7 +171,7 @@ function TeklifPage() {
                     }}
                   >
                     {isCompleted ? <i className="bi bi-check-lg"></i> : step.id}
-                    
+
                     {isActive && (
                       <motion.div
                         layoutId="activeStepGlow"
@@ -253,6 +268,14 @@ function TeklifPage() {
       </div>
 
       <SelectionsModal show={showModal} onClose={() => setShowModal(false)} />
+
+      <AlertModal
+        show={alertConfig.show}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={() => setAlertConfig(prev => ({ ...prev, show: false }))}
+      />
     </div>
   );
 }

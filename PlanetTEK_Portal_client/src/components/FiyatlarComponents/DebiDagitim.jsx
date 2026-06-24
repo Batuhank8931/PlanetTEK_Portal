@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import ExcelGrid from "./ExcelGrid";
 import API from "../../utils/utilRequest";
 import PriceChangeUpdateConfirmationModal from "../modals/PriceChangeUpdateConfirmationModal";
+import AlertModal from "../modals/AlertModal";
 
 function DebiDagitim() {
   const [debiDagitimData, setDebiDagitimData] = useState([]);
@@ -11,6 +12,14 @@ function DebiDagitim() {
   // Modal State Yönetimi
   const [showModal, setShowModal] = useState(false);
   const [pendingChanges, setPendingChanges] = useState([]);
+
+  // 🌟 AlertModal kontrolü için state
+  const [alertConfig, setAlertConfig] = useState({
+    show: false,
+    title: "",
+    message: "",
+    type: "success"
+  });
 
   // 📊 Kolon Yapısı: Başlıklar ve field'lar birebir (1:1) eşleşiyor!
   const headers = ["Çıkış Sayısı", "Yurt Dışı Fiyat (€)", "Yurt İçi Fiyat (€)"];
@@ -121,7 +130,12 @@ function DebiDagitim() {
     });
 
     if (changes.length === 0) {
-      alert("Değişen bir veri bulunamadı.");
+      setAlertConfig({
+        show: true,
+        title: "Uyarı",
+        message: "Değişen bir veri bulunamadı.",
+        type: "warning"
+      });
       return;
     }
 
@@ -159,7 +173,12 @@ function DebiDagitim() {
       setPendingChanges([]);
     } catch (error) {
       console.error("Debi dağıtım fiyatları kaydedilirken teknik hata:", error);
-      alert("Veriler kaydedilirken bir hata meydana geldi.");
+      setAlertConfig({
+        show: true,
+        title: "Veriler kaydedilirken sistemsel bir hata meydana geldi",
+        message: error,
+        type: "error"
+      });
     } finally {
       setLoading(false);
     }
@@ -207,6 +226,14 @@ function DebiDagitim() {
         onClose={() => setShowModal(false)}
         onConfirm={handleConfirmSave}
         changesList={pendingChanges}
+      />
+
+      <AlertModal
+        show={alertConfig.show}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={() => setAlertConfig(prev => ({ ...prev, show: false }))}
       />
     </div>
   );

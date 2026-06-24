@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from "react";
+import AlertModal from "./modals/AlertModal";
 
 // --- BACKEND'DEN GELEN DUMMY DATA SİMÜLASYONU (2026 Yılına göre ayarlandı) ---
 const INITIAL_OFFERS = [
@@ -21,6 +22,14 @@ function DashBoardPage() {
   const [selectedOffer, setSelectedOffer] = useState(null);
   const [actionType, setActionType] = useState("Süre Uzatımı");
   const [actionNote, setActionNote] = useState("");
+
+  // 🌟 AlertModal kontrolü için state
+  const [alertConfig, setAlertConfig] = useState({
+    show: false,
+    title: "",
+    message: "",
+    type: "success"
+  });
 
   // --- OTO SÜRE KONTROLÜ (30 Gün Geçenleri Ayıklama) ---
   const { aktifTeklifler, suresiDolmusTeklifler } = useMemo(() => {
@@ -70,7 +79,14 @@ function DashBoardPage() {
   // --- MODAL KAYDETME AKSİYONU ---
   const handleSaveAction = () => {
     if (!actionNote.trim()) {
-      alert("Lütfen gerekli bilgi notunu doldurunuz.");
+
+      // Oski alert satırını sil, yerine bunu ekle:
+      setAlertConfig({
+        show: true,
+        title: "Uyarı",
+        message: "Lütfen gerekli bilgi notunu doldurunuz.",
+        type: "warning"
+      });
       return;
     }
 
@@ -293,6 +309,14 @@ function DashBoardPage() {
           </div>
         </div>
       )}
+
+      <AlertModal
+        show={alertConfig.show}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={() => setAlertConfig(prev => ({ ...prev, show: false }))}
+      />
     </div>
   );
 }

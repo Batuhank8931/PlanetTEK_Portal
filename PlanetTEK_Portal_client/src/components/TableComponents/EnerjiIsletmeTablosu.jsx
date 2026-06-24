@@ -1,42 +1,30 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import enerjiIsletmeHesapFonksiyonu from "../../utils/EnerjiIsletmeHesap";
+import { useTeklifStore } from "../../utils/teklifStore";
 
 function EnerjiIsletmeTablosu() {
+    const formData = useTeklifStore((state) => state.formData);
+    const updateSection = useTeklifStore((state) => state.updateSection);
+
+    // storeTabloVerisi'ni güvenli bir şekilde dizi kısmından okuyoruz
+    const storeTabloVerisi = formData?.tables?.enerjiisletmettablosu?.rows || formData?.tables?.enerjiisletmettablosu || [];
+    const storeDebi = formData?.planetDiskDetails?.tasarim?.aritmaParametreleri?.debi || 0;
+
     const [params, setParams] = useState({
-        hydraulicLoad: 2.92,
+        hydraulicLoad: storeDebi,
         energyPrice: 13,
     });
 
-    const [rows, setRows] = useState([
-        { id: "h1", label: "MEKANİK EKİPMANLAR", isHeader: true },
-        { id: "s1", label: "Fiziksel Arıtma Üniteleri (Birincil Arıtma)", isSubHeader: true },
-        { id: "r1", label: "Otomatik Temizlemeli Kaba Izgara", qty: 0, power: 0.55, consumed: 90, hours: 4 },
-        { id: "r2", label: "Otomatik Temizlemeli İnce Izgara", qty: 0, power: 0.55, consumed: 90, hours: 4 },
-        { id: "r3", label: "Dengeleme Tankı Terfi Pompası", qty: 1, power: 0.75, consumed: 90, hours: 24 },
-        { id: "s2", label: "Biyolojik Arıtma Üniteleri (İkincil Arıtma)", isSubHeader: true },
-        { id: "r4", label: "PlanetDISK® MX 1 RBC Ünitesi", qty: 8, power: 0.37, consumed: 90, hours: 24 },
-        { id: "r5", label: "PlanetDISK® MX 1 RBC Ünitesi (2. ve 3. kademe)", qty: 0, power: 0.37, consumed: 90, hours: 24 },
-        { id: "r6", label: "Son Çöktürme Tankı Çamur Pompası", qty: 1, power: 0.75, consumed: 90, hours: 1 },
-        { id: "r7", label: "Resürkilasyon Pompaları", qty: 0, power: 0.75, consumed: 90, hours: 24 },
-        { id: "r8", label: "Anoksik Tank Mikseri", qty: 0, power: 0, consumed: 90, hours: 24 },
-        { id: "r9", label: "FeCl3 Dozaj Pompası", qty: 0, power: 0.09, consumed: 90, hours: 24 },
-        { id: "s3", label: "Filtrasyon ve Dezenfeksiyon Üniteleri (İleri Arıtma)", isSubHeader: true },
-        { id: "r10", label: "Ön Klorlama Ünitesi", qty: 0, power: 0.09, consumed: 90, hours: 22 },
-        { id: "r11", label: "Filtrasyon Sistemi Besleme Pompası", qty: 0, power: 1.5, consumed: 90, hours: 22 },
-        { id: "r12", label: "Filtrasyon Sistemi Geri Yıkama Pompası", qty: 0, power: 2.2, consumed: 90, hours: 2 },
-        { id: "s4", label: "Planet Membran Ünitesi (İleri Arıtma)", isSubHeader: true },
-        { id: "r13", label: "Blower", qty: 0, power: 1.6, consumed: 90, hours: 24 },
-        { id: "r14", label: "Filtrasyon Pompası", qty: 0, power: 0.55, consumed: 90, hours: 23 },
-        { id: "r15", label: "Geri Yıkama Pompası", qty: 0, power: 0.55, consumed: 90, hours: 1 },
-        { id: "r16", label: "Klor ve Asit Dozaj Pompası", qty: 0, power: 0.18, consumed: 90, hours: 1 },
-        { id: "s5", label: "Çamur Susuzlaştırma Ünitesi", isSubHeader: true },
-        { id: "r17", label: "Çamur Besleme Pompası", qty: 0, power: 1.5, consumed: 90, hours: 8 },
-        { id: "r18", label: "Dekantör", qty: 0, power: 11.5, consumed: 90, hours: 20 },
-        { id: "r19", label: "Süzüntü Suyu Pompası", qty: 0, power: 1.1, consumed: 90, hours: 8 },
-        { id: "r20", label: "Filtrepress", qty: 0, power: 2.2, consumed: 90, hours: 8 },
-        { id: "r21", label: "Polimer Dozaj Ünitesi", qty: 0, power: 0.09, consumed: 90, hours: 8 },
-    ]);
+    // 1. KURAL: İlk açılışta sadece store'a bak. Varsa direkt render et, yoksa boş dizi başla.
+    const [rows, setRows] = useState(() => {
+        if (storeTabloVerisi && storeTabloVerisi.length > 0) {
+            return storeTabloVerisi;
+        }
+        return [];
+    });
 
     const [history, setHistory] = useState([]);
+    const [activeMenuId, setActiveMenuId] = useState(null);
 
     const calculateRowConsumption = (row) => {
         if (row.isHeader || row.isSubHeader) return 0;
@@ -47,6 +35,7 @@ function EnerjiIsletmeTablosu() {
         return q * p * c * h;
     };
 
+    // Hesaplama değişkenleri
     const totalKwhDay = rows.reduce((sum, row) => sum + calculateRowConsumption(row), 0);
     const dailyFlowM3 = (parseFloat(params.hydraulicLoad) || 0) * 24;
     const consumptionPerM3 = dailyFlowM3 > 0 ? totalKwhDay / dailyFlowM3 : 0;
@@ -54,228 +43,398 @@ function EnerjiIsletmeTablosu() {
     const dailyCostEuro = totalKwhDay * ((parseFloat(params.energyPrice) || 0) / 100);
     const yearlyCostEuro = dailyCostEuro * 365;
 
+    // 2. KURAL: Eğer store'da veri yoksa (ilk kez açılıyorsa) fonksiyonu çalıştır ve store'a kaydet.
+    useEffect(() => {
+        if (!storeTabloVerisi || storeTabloVerisi.length === 0) {
+            async function loadFromEngine() {
+                try {
+                    const freshRows = await enerjiIsletmeHesapFonksiyonu(formData);
+                    setRows(freshRows);
+
+                    // İlk yüklemede maliyeti de hesaplayıp obje halinde kaydediyoruz
+                    const freshTotalKwhDay = freshRows.reduce((sum, row) => sum + calculateRowConsumption(row), 0);
+                    const freshDailyCostEuro = freshTotalKwhDay * ((params.energyPrice || 13) / 100);
+                    const freshYearlyCostEuro = freshDailyCostEuro * 365;
+                    
+                    updateSection("tables", {
+                        ...formData?.tables,
+                        enerjiisletmettablosu: {
+                            rows: freshRows,
+                            yearlyCostEuro: freshYearlyCostEuro
+                        }
+                    });
+                } catch (e) {
+                    console.error("Asenkron motor çalışırken hata:", e);
+                }
+            }
+            loadFromEngine();
+        }
+    }, []);
+
+    // Üst panel debi input'unu store ile senkronize tutalım
+    useEffect(() => {
+        setParams((prev) => ({ ...prev, hydraulicLoad: storeDebi }));
+    }, [storeDebi]);
+
+    // Parametreler değiştikçe yıllık maliyet key'ini store'da güncel tutmak için useEffect ekliyoruz
+    useEffect(() => {
+        if (rows && rows.length > 0) {
+            updateSection("tables", {
+                ...formData?.tables,
+                enerjiisletmettablosu: {
+                    rows: [...rows],
+                    yearlyCostEuro: yearlyCostEuro
+                }
+            });
+        }
+    }, [params.energyPrice, params.hydraulicLoad]);
+
+    // 3. KURAL: Kullanıcı manuel bir değişiklik yaparsa store'u update et.
+    const updateStoreWithNewRows = (newRows) => {
+        setRows(newRows);
+        
+        // Yeni satırlara göre dinamik maliyeti anlık hesapla ve ek key ile kaydet
+        const currentTotalKwhDay = newRows.reduce((sum, row) => sum + calculateRowConsumption(row), 0);
+        const currentDailyCostEuro = currentTotalKwhDay * ((parseFloat(params.energyPrice) || 0) / 100);
+        const currentYearlyCostEuro = currentDailyCostEuro * 365;
+
+        updateSection("tables", {
+            ...formData?.tables,
+            enerjiisletmettablosu: {
+                rows: [...newRows],
+                yearlyCostEuro: currentYearlyCostEuro
+            }
+        });
+    };
+
+    // 4. KURAL: REFRESH BUTONU - Her şeyi sil, motoru çalıştır, render et ve store'a kaydet.
+    const handleRefresh = async () => {
+        setHistory([]);
+        try {
+            const freshRows = await enerjiIsletmeHesapFonksiyonu(formData);
+            setRows(freshRows);
+
+            const freshTotalKwhDay = freshRows.reduce((sum, row) => sum + calculateRowConsumption(row), 0);
+            const freshDailyCostEuro = freshTotalKwhDay * ((parseFloat(params.energyPrice) || 0) / 100);
+            const freshYearlyCostEuro = freshDailyCostEuro * 365;
+
+            updateSection("tables", {
+                ...formData?.tables,
+                enerjiisletmettablosu: {
+                    rows: freshRows,
+                    yearlyCostEuro: freshYearlyCostEuro
+                }
+            });
+        } catch (error) {
+            console.error("Tablo yenilenirken hata oluştu:", error);
+        }
+    };
+
     const saveToHistory = (currentRows) => {
         setHistory([...history, JSON.stringify(currentRows)]);
     };
 
     const handleUndo = () => {
         if (history.length === 0) return;
-        setRows(JSON.parse(history[history.length - 1]));
+        const previousRows = JSON.parse(history[history.length - 1]);
+        updateStoreWithNewRows(previousRows);
         setHistory(history.slice(0, -1));
     };
 
     const handleCellChange = (id, field, val) => {
         saveToHistory(rows);
-        setRows(rows.map(row => row.id === id ? { ...row, [field]: val } : row));
+        const updatedRows = rows.map(row => row.id === id ? { ...row, [field]: val } : row);
+        updateStoreWithNewRows(updatedRows);
     };
 
-    const insertAfterRow = (index) => {
+    const insertAfterRow = (index, type) => {
         saveToHistory(rows);
         const newId = `new_${Date.now()}`;
-        const newRow = { id: newId, label: "Yeni Ekipman", qty: 1, power: 0, consumed: 90, hours: 24 };
+        let newRow = { id: newId, label: "" };
+
+        if (type === 0) {
+            newRow = { ...newRow, label: "YENİ ANA BAŞLIK", isHeader: true };
+        } else if (type === 1) {
+            newRow = { ...newRow, label: "Yeni Alt Başlık", isSubHeader: true };
+        } else {
+            newRow = { ...newRow, label: "Yeni Mekanik Ekipman", qty: 1, power: 0, consumed: 90, hours: 24 };
+        }
+
         const updatedRows = [...rows];
         updatedRows.splice(index + 1, 0, newRow);
-        setRows(updatedRows);
+        updateStoreWithNewRows(updatedRows);
     };
 
     const deleteRow = (id) => {
         saveToHistory(rows);
-        setRows(rows.filter(row => row.id !== id));
+        const updatedRows = rows.filter(row => row.id !== id);
+        updateStoreWithNewRows(updatedRows);
     };
 
     const getRowBg = (row) => {
         if (row.isHeader) return "#0b1329";
-        if (row.isSubHeader) return "#1e2d42";
+        if (row.isSubHeader) return row.isLight ? "#2a3a52" : "#1e2d42";
         if (!row.isHeader && !row.isSubHeader && (parseFloat(row.qty) === 0)) return "#2a1515";
         return "#151f32";
     };
 
     return (
-        <div className="d-flex flex-column gap-3 w-100">
+        <div className="d-flex flex-column w-100" onClick={() => setActiveMenuId(null)}>
             <style>{`
-                .energy-row { border-bottom: 1px solid #334155; }
-                .energy-row:last-child { border-bottom: none; }
+                .table-row-energy { border-bottom: 1px solid #334155; transition: background-color 0.15s ease; position: relative; }
+                .table-row-energy:last-child { border-bottom: none; }
                 .energy-input:focus { outline: none; background-color: rgba(255, 255, 255, 0.05) !important; }
-                .header-title-cell { font-size: 10px; font-weight: 800; color: #94a3b8; background-color: #090d16; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: center; text-align: center; }
-                .param-input { background-color: #1e293b; border: 1px solid #475569; color: white; border-radius: 4px; padding: 2px 6px; }
+                .header-cell { font-size: 11px; font-weight: 700; color: #94a3b8; background-color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: center; text-align: center; }
+                .param-input-top { background-color: #0f172a; border: 1px solid #475569; color: white; border-radius: 6px; padding: 3px 8px; font-size: 12px; width: 80px; text-align: right; font-weight: bold; }
+                .opacity-hover:hover { opacity: 1 !important; }
+                
+                .dropdown-menu-custom {
+                    position: absolute;
+                    right: 4%;
+                    top: 80%;
+                    background-color: #0f172a;
+                    border: 1px solid #475569;
+                    border-radius: 6px;
+                    z-index: 100;
+                    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+                    padding: 4px 0;
+                    min-width: 130px;
+                }
+                .dropdown-item-custom {
+                    color: #cbd5e1;
+                    padding: 6px 12px;
+                    font-size: 11.5px;
+                    cursor: pointer;
+                    text-align: left;
+                    font-weight: 500;
+                }
+                .dropdown-item-custom:hover {
+                    background-color: #1e293b;
+                    color: white;
+                }
             `}</style>
 
-            <div className="d-flex justify-content-between align-items-end mb-2">
-                <div className="d-flex flex-column gap-2">
-                    <div className="d-flex align-items-center gap-2">
-                        <span className="text-white-50 fw-semibold" style={{ fontSize: "12px", width: "160px" }}>Toplam Hidrolik Yük:</span>
-                        <input type="number" className="param-input text-end fw-bold" style={{ width: "80px", fontSize: "12px" }} value={params.hydraulicLoad} onChange={(e) => setParams({ ...params, hydraulicLoad: e.target.value })} />
-                        <span className="text-white-50" style={{ fontSize: "12px" }}>m³/saat</span>
-                    </div>
-                    <div className="d-flex align-items-center gap-2">
-                        <span className="text-white-50 fw-semibold" style={{ fontSize: "12px", width: "160px" }}>1 kWh Enerji Fiyatı:</span>
-                        <input type="number" className="param-input text-end fw-bold text-warning" style={{ width: "80px", fontSize: "12px" }} value={params.energyPrice} onChange={(e) => setParams({ ...params, energyPrice: e.target.value })} />
-                        <span className="text-white-50" style={{ fontSize: "12px" }}>€ cent</span>
-                    </div>
-                </div>
+            <div className="d-flex flex-column rounded-3 overflow-x-auto" style={{ border: "1px solid #334155", width: "100%" }}>
+                <div style={{ minWidth: "900px" }}>
 
-                <button
-                    onClick={handleUndo}
-                    disabled={history.length === 0}
-                    className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1"
-                    style={{ backgroundColor: history.length === 0 ? "#334155" : "#1e3a8a", fontSize: "11px", borderRadius: "6px", opacity: history.length === 0 ? 0.4 : 1 }}
-                >
-                    <span style={{ fontSize: "12px" }}>↶</span>
-                </button>
-            </div>
+                    {/* ÜST PANEL */}
+                    <div className="d-flex justify-content-between align-items-center p-3" style={{ backgroundColor: "#1e293b", borderBottom: "1px solid #334155" }}>
+                        <div className="d-flex align-items-center gap-4">
+                            <div className="fw-semibold text-white" style={{ fontSize: "14px" }}>
+                                Enerji İşletme Maliyeti Tablosu
+                            </div>
 
-            <div className="w-100" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-                <div className="d-flex flex-column rounded-3" style={{ border: "1px solid #334155", height: "auto", minWidth: "1050px" }}>
+                            <div className="d-flex align-items-center gap-3 border-start ps-4" style={{ borderColor: "#475569 !important" }}>
+                                <div className="d-flex align-items-center gap-2">
+                                    <span className="text-white-50" style={{ fontSize: "12px" }}>Hidrolik Yük:</span>
+                                    <input type="number" className="param-input-top" value={params.hydraulicLoad} onChange={(e) => setParams({ ...params, hydraulicLoad: e.target.value })} />
+                                    <span className="text-white-50" style={{ fontSize: "11px" }}>m³/saat</span>
+                                </div>
+                                <div className="d-flex align-items-center gap-2">
+                                    <span className="text-white-50" style={{ fontSize: "12px" }}>Enerji Fiyatı:</span>
+                                    <input type="number" className="param-input-top text-warning" value={params.energyPrice} onChange={(e) => setParams({ ...params, energyPrice: e.target.value })} />
+                                    <span className="text-white-50" style={{ fontSize: "11px" }}>€ cent/kWh</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <div className="d-flex align-items-center gap-2">
+                            <button
+                                onClick={handleRefresh}
+                                className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
+                                style={{ backgroundColor: "#d97706", fontSize: "11px", borderRadius: "6px" }}
+                                title="Tabloyu İlk Ayarlarına Döndür"
+                            >
+                                🔄 Yenile
+                            </button>
+
+                            <button
+                                onClick={handleUndo}
+                                disabled={history.length === 0}
+                                className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
+                                style={{
+                                    backgroundColor: history.length === 0 ? "#334155" : "#1e3a8a",
+                                    fontSize: "11px",
+                                    borderRadius: "6px",
+                                    opacity: history.length === 0 ? 0.4 : 1,
+                                    cursor: history.length === 0 ? "not-allowed" : "pointer"
+                                }}
+                            >
+                                ↶
+                            </button>
+                        </div>
+                    </div>
+
+                    {/* TABLO BAŞLIKLARI */}
                     <div className="d-flex align-items-stretch border-bottom" style={{ borderColor: "#334155" }}>
-                        <div className="p-2 px-3 header-title-cell justify-content-start" style={{ width: "34%" }}>MEKANİK EKİPMANLAR</div>
+                        <div className="p-2 px-3 header-cell text-start justify-content-start" style={{ width: "32%" }}>Mekanik Ekipmanlar / Üniteler</div>
                         <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                        <div className="p-2 header-title-cell" style={{ width: "7%" }}>Adet</div>
+                        <div className="p-2 header-cell" style={{ width: "6%" }}>Adet</div>
                         <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                        <div className="p-2 header-title-cell" style={{ width: "10%" }}>Birim Kurulu<br />Güç (kW)</div>
+                        <div className="p-2 header-cell" style={{ width: "10%" }}>Birim Güç<br />(kW)</div>
                         <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                        <div className="p-2 header-title-cell" style={{ width: "10%" }}>Toplam Kurulu<br />Güç (kW)</div>
+                        <div className="p-2 header-cell" style={{ width: "10%" }}>Toplam Güç<br />(kW)</div>
                         <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                        <div className="p-2 header-title-cell" style={{ width: "10%" }}>Tüketilen<br />Güç (%)</div>
+                        <div className="p-2 header-cell" style={{ width: "9%" }}>Tüketim<br />(%)</div>
                         <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                        <div className="p-2 header-title-cell" style={{ width: "10%" }}>Günlük<br />Çalışma (saat)</div>
+                        <div className="p-2 header-cell" style={{ width: "10%" }}>Çalışma<br />(saat/gün)</div>
                         <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                        <div className="p-2 header-title-cell" style={{ width: "13%" }}>Elektrik Tüketimi<br />(kWh/gün)</div>
+                        <div className="p-2 header-cell text-end justify-content-end px-3" style={{ width: "18%" }}>Elektrik Tüketimi<br />(kWh/gün)</div>
                         <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                        <div className="p-2 header-title-cell" style={{ width: "6%" }}></div>
+                        <div className="p-2 header-cell" style={{ width: "5%" }}>Aksiyon</div>
                     </div>
 
-                    {rows.map((row, index) => {
-                        const q = parseFloat(row.qty) || 0;
-                        const p = parseFloat(row.power) || 0;
-                        const totalPower = q * p;
-                        const consumption = calculateRowConsumption(row);
-                        const isZero = q === 0;
-                        const numColor = isZero ? "#ef4444" : "white";
+                    {/* TABLO SATIRLARI */}
+                    <div>
+                        {rows.map((row, index) => {
+                            const isHeading = row.isHeader || row.isSubHeader;
+                            const q = parseFloat(row.qty) || 0;
+                            const p = parseFloat(row.power) || 0;
+                            const totalPower = q * p;
+                            const consumption = calculateRowConsumption(row);
 
-                        return (
-                            <div key={row.id} className="d-flex align-items-stretch energy-row" style={{ backgroundColor: getRowBg(row) }}>
-                                <div className="p-1 px-3 d-flex align-items-center" style={{ width: "34%" }}>
-                                    {row.isHeader || row.isSubHeader ? (
-                                        <span className="text-white fw-bold" style={{ fontSize: row.isHeader ? "13px" : "11.5px", color: row.isHeader ? "#60a5fa" : "#cbd5e1" }}>
-                                            {row.label}
-                                        </span>
-                                    ) : (
+                            return (
+                                <div key={row.id} className="d-flex align-items-stretch table-row-energy" style={{ backgroundColor: getRowBg(row) }}>
+                                    <div className="p-1 px-3 d-flex align-items-center" style={{ width: "32%" }}>
                                         <input
                                             type="text"
-                                            className="form-control form-control-sm text-start text-white bg-transparent border-0 fw-medium p-1 energy-input"
-                                            style={{ fontSize: "11.5px", boxShadow: "none", width: "100%" }}
+                                            className="form-control form-control-sm text-start bg-transparent border-0 p-1 param-input rounded"
+                                            style={{
+                                                fontSize: isHeading ? "12.5px" : "12px",
+                                                boxShadow: "none",
+                                                width: "100%",
+                                                fontWeight: isHeading ? "bold" : "500",
+                                                color: row.isHeader ? "#60a5fa" : row.isSubHeader ? "#cbd5e1" : "white"
+                                            }}
                                             value={row.label}
                                             onChange={(e) => handleCellChange(row.id, "label", e.target.value)}
                                         />
-                                    )}
-                                </div>
-                                <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+                                    </div>
+                                    <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
 
-                                <div className="p-1 d-flex align-items-center justify-content-center" style={{ width: "7%" }}>
-                                    {!row.isHeader && !row.isSubHeader && (
-                                        <input
-                                            type="number"
-                                            className="form-control form-control-sm text-center bg-transparent border-0 energy-input fw-bold"
-                                            style={{ fontSize: "12px", boxShadow: "none", color: numColor }}
-                                            value={row.qty}
-                                            onChange={(e) => handleCellChange(row.id, "qty", e.target.value)}
-                                        />
-                                    )}
-                                </div>
-                                <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+                                    <div className="p-1 d-flex align-items-center justify-content-center" style={{ width: "6%" }}>
+                                        {!isHeading && (
+                                            <input
+                                                type="number"
+                                                className="form-control form-control-sm text-center bg-transparent border-0 energy-input fw-bold text-white"
+                                                style={{ fontSize: "12px", boxShadow: "none" }}
+                                                value={row.qty}
+                                                onChange={(e) => handleCellChange(row.id, "qty", e.target.value)}
+                                            />
+                                        )}
+                                    </div>
+                                    <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
 
-                                <div className="p-1 d-flex align-items-center justify-content-center" style={{ width: "10%" }}>
-                                    {!row.isHeader && !row.isSubHeader && (
-                                        <input
-                                            type="number"
-                                            className="form-control form-control-sm text-center text-white bg-transparent border-0 energy-input"
-                                            style={{ fontSize: "12px", boxShadow: "none" }}
-                                            value={row.power}
-                                            onChange={(e) => handleCellChange(row.id, "power", e.target.value)}
-                                        />
-                                    )}
-                                </div>
-                                <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-
-                                <div className="p-1 d-flex align-items-center justify-content-center fw-bold" style={{ width: "10%", fontSize: "11.5px", color: numColor }}>
-                                    {!row.isHeader && !row.isSubHeader && totalPower.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
-                                </div>
-                                <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-
-                                <div className="p-1 d-flex align-items-center justify-content-center" style={{ width: "10%" }}>
-                                    {!row.isHeader && !row.isSubHeader && (
-                                        <div className="d-flex align-items-center justify-content-center w-100">
+                                    <div className="p-1 d-flex align-items-center justify-content-center" style={{ width: "10%" }}>
+                                        {!isHeading && (
                                             <input
                                                 type="number"
                                                 className="form-control form-control-sm text-center text-white bg-transparent border-0 energy-input"
-                                                style={{ fontSize: "12px", boxShadow: "none", width: "60%" }}
-                                                value={row.consumed}
-                                                onChange={(e) => handleCellChange(row.id, "consumed", e.target.value)}
+                                                style={{ fontSize: "12px", boxShadow: "none" }}
+                                                value={row.power}
+                                                onChange={(e) => handleCellChange(row.id, "power", e.target.value)}
                                             />
-                                            <span className="text-white-50" style={{ fontSize: "10px" }}>%</span>
-                                        </div>
-                                    )}
+                                        )}
+                                    </div>
+                                    <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+
+                                    <div className="p-1 d-flex align-items-center justify-content-center fw-bold text-white" style={{ width: "10%", fontSize: "12px" }}>
+                                        {!isHeading && totalPower.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                                    </div>
+                                    <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+
+                                    <div className="p-1 d-flex align-items-center justify-content-center" style={{ width: "9%" }}>
+                                        {!isHeading && (
+                                            <div className="d-flex align-items-center justify-content-center w-100">
+                                                <input
+                                                    type="number"
+                                                    className="form-control form-control-sm text-center text-white bg-transparent border-0 energy-input"
+                                                    style={{ fontSize: "12px", boxShadow: "none", width: "65%" }}
+                                                    value={row.consumed}
+                                                    onChange={(e) => handleCellChange(row.id, "consumed", e.target.value)}
+                                                />
+                                                <span className="text-white-50" style={{ fontSize: "10px" }}>%</span>
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+
+                                    <div className="p-1 d-flex align-items-center justify-content-center" style={{ width: "10%" }}>
+                                        {!isHeading && (
+                                            <input
+                                                type="number"
+                                                className="form-control form-control-sm text-center text-white bg-transparent border-0 energy-input"
+                                                style={{ fontSize: "12px", boxShadow: "none" }}
+                                                value={row.hours}
+                                                onChange={(e) => handleCellChange(row.id, "hours", e.target.value)}
+                                            />
+                                        )}
+                                    </div>
+                                    <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+
+                                    <div className="p-1 px-3 d-flex align-items-center justify-content-end fw-bold" style={{ width: "18%", fontSize: "12px", color: "#4ade80" }}>
+                                        {!isHeading && consumption.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 3 })}
+                                    </div>
+                                    <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+
+                                    <div className="p-1 d-flex align-items-center justify-content-center gap-2" style={{ width: "5%" }}>
+                                        <button
+                                            onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === row.id ? null : row.id); }}
+                                            className="btn btn-sm p-0 border-0 text-success opacity-50 opacity-hover fw-bold"
+                                            style={{ fontSize: "16px", lineHeight: "1" }}
+                                            title="Satır Ekle"
+                                            type="button"
+                                        >
+                                            +
+                                        </button>
+                                        <button onClick={() => deleteRow(row.id)} className="btn btn-sm p-0 border-0 text-danger opacity-50 opacity-hover" style={{ fontSize: "16px", lineHeight: "1" }} title="Satırı Sil" type="button">&times;</button>
+
+                                        {activeMenuId === row.id && (
+                                            <div className="dropdown-menu-custom" onClick={(e) => e.stopPropagation()}>
+                                                <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 0); setActiveMenuId(null); }}>+ Ana Başlık</div>
+                                                <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 1); setActiveMenuId(null); }}>+ Alt Başlık</div>
+                                                <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 3); setActiveMenuId(null); }}>+ Normal Satır</div>
+                                            </div>
+                                        )}
+                                    </div>
                                 </div>
-                                <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-
-                                <div className="p-1 d-flex align-items-center justify-content-center" style={{ width: "10%" }}>
-                                    {!row.isHeader && !row.isSubHeader && (
-                                        <input
-                                            type="number"
-                                            className="form-control form-control-sm text-center text-white bg-transparent border-0 energy-input"
-                                            style={{ fontSize: "12px", boxShadow: "none" }}
-                                            value={row.hours}
-                                            onChange={(e) => handleCellChange(row.id, "hours", e.target.value)}
-                                        />
-                                    )}
-                                </div>
-                                <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-
-                                <div className="p-1 px-2 d-flex align-items-center justify-content-end fw-bold" style={{ width: "13%", fontSize: "12px", color: isZero ? "#ef4444" : "#4ade80" }}>
-                                    {!row.isHeader && !row.isSubHeader && consumption.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 3 })}
-                                </div>
-                                <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-
-                                <div className="p-1 d-flex align-items-center justify-content-center gap-2" style={{ width: "6%" }}>
-                                    <button onClick={() => insertAfterRow(index)} className="btn btn-sm p-0 border-0 text-success opacity-50 hover-opacity-100 fw-bold" style={{ fontSize: "15px", lineHeight: "1" }} title="Altına Satır Ekle">+</button>
-                                    <button onClick={() => deleteRow(row.id)} className="btn btn-sm p-0 border-0 text-danger opacity-40 hover-opacity-100" style={{ fontSize: "16px", lineHeight: "1" }} title="Satırı Sil">&times;</button>
-                                </div>
-                            </div>
-                        );
-                    })}
-                </div>
-            </div>
-
-            <div className="mt-2 d-flex flex-column rounded-3 overflow-hidden border" style={{ borderColor: "#475569", backgroundColor: "#0f172a" }}>
-                <div className="d-flex align-items-center p-2 px-3 border-bottom" style={{ borderColor: "#334155" }}>
-                    <div className="fw-bold text-end text-white-50" style={{ width: "75%", fontSize: "12px" }}>TOPLAM ELEKTRİK TÜKETİMİ</div>
-                    <div className="fw-bold text-end text-white" style={{ width: "15%", fontSize: "13px" }}>{totalKwhDay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                    <div className="text-white-50 ms-2" style={{ fontSize: "11px" }}>kWh/gün</div>
-                </div>
-
-                <div className="d-flex align-items-center p-2 px-3 border-bottom" style={{ borderColor: "#334155" }}>
-                    <div className="fw-bold text-end text-white-50" style={{ width: "75%", fontSize: "12px" }}>1 m³ atıksu başına elektrik tüketimi</div>
-                    <div className="fw-bold text-end text-white" style={{ width: "15%", fontSize: "13px" }}>{consumptionPerM3.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                    <div className="text-white-50 ms-2" style={{ fontSize: "11px" }}>kWh/m³</div>
-                </div>
-
-                <div className="d-flex align-items-center p-2 px-3 border-bottom" style={{ borderColor: "#334155" }}>
-                    <div className="fw-bold text-end text-white-50" style={{ width: "75%", fontSize: "12px" }}>1 m³ atıksu başına elektrik maliyeti</div>
-                    <div className="fw-bold text-end text-white" style={{ width: "15%", fontSize: "13px" }}>{costPerM3Cent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                    <div className="text-white-50 ms-2" style={{ fontSize: "11px" }}>cent/m³</div>
-                </div>
-
-                <div className="d-flex flex-column p-2 px-3" style={{ backgroundColor: "#1e293b" }}>
-                    <div className="d-flex align-items-center mb-1">
-                        <div className="fw-bold text-end text-white" style={{ width: "75%", fontSize: "13px" }}>Elektrik Tüketim Maliyeti (Günlük)</div>
-                        <div className="fw-bold text-end text-warning" style={{ width: "15%", fontSize: "14px" }}>{dailyCostEuro.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                        <div className="text-warning ms-2" style={{ fontSize: "11px" }}>€ / gün</div>
+                            );
+                        })}
                     </div>
-                    <div className="d-flex align-items-center">
-                        <div className="fw-bold text-end text-white" style={{ width: "75%", fontSize: "13px" }}>Elektrik Tüketim Maliyeti (Yıllık)</div>
-                        <div className="fw-bold text-end text-success" style={{ width: "15%", fontSize: "15px" }}>{yearlyCostEuro.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
-                        <div className="text-success ms-2" style={{ fontSize: "11px" }}>€ / yıl</div>
+
+                    {/* ÖZET VE MALİYET PANELİ */}
+                    <div className="d-flex flex-column overflow-hidden border-top" style={{ borderColor: "#475569", backgroundColor: "#0f172a" }}>
+                        <div className="d-flex align-items-center p-2 px-3 border-bottom" style={{ borderColor: "#334155" }}>
+                            <div className="fw-bold text-end text-white-50" style={{ width: "75%", fontSize: "12px" }}>TOPLAM ELEKTRİK TÜKETİMİ</div>
+                            <div className="fw-bold text-end text-white" style={{ width: "15%", fontSize: "13px" }}>{totalKwhDay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                            <div className="text-white-50 ms-2" style={{ fontSize: "11px" }}>kWh/gün</div>
+                        </div>
+
+                        <div className="d-flex align-items-center p-2 px-3 border-bottom" style={{ borderColor: "#334155" }}>
+                            <div className="fw-bold text-end text-white-50" style={{ width: "75%", fontSize: "12px" }}>1 m³ ATIKSU BAŞINA ELEKTRİK TÜKETİMİ</div>
+                            <div className="fw-bold text-end text-white" style={{ width: "15%", fontSize: "13px" }}>{consumptionPerM3.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                            <div className="text-white-50 ms-2" style={{ fontSize: "11px" }}>kWh/m³</div>
+                        </div>
+
+                        <div className="d-flex align-items-center p-2 px-3 border-bottom" style={{ borderColor: "#334155" }}>
+                            <div className="fw-bold text-end text-white-50" style={{ width: "75%", fontSize: "12px" }}>1 m³ ATIKSU BAŞINA ELEKTRİK MALİYETİ</div>
+                            <div className="fw-bold text-end text-white" style={{ width: "15%", fontSize: "13px" }}>{costPerM3Cent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                            <div className="text-white-50 ms-2" style={{ fontSize: "11px" }}>cent/m³</div>
+                        </div>
+
+                        <div className="d-flex align-items-center p-2 px-3 border-bottom" style={{ borderColor: "#334155" }}>
+                            <div className="fw-bold text-end text-white-50" style={{ width: "75%", fontSize: "12px" }}>ELEKTRİK TÜKETİM MALİYETİ (GÜNLÜK)</div>
+                            <div className="fw-bold text-end text-warning" style={{ width: "15%", fontSize: "14px" }}>{dailyCostEuro.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                            <div className="text-warning ms-2" style={{ fontSize: "11px" }}>€ / gün</div>
+                        </div>
+
+                        <div className="d-flex align-items-center p-2 px-3" style={{ backgroundColor: "#1e293b" }}>
+                            <div className="fw-bold text-end text-white" style={{ width: "75%", fontSize: "12px" }}>ELEKTRİK TÜKETİM MALİYETİ (YILLIK)</div>
+                            <div className="fw-bold text-end text-success" style={{ width: "15%", fontSize: "15px" }}>{yearlyCostEuro.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+                            <div className="text-success ms-2" style={{ fontSize: "11px" }}>€ / yıl</div>
+                        </div>
                     </div>
+
                 </div>
             </div>
         </div>

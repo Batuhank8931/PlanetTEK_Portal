@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import ExcelGrid from "./ExcelGrid";
 import API from "../../utils/utilRequest";
 import PriceChangeUpdateConfirmationModal from "../modals/PriceChangeUpdateConfirmationModal";
+import AlertModal from "../modals/AlertModal";
 
 function AnaUnite() {
   const [anaUniteler, setAnaUniteler] = useState([]);
@@ -15,6 +16,14 @@ function AnaUnite() {
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
   const [pendingChanges, setPendingChanges] = useState([]);
+
+  // 🌟 AlertModal kontrolü için state
+  const [alertConfig, setAlertConfig] = useState({
+    show: false,
+    title: "",
+    message: "",
+    type: "success"
+  });
 
   // 📊 11 adet Başlık (1 adet sol sabit kılavuz + 10 adet field kolonu)
   const headers = [
@@ -212,7 +221,14 @@ function AnaUnite() {
     });
 
     if (changes.length === 0) {
-      alert("Değişen bir veri bulunamadı.");
+
+      // Oski alert satırını sil, yerine bunu ekle:
+      setAlertConfig({
+        show: true,
+        title: "Uyarı",
+        message: "Değişen bir veri bulunamadı.",
+        type: "warning"
+      });
       return;
     }
 
@@ -270,7 +286,13 @@ function AnaUnite() {
 
     } catch (error) {
       console.error("Kaydetme esnasında teknik hata:", error);
-      alert("Veriler kaydedilirken sistemsel bir hata meydana geldi.");
+
+      setAlertConfig({
+        show: true,
+        title: "Veriler kaydedilirken sistemsel bir hata meydana geldi",
+        message: error,
+        type: "error"
+      });
     } finally {
       setLoading(false);
     }
@@ -346,6 +368,13 @@ function AnaUnite() {
         onClose={() => setShowModal(false)}
         onConfirm={handleConfirmSave}
         changesList={pendingChanges}
+      />
+      <AlertModal
+        show={alertConfig.show}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={() => setAlertConfig(prev => ({ ...prev, show: false }))}
       />
     </div>
   );

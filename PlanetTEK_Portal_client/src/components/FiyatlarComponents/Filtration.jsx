@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import ExcelGrid from "./ExcelGrid";
 import API from "../../utils/utilRequest";
 import PriceChangeUpdateConfirmationModal from "../modals/PriceChangeUpdateConfirmationModal";
+import AlertModal from "../modals/AlertModal";
 
 function Filtration() {
     // --- 1. STATE YÖNETİMLERİ (4 Ayrı Tablo ve Katsayılar) ---
@@ -18,6 +19,14 @@ function Filtration() {
         backwashPumps: [],
         onKlorlama: [],
         oranData: []
+    });
+
+    // 🌟 AlertModal kontrolü için state
+    const [alertConfig, setAlertConfig] = useState({
+        show: false,
+        title: "",
+        message: "",
+        type: "success"
     });
 
     const [loading, setLoading] = useState(true);
@@ -224,7 +233,12 @@ function Filtration() {
         });
 
         if (allChanges.length === 0) {
-            alert("Herhangi bir değişiklik algılanmadı.");
+            setAlertConfig({
+                show: true,
+                title: "Uyarı",
+                message: "Değişen bir veri bulunamadı.",
+                type: "warning"
+            });
             return;
         }
         setPendingChanges(allChanges);
@@ -259,7 +273,12 @@ function Filtration() {
             setPendingChanges([]);
         } catch (err) {
             console.error(err);
-            alert("Sistemsel hata meydana geldi.");
+            setAlertConfig({
+                show: true,
+                title: "Veriler kaydedilirken sistemsel bir hata meydana geldi",
+                message: error,
+                type: "error"
+            });
         } finally {
             setLoading(false);
         }
@@ -360,6 +379,14 @@ function Filtration() {
                 onClose={() => setShowModal(false)}
                 onConfirm={handleConfirmSave}
                 changesList={pendingChanges}
+            />
+
+            <AlertModal
+                show={alertConfig.show}
+                title={alertConfig.title}
+                message={alertConfig.message}
+                type={alertConfig.type}
+                onClose={() => setAlertConfig(prev => ({ ...prev, show: false }))}
             />
         </div>
     );

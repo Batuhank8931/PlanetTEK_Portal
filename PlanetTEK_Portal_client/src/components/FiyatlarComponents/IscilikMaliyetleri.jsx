@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import ExcelGrid from "./ExcelGrid";
 import API from "../../utils/utilRequest";
 import PriceChangeUpdateConfirmationModal from "../modals/PriceChangeUpdateConfirmationModal";
+import AlertModal from "../modals/AlertModal";
 
 function IscilikMaliyetleri() {
     const [laborCostsData, setLaborCostsData] = useState([]);
@@ -11,6 +12,12 @@ function IscilikMaliyetleri() {
     // Modal State Yönetimi
     const [showModal, setShowModal] = useState(false);
     const [pendingChanges, setPendingChanges] = useState([]);
+    const [alertConfig, setAlertConfig] = useState({
+        show: false,
+        title: "",
+        message: "",
+        type: "success"
+    });
 
     // 📊 Kolon Yapısı: 9 Başlık ve 9 Field tam 1:1 senkronize edildi, hiçbir alan hidden değil!
     const headers = [
@@ -23,10 +30,10 @@ function IscilikMaliyetleri() {
 
     // Kombinasyon adını ('ad' kolonu) fields dizisinin en başına çektik
     const fields = [
-        "ad", 
-        "mekKisi", "mekGun", 
-        "elkKisi", "elkGun", 
-        "gunlikMekMaliyet", "gunlukYemek", "digerGunluk", 
+        "ad",
+        "mekKisi", "mekGun",
+        "elkKisi", "elkGun",
+        "gunlikMekMaliyet", "gunlukYemek", "digerGunluk",
         "toplamMaliyet"
     ];
 
@@ -34,7 +41,7 @@ function IscilikMaliyetleri() {
         try {
             setLoading(true);
             const response = await API.getUnitLaborCosts();
-            
+
             // Tüm datayı tek bir state havuzunda topluyoruz
             setLaborCostsData(JSON.parse(JSON.stringify(response.data)));
             setOriginalData(JSON.parse(JSON.stringify(response.data)));
@@ -77,7 +84,7 @@ function IscilikMaliyetleri() {
             const mekGun = Number(item.mekGun) || 0;
             const elkKisi = Number(item.elkKisi) || 0;
             const elkGun = Number(item.elkGun) || 0;
-            
+
             const gunlikMekMaliyet = Number(item.gunlikMekMaliyet) || 0;
             const gunlukYemek = Number(item.gunlukYemek) || 0;
             const digerGunluk = Number(item.digerGunluk) || 0;
@@ -165,7 +172,12 @@ function IscilikMaliyetleri() {
         });
 
         if (changes.length === 0) {
-            alert("Değişen bir veri bulunamadı.");
+            setAlertConfig({
+                show: true,
+                title: "Uyarı",
+                message: "Değişen bir veri bulunamadı.",
+                type: "warning"
+            });
             return;
         }
 
@@ -198,10 +210,15 @@ function IscilikMaliyetleri() {
 
             // Taptaze verileri DB'den tek bir havuz olarak yeniden çek
             await fetchIscilikMaliyetleri();
-            setPendingChanges([]); 
+            setPendingChanges([]);
         } catch (error) {
             console.error("İşçilik verileri kaydedilirken hata oluştu:", error);
-            alert("Veriler kaydedilirken sistemsel bir hata meydana geldi.");
+            setAlertConfig({
+                show: true,
+                title: "Veriler kaydedilirken sistemsel bir hata meydana geldi",
+                message: error,
+                type: "error"
+            });
         } finally {
             setLoading(false);
         }
@@ -253,6 +270,13 @@ function IscilikMaliyetleri() {
                 onClose={() => setShowModal(false)}
                 onConfirm={handleConfirmSave}
                 changesList={pendingChanges}
+            />
+            <AlertModal
+                show={alertConfig.show}
+                title={alertConfig.title}
+                message={alertConfig.message}
+                type={alertConfig.type}
+                onClose={() => setAlertConfig(prev => ({ ...prev, show: false }))}
             />
         </div>
     );

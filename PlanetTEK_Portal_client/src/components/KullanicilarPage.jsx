@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect } from "react";
 import AddPutKullanici from "./KullaniciComponents/AddPutKullanici";
 import API from "../utils/utilRequest"; // 🚀 Doğru CRUD servis dosyamıza bağladık
 import { AnimatePresence } from "framer-motion";
+import AlertModal from "./modals/AlertModal";
 
 function KullanicilarPage() {
   // 💾 Verileri artık statik array yerine boş state olarak başlatıyoruz
@@ -14,6 +15,13 @@ function KullanicilarPage() {
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [loading, setLoading] = useState(false);
+  // 🌟 AlertModal kontrolü için state
+  const [alertConfig, setAlertConfig] = useState({
+    show: false,
+    title: "",
+    message: "",
+    type: "success"
+  });
 
   // ==========================================
   // 🔍 1. VERİTABANINDAN KULLANICILARI ÇEKME
@@ -25,7 +33,7 @@ function KullanicilarPage() {
     setLoading(true);
     setErrorMsg(""); // Yeni istek başlarken eski hatayı temizle
     try {
-      // 🚀 autoAuth'un arka planda yenileme yapabilmesi için alert() engelini kaldırıyoruz
+      // 🚀 autoAuth'un arka planda yenileme yapabilmesi için engelini kaldırıyoruz
       const response = await API.getUser();
 
       const formattedUsers = response.data.map(u => ({
@@ -120,7 +128,14 @@ function KullanicilarPage() {
 
     } catch (err) {
       console.error("Kullanıcı kaydedilirken hata oluştu:", err);
-      alert(err.response?.data?.message || "Kullanıcı işlemi başarısız.");
+      // Oski alert satırını sil, yerine bunu ekle:
+      setAlertConfig({
+        show: true,
+        title: "Hata",
+        message: err.response?.data?.message,
+        type: "error"
+      });
+
     }
   };
 
@@ -135,7 +150,12 @@ function KullanicilarPage() {
         setUsers((prev) => prev.filter((u) => u.id !== id));
       } catch (err) {
         console.error("Silme işlemi sırasında hata oluştu:", err);
-        alert("Kullanıcı silinemedi.");
+        setAlertConfig({
+          show: true,
+          title: "Kullanıcı silinemedi",
+          message: err,
+          type: "error"
+        });
       }
     }
   };
@@ -351,6 +371,14 @@ function KullanicilarPage() {
         </div>
       )}
 
+      <AlertModal
+        show={alertConfig.show}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={() => setAlertConfig(prev => ({ ...prev, show: false }))}
+      />
+      
       {/* DIŞARIYA ALINAN EKLEME/DÜZENLEME PENCERESİ */}
       <AnimatePresence>
         {isPanelOpen && (

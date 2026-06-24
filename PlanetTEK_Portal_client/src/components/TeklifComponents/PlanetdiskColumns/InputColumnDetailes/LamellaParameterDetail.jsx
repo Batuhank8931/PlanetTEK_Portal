@@ -13,42 +13,33 @@ function LamellaParameters() {
   useEffect(() => {
     const fetchParameters = async () => {
       try {
-        const response = await API.getParamteters();
+        const response = await API.getLamellaData();
         const response2 = await API.getCentrifugePumps();
-        
+
         const data = response.data || [];
         const pumpsData = response2.data || [];
-        
+
         setCentrifugePumps(pumpsData);
+        // 🌟 Gelen yeni veri yapısını map'liyoruz
+        const dinamikLamellaModelleri = data.map(item => {
+          // 'LS 15' tipini 'LS_15' id'sine dönüştürerek store uyumluluğunu koruyoruz
+          const modelId = item.tipi ? item.tipi.replace(" ", "_") : `model_${item.id}`;
 
-        const modelsMap = {};
-
-        data.forEach(item => {
-          const key = item.parametre_key;
-
-          if (key.startsWith("LS_")) {
-            const parcalar = key.split("_");
-            const modelId = `${parcalar[0]}_${parcalar[1]}`; 
-            const name = `${parcalar[0]} ${parcalar[1]}`;    
-            const field = parcalar[2];                        
-
-            if (!modelsMap[modelId]) {
-              modelsMap[modelId] = {
-                id: modelId,
-                name: name
-              };
-            }
-
-            modelsMap[modelId][field] = parseFloat(item.deger);
-          }
+          return {
+            id: modelId,                // Örn: "LS_15"
+            name: item.tipi,            // Örn: "LS 15"
+            alan: parseFloat(item.alan) || 0,
+            hacim: parseFloat(item.hacim) || 0,
+            yd_fiyat: parseFloat(item.yd_fiyat) || 0, // İleride lazım olursa diye eklendi
+            yi_fiyat: parseFloat(item.yi_fiyat) || 0  // İleride lazım olursa diye eklendi
+          };
         });
 
-        const dinamikLamellaModelleri = Object.values(modelsMap);
+        // Alanlarına göre küçükten büyüğe sıralama
         dinamikLamellaModelleri.sort((a, b) => a.alan - b.alan);
 
         setLamellaModels(dinamikLamellaModelleri);
         setLoading(false);
-
       } catch (error) {
         console.error("Parametre verileri yüklenirken hata oldu:", error);
         setLoading(false);
@@ -65,13 +56,13 @@ function LamellaParameters() {
 
   const displayBeklemeSuresi = currentLamellaData.LamellabeklemeSuresiMin ?? "30";
   const displayLamellaKatsayisi = currentLamellaData.lamellaKatsayisi ?? "0.40";
-  
+
   const currentCamurPompasiObj = currentLamellaData.camurPompasi || {};
   const currentCamurPompasiId = currentCamurPompasiObj.id || "";
-  
+
   const currentCamurPompasiAdet = currentLamellaData.camurPompasiAdet !== undefined ? parseInt(currentLamellaData.camurPompasiAdet, 10) : 0;
   const currentLamellaAdetInStore = currentLamellaData.lamellaAdet !== undefined ? parseInt(currentLamellaData.lamellaAdet, 10) : null;
-  
+
   const currentModelId = currentLamellaData.secilenLamellaModeli || "";
 
   const LamellabeklemeSuresiMin = parseFloat(displayBeklemeSuresi) || 0;
@@ -104,6 +95,9 @@ function LamellaParameters() {
     const currentAlanInStore = currentLamellaData.gerekliLamellaAlani;
     const currentHacimInStore = currentLamellaData.gerekliLamellaHacmi;
 
+    const currentModelAlanInStore = currentLamellaData.secilenModelAlan;
+    const currentModelHacimInStore = currentLamellaData.secilenModelHacim;
+
     const formattedAlan = gerekliAlan.toFixed(2);
     const formattedHacim = gerekliHacim.toFixed(2);
 
@@ -122,12 +116,18 @@ function LamellaParameters() {
     const finalLamellaAdet = currentAdetInStore !== undefined && currentAdetInStore !== null ? currentAdetInStore : autoCalculatedAdet;
     const targetPumpAdet = currentCamurPompasiAdet !== 0 ? currentCamurPompasiAdet : finalLamellaAdet;
 
+    // 🌟 Seçilen modelin alan ve hacmini belirliyoruz
+    const targetModelAlan = secilenModel ? secilenModel.alan : 0;
+    const targetModelHacim = secilenModel ? secilenModel.hacim : 0;
+
     if (
       currentAdetInStore !== finalLamellaAdet ||
       currentAlanInStore !== formattedAlan ||
       currentHacimInStore !== formattedHacim ||
       currentCamurPompasiId !== targetCamurPompasiObj.id ||
-      currentCamurPompasiAdet !== targetPumpAdet
+      currentCamurPompasiAdet !== targetPumpAdet ||
+      currentModelAlanInStore !== targetModelAlan || // 🌟 Değişiklik kontrolü
+      currentModelHacimInStore !== targetModelHacim  // 🌟 Değişiklik kontrolü
     ) {
       updateSection("planetDiskDetails", {
         tasarim: {
@@ -138,7 +138,9 @@ function LamellaParameters() {
             gerekliLamellaHacmi: formattedHacim,
             lamellaAdet: finalLamellaAdet,
             camurPompasi: targetCamurPompasiObj,
-            camurPompasiAdet: targetPumpAdet
+            camurPompasiAdet: targetPumpAdet,
+            secilenModelAlan: targetModelAlan,   // 🌟 Store'a eklendi
+            secilenModelHacim: targetModelHacim  // 🌟 Store'a eklendi
           }
         }
       });
@@ -150,8 +152,6 @@ function LamellaParameters() {
 
     let targetCamurPompasiPayload = currentCamurPompasiObj;
     let updatedLamellaAdet = resolvedLamellaAdet;
-    
-    // 🚀 Varsayılan olarak pompa adedi güncel veya yeni hesaplanacak Lamella adedini takip edecek
     let updatedPumpAdet = currentCamurPompasiAdet;
 
     if (name === "camurPompasi") {
@@ -182,28 +182,30 @@ function LamellaParameters() {
     const nextHacim = debiSaat * (nextBekleme / 60);
 
     const targetModel = lamellaModels.find(m => m.id === nextLamellaState.secilenLamellaModeli);
-      
+
     let nextAutoAdet = 0;
     if (targetModel) {
       nextAutoAdet = Math.ceil(Math.max(nextAlan / targetModel.alan, nextHacim / targetModel.hacim)) || 1;
     }
 
-    // 🚀 Model, süre veya katsayı değiştiğinde pompa adedini direkt yeni Lamella adedine eşitle
     if (name === "secilenLamellaModeli" || name === "LamellabeklemeSuresiMin" || name === "lamellaKatsayisi") {
       updatedLamellaAdet = nextAutoAdet;
-      updatedPumpAdet = nextAutoAdet; 
+      updatedPumpAdet = nextAutoAdet;
     }
 
-    // 🚀 Lamella adedi el ile değiştirildiğinde pompa adedini de istisnasız direkt eşitle
     if (name === "lamellaAdet") {
       const parsedLamellaValue = parseInt(value, 10) || 0;
       updatedLamellaAdet = parsedLamellaValue;
-      updatedPumpAdet = parsedLamellaValue; 
+      updatedPumpAdet = parsedLamellaValue;
     }
 
     if (name === "camurPompasiAdet") {
       updatedPumpAdet = parseInt(value, 10) || 0;
     }
+
+    // 🌟 ÇÖZÜM: Seçilen modelin alan ve hacmini güvenli bir şekilde alıyoruz
+    const targetModelAlan = targetModel ? targetModel.alan : 0;
+    const targetModelHacim = targetModel ? targetModel.hacim : 0;
 
     updateSection("planetDiskDetails", {
       tasarim: {
@@ -214,7 +216,9 @@ function LamellaParameters() {
           gerekliLamellaAlani: nextAlan.toFixed(2),
           gerekliLamellaHacmi: nextHacim.toFixed(2),
           lamellaAdet: updatedLamellaAdet,
-          camurPompasiAdet: updatedPumpAdet
+          camurPompasiAdet: updatedPumpAdet,
+          secilenModelAlan: targetModelAlan,   // 🌟 Güncellendi
+          secilenModelHacim: targetModelHacim  // 🌟 Güncellendi
         }
       }
     });
@@ -291,7 +295,7 @@ function LamellaParameters() {
         </div>
 
         <div className="p-3 rounded mb-2" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
-          
+
           {/* 1. LAMELLA ÜNİTE MODELİ VE ADEDİ */}
           <div className="mb-3">
             <label className="text-white-50 mb-1" style={{ fontSize: "11px" }}>Lamella Ünite Modeli ve Adedi</label>
@@ -344,10 +348,12 @@ function LamellaParameters() {
                     updateSection("planetDiskDetails", {
                       tasarim: {
                         ...formData.planetDiskDetails?.tasarim,
-                        lamella: { 
-                          ...currentLamellaData, 
+                        lamella: {
+                          ...currentLamellaData,
                           lamellaAdet: autoCalculatedAdet,
-                          camurPompasiAdet: autoCalculatedAdet // Sıfırlanınca pompayı da çek
+                          camurPompasiAdet: autoCalculatedAdet, // Sıfırlanınca pompayı da çek
+                          secilenModelAlan: secilenModel ? secilenModel.alan : 0,   // 🌟 Sıfırlama butonuna da eklendi
+                          secilenModelHacim: secilenModel ? secilenModel.hacim : 0  // 🌟 Sıfırlama butonuna da eklendi
                         }
                       }
                     });
@@ -372,7 +378,7 @@ function LamellaParameters() {
                 style={{
                   backgroundColor: "rgba(245, 158, 11, 0.12)",
                   border: centrifugePumps.length > 0 && String(currentCamurPompasiId) !== String(centrifugePumps[0]?.id)
-                    ? "1px solid #f59e0b" 
+                    ? "1px solid #f59e0b"
                     : "1px solid #10b981",
                   borderRadius: "6px",
                   fontSize: "12px",

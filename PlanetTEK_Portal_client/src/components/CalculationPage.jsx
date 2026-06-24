@@ -1,7 +1,9 @@
+// CalculationPage.jsx
 import React, { useState, useEffect } from "react";
 import ExcelGrid from "./FiyatlarComponents/ExcelGrid";
 import CalculationChangeUpdateConfirmationModal from "./modals/CalculationChangeUpdateConfirmationModal";
 import API from "../utils/utilRequest";
+import AlertModal from "./modals/AlertModal"; // Yeni modalımız import edildi
 
 function CalculationPage() {
   const [allParameters, setAllParameters] = useState([]);
@@ -12,7 +14,14 @@ function CalculationPage() {
   const [showModal, setShowModal] = useState(false);
   const [pendingChanges, setPendingChanges] = useState([]);
 
-  // 🔍 Verileri DB'den Getirme Fonksiyonu
+  // 🌟 Yeni AlertModal State Yönetimi
+  const [alertConfig, setAlertConfig] = useState({
+    show: false,
+    title: "",
+    message: "",
+    type: "success"
+  });
+
   const fetchParameters = async () => {
     try {
       setLoading(true);
@@ -30,7 +39,6 @@ function CalculationPage() {
     fetchParameters();
   }, []);
 
-  // ➕ Yeni Satır Ekleme Motoru
   const handleAddNewRow = (matrixType) => {
     const timestamp = Date.now();
     let newRow = {};
@@ -41,20 +49,15 @@ function CalculationPage() {
       newRow = { id: `new_${timestamp}`, parametre_key: `nit_yeni`, parametre_adi: "Sıcaklık Koşulu", deger: 0, isNew: true };
     } else if (matrixType === "giderim") {
       newRow = { id: `new_${timestamp}`, parametre_key: `yeni_metrik`, parametre_adi: "Yeni Proses Metriği", deger: 0, isNew: true };
-    } else if (matrixType === "lamelle") {
-      newRow = { id: `new_${timestamp}`, parametre_key: `LS_YENI_hacim`, parametre_adi: "Yeni Lamelle Özelliği", deger: 0, isNew: true };
     }
 
     setAllParameters(prev => [...prev, newRow]);
   };
 
-  // 🛠️ Değişiklik Değerlendirme ve Onay Modalı Tetikleyicisi
-  // 🛠️ Değişiklik Değerlendirme ve Onay Modalı Tetikleyicisi
   const handleSaveClick = () => {
     const changes = [];
 
     allParameters.forEach((item) => {
-      // ❌ DURUM 1: SİLME (DELETE)
       if (item.isDeleted) {
         if (String(item.id).startsWith("new_")) return;
         changes.push({
@@ -68,7 +71,6 @@ function CalculationPage() {
         return;
       }
 
-      // ➕ DURUM 2: INSERT (Yeni Parametre Ekleme)
       if (String(item.id).startsWith("new_") || item.isNew) {
         changes.push({
           type: "INSERT",
@@ -84,7 +86,6 @@ function CalculationPage() {
         return;
       }
 
-      // 🔄 DURUM 3: UPDATE (Mevcut Hücre Güncelleme)
       const originalItem = originalData.find((o) => String(o.id) === String(item.id));
       if (originalItem) {
         ["parametre_adi", "deger"].forEach((field) => {
@@ -93,7 +94,6 @@ function CalculationPage() {
           if (field === "parametre_adi") {
             isSame = String(originalItem[field] || "").trim() === String(item[field] || "").trim();
           } else {
-            // İki tarafın da sayısal değerini güvenli bir şekilde karşılaştırıyoruz
             const origNum = Number(originalItem[field]) || 0;
             const currentNum = Number(item[field]) || 0;
             isSame = origNum === currentNum;
@@ -102,8 +102,8 @@ function CalculationPage() {
           if (!isSame) {
             changes.push({
               type: "UPDATE",
-              id: Number(originalItem.id), // ID'nin sayısal olduğundan emin oluyoruz
-              columnName: field, // "deger" veya "parametre_adi" gidiyor
+              id: Number(originalItem.id),
+              columnName: field,
               newValue: field === "parametre_adi" ? String(item[field]).trim() : (Number(item[field]) || 0),
               rowName: item.parametre_adi || originalItem.parametre_adi,
               oldValue: originalItem[field]
@@ -113,16 +113,21 @@ function CalculationPage() {
       }
     });
 
-    // 🔍 DEBUG: Payload'u console'da görerek backend'e ne gittiğini izleyebilirsin
-
     if (changes.length === 0) {
-      alert("Herhangi bir değişiklik algılanmadı.");
+      // 🔄 MODERN UYARI MODALI TETİKLENDİ
+      setAlertConfig({
+        show: true,
+        title: "Değişiklik Yok",
+        message: "Herhangi bir değişiklik algılanmadı. Kaydetmek için önce hücreleri düzenleyin.",
+        type: "warning"
+      });
       return;
     }
 
     setPendingChanges(changes);
     setShowModal(true);
   };
+
   const handleConfirmSave = async () => {
     setShowModal(false);
     setLoading(true);
@@ -130,9 +135,23 @@ function CalculationPage() {
       await API.updateParametersData({ updates: pendingChanges });
       await fetchParameters();
       setPendingChanges([]);
+
+      // ✅ BAŞARILI KAYIT BİLDİRİMİ
+      setAlertConfig({
+        show: true,
+        title: "İşlem Tamamlandı",
+        message: "Proses parametreleri başarıyla güncellendi.",
+        type: "success"
+      });
     } catch (error) {
       console.error("Parametreler güncellenirken teknik hata:", error);
-      alert("Kaydedilirken bir hata oluştu.");
+      // ❌ HATA BİLDİRİMİ
+      setAlertConfig({
+        show: true,
+        title: "Sistem Hatası",
+        message: "Parametreler veritabanına kaydedilirken teknik bir sorun oluştu.",
+        type: "error"
+      });
     } finally {
       setLoading(false);
     }
@@ -148,18 +167,13 @@ function CalculationPage() {
     );
   }
 
-  // 🛡️ GÜVENLİ TİP KORUMALI FİLTRELEME MOTORU (String dönüşümleri garanti edildi)
   const activeParams = allParameters.filter(p => !p.isDeleted);
-
   const diskData = activeParams.filter(p => {
     const key = String(p?.parametre_key || "");
     return key.includes("MX_") || key.includes("MINI_") || key.startsWith("NEW_DISK_");
   });
-
   const nitData = activeParams.filter(p => String(p?.parametre_key || "").startsWith("nit_") || String(p?.parametre_key || "").startsWith("NEW_NIT_"));
-  const lamelleData = activeParams.filter(p => String(p?.parametre_key || "").startsWith("LS_") || String(p?.parametre_key || "").startsWith("NEW_LAM_"));
-
-  const reservedKeys = [...diskData, ...nitData, ...lamelleData].map(x => String(x.parametre_key || ""));
+  const reservedKeys = [...diskData, ...nitData].map(x => String(x.parametre_key || ""));
   const giderimData = activeParams.filter(p => !reservedKeys.includes(String(p?.parametre_key || "")) || String(p?.parametre_key || "").startsWith("NEW_GID_"));
 
   return (
@@ -269,31 +283,6 @@ function CalculationPage() {
           />
         </div>
 
-        {/* GRID 4: LAMELLE (LS) MATRİSİ */}
-        <div className="mb-2">
-          <div className="d-flex justify-content-between align-items-center mb-2">
-            <div className="fw-bold text-uppercase d-flex align-items-center" style={{ fontSize: "11px", letterSpacing: "0.5px", color: "#22c55e" }}>
-              <i className="bi bi-layers-half me-1.5"></i> 4. Lamelle (LS) Hacim ve Alan Matrisi
-            </div>
-            <button className="btn btn-xs btn-outline-success py-0 px-2" style={{ fontSize: "11px" }} onClick={() => handleAddNewRow("lamelle")}>
-              <i className="bi bi-plus"></i> Yeni Model Verisi
-            </button>
-          </div>
-          <ExcelGrid
-            headers={["Formül Anahtarı (Key)", "Model Mühendislik Özelliği", "Değer"]}
-            fields={["parametre_key", "parametre_adi", "deger"]}
-            data={lamelleData}
-            isMainTable={true}
-            onDataChange={(updateFn) => {
-              setAllParameters(prev => {
-                const updatedLamelleData = typeof updateFn === 'function' ? updateFn(lamelleData) : updateFn;
-                const otherData = prev.filter(p => !String(p?.parametre_key || "").startsWith("LS_") && !String(p?.parametre_key || "").startsWith("NEW_LAM_"));
-                return [...otherData, ...updatedLamelleData];
-              });
-            }}
-          />
-        </div>
-
       </div>
 
       <CalculationChangeUpdateConfirmationModal
@@ -301,6 +290,15 @@ function CalculationPage() {
         onClose={() => setShowModal(false)}
         onConfirm={handleConfirmSave}
         changesList={pendingChanges}
+      />
+
+      {/* 🌟 PROJEDEKİ ALERT'LERİ SİLİP YERİNE KOYDUĞUMUZ YENİ NESİL MODAL */}
+      <AlertModal
+        show={alertConfig.show}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={() => setAlertConfig(prev => ({ ...prev, show: false }))}
       />
     </div>
   );

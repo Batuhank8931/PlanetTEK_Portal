@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import ExcelGrid from "./ExcelGrid";
 import API from "../../utils/utilRequest";
 import PriceChangeUpdateConfirmationModal from "../modals/PriceChangeUpdateConfirmationModal";
+import AlertModal from "../modals/AlertModal";
 
 function CamurSusuzlastirma() {
     const [dewateringData, setDewateringData] = useState([]);
@@ -13,6 +14,14 @@ function CamurSusuzlastirma() {
     const [loading, setLoading] = useState(true);
     const [showModal, setShowModal] = useState(false);
     const [pendingChanges, setPendingChanges] = useState([]);
+
+    // 🌟 AlertModal kontrolü için state
+    const [alertConfig, setAlertConfig] = useState({
+        show: false,
+        title: "",
+        message: "",
+        type: "success"
+    });
 
     // 📊 Kolon Yapısı: Tam 1:1 Eşleşme sağlandı!
     const headers = [
@@ -83,7 +92,7 @@ function CamurSusuzlastirma() {
     // ➕ Yeni Boş Satır Ekleme Fonksiyonu
     const handleAddNewRow = () => {
         const currentOran = sabitOranlar[0] || { yi_oran: 1.30, yd_oran: 1.45 };
-        
+
         const newRow = {
             id: `new_${Date.now()}`,
             ekipman_tipi: "dekantor",
@@ -245,7 +254,12 @@ function CamurSusuzlastirma() {
         });
 
         if (changes.length === 0) {
-            alert("Değişen bir veri bulunamadı.");
+            setAlertConfig({
+                show: true,
+                title: "Uyarı",
+                message: "Değişen bir veri bulunamadı.",
+                type: "warning"
+            });
             return;
         }
 
@@ -281,7 +295,12 @@ function CamurSusuzlastirma() {
 
         } catch (error) {
             console.error("Kaydetme esnasında teknik hata:", error);
-            alert("Veriler kaydedilirken sistemsel bir hata meydana geldi.");
+            setAlertConfig({
+                show: true,
+                title: "Veriler kaydedilirken sistemsel bir hata meydana geldi",
+                message: error,
+                type: "error"
+            });
         } finally {
             setLoading(false);
         }
@@ -352,6 +371,13 @@ function CamurSusuzlastirma() {
                 onClose={() => setShowModal(false)}
                 onConfirm={handleConfirmSave}
                 changesList={pendingChanges}
+            />
+            <AlertModal
+                show={alertConfig.show}
+                title={alertConfig.title}
+                message={alertConfig.message}
+                type={alertConfig.type}
+                onClose={() => setAlertConfig(prev => ({ ...prev, show: false }))}
             />
         </div>
     );

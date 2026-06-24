@@ -12,6 +12,7 @@ import {
     Legend
 } from "chart.js";
 import ExcelGrid from "../FiyatlarComponents/ExcelGrid";
+import AlertModal from "./AlertModal";
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
@@ -19,6 +20,13 @@ function PumpCurveUpdateModal({ show, onClose, pumpId, pumpName }) {
     const [points, setPoints] = useState([]);
     const [loading, setLoading] = useState(false);
     const [submitLoading, setSubmitLoading] = useState(false);
+
+    const [alertConfig, setAlertConfig] = useState({
+        show: false,
+        title: "",
+        message: "",
+        type: "success"
+    });
 
     // ExcelGrid için gerekli header ve field eşleşmeleri
     const headers = ["Debi (Q - m³/h)", "Basma Yüksekliği (H - mSS)"];
@@ -34,13 +42,18 @@ function PumpCurveUpdateModal({ show, onClose, pumpId, pumpName }) {
         try {
             setLoading(true);
             const response = await API.getPumpCurve(pumpId);
-            
+
             // Gelen datada silinmiş olanları filtreleyip temiz state atıyoruz
             const activePoints = (response.data || []).filter(p => !p.isDeleted);
             setPoints(activePoints);
         } catch (error) {
             console.error("Eğri verisi yüklenirken hata oluştu:", error);
-            alert("Pompa eğri verileri yüklenemedi.");
+            setAlertConfig({
+                show: true,
+                title: "Veriler kaydedilirken sistemsel bir hata meydana geldi",
+                message: error,
+                type: "error"
+            });
         } finally {
             setLoading(false);
         }
@@ -50,7 +63,7 @@ function PumpCurveUpdateModal({ show, onClose, pumpId, pumpName }) {
     const handleGridDataChange = (newData) => {
         const resolvedData = typeof newData === "function" ? newData(points) : newData;
         if (!resolvedData || !Array.isArray(resolvedData)) return;
-        
+
         setPoints([...resolvedData]);
     };
 
@@ -81,6 +94,12 @@ function PumpCurveUpdateModal({ show, onClose, pumpId, pumpName }) {
             setSubmitLoading(true);
             await API.updatePumpCurve(pumpId, { points: validPoints });
             alert("Pompa eğrisi başarıyla güncellendi!");
+            setAlertConfig({
+                show: true,
+                title: "İşlem Tamamlandı",
+                message: "Pompa eğrisi başarıyla güncellendi!",
+                type: "success"
+            });
             onClose();
         } catch (error) {
             console.error("Eğri kaydedilirken hata oluştu:", error);
@@ -150,7 +169,7 @@ function PumpCurveUpdateModal({ show, onClose, pumpId, pumpName }) {
         <div className="modal d-block" tabIndex="-1" style={{ backgroundColor: "rgba(2,6,23,0.7)", backdropFilter: "blur(6px)" }}>
             <div className="modal-dialog modal-dialog-centered modal-xl">
                 <div className="modal-content border-0 shadow-lg text-light" style={{ backgroundColor: "#0f172a", fontFamily: "Inter, sans-serif" }}>
-                    
+
                     {/* Header */}
                     <div className="modal-header py-3" style={{ borderBottom: "1px solid #1e293b", backgroundColor: "#020617" }}>
                         <h6 className="modal-title d-flex align-items-center" style={{ color: "#cbd5e1" }}>
@@ -170,13 +189,13 @@ function PumpCurveUpdateModal({ show, onClose, pumpId, pumpName }) {
                             </div>
                         ) : (
                             <div className="row g-4">
-                                
+
                                 {/* Sol Taraf: ExcelGrid Entegrasyonu */}
                                 <div className="col-12 col-lg-5 d-flex flex-column">
                                     <div className="mb-2 text-secondary small fw-semibold d-flex align-items-center" style={{ fontSize: "11.5px" }}>
                                         <i className="bi bi-table me-2 text-secondary"></i> Veri Noktaları (Excel Modu)
                                     </div>
-                                    
+
                                     <div className="flex-grow-1">
                                         <ExcelGrid
                                             headers={headers}
@@ -187,9 +206,9 @@ function PumpCurveUpdateModal({ show, onClose, pumpId, pumpName }) {
                                         />
                                     </div>
 
-                                    <button 
+                                    <button
                                         type="button"
-                                        className="btn btn-sm w-100 mt-3 py-2 d-flex align-items-center justify-content-center shadow-none" 
+                                        className="btn btn-sm w-100 mt-3 py-2 d-flex align-items-center justify-content-center shadow-none"
                                         onClick={handleAddPoint}
                                         style={{ border: "1px dashed #334155", color: "#38bdf8", backgroundColor: "transparent", fontSize: "11.5px" }}
                                     >
@@ -239,6 +258,13 @@ function PumpCurveUpdateModal({ show, onClose, pumpId, pumpName }) {
 
                 </div>
             </div>
+            <AlertModal
+                show={alertConfig.show}
+                title={alertConfig.title}
+                message={alertConfig.message}
+                type={alertConfig.type}
+                onClose={() => setAlertConfig(prev => ({ ...prev, show: false }))}
+            />
         </div>
     );
 }

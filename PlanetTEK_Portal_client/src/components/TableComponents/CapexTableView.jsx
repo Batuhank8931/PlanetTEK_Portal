@@ -73,16 +73,15 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
                     background-color: #1e293b; 
                     border: 1px solid #475569; 
                     border-radius: 6px; 
-                    z-index: 999999 !important; /* Tablo başlıklarının ve diğer her şeyin üstüne çıkması için */
-                    right: 0; /* Butonun sağ hizasına sıfırla (Sola doğru açılır) */
-                    top: 100%; /* Artık butonun solunda değil, tam altında açılacak */
-                    margin-top: 4px; /* Butonla arasında hafif bir boşluk */
+                    z-index: 999999 !important; 
+                    right: 0; 
+                    top: 100%; 
+                    margin-top: 4px; 
                     box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.7), 0 8px 10px -6px rgba(0, 0, 0, 0.7); 
                 }
                 .dropdown-item-custom { padding: 8px 14px; font-size: 11px; color: #cbd5e1; cursor: pointer; white-space: nowrap; text-align: left; }
                 .dropdown-item-custom:hover { background-color: #334155; color: #fff; }
 
-                /* Premium & Modern Opsiyonel Seçim Noktası */
                 .optional-indicator-dot {
                     position: absolute;
                     top: 4px;
@@ -96,20 +95,17 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
                     transition: all 0.25s ease;
                 }
                 
-                /* Satıra hover olunca belirginleşsin */
                 .capex-row:hover .optional-indicator-dot {
                     border-color: #94a3b8;
                     box-shadow: 0 0 4px rgba(255, 255, 255, 0.1);
                 }
                 
-                /* Aktif olduğundaki Neon Glow Efekti */
                 .optional-dot-active {
                     background-color: #38bdf8 !important;
                     border-color: #38bdf8 !important;
                     box-shadow: 0 0 8px #38bdf8, 0 0 12px rgba(56, 189, 248, 0.4) !important;
                 }
 
-                /* Opsiyonel Seçildiğinde Hücrenin Hafif Soft Arka Planı (Badge Havası) */
                 .optional-cell-selected {
                     background-color: rgba(56, 189, 248, 0.06);
                     border-radius: 4px;
@@ -126,7 +122,6 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
                     </div>
 
                     <div className="d-flex align-items-center gap-2">
-                        {/* Yenileme Butonu */}
                         <button
                             onClick={handleRefresh}
                             className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
@@ -142,7 +137,6 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
                             🔄 Yenile
                         </button>
 
-                        {/* Geri Al Butonu */}
                         <button
                             onClick={handleUndo}
                             disabled={!handleUndo || historyLength === 0}
@@ -194,7 +188,6 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
                         else if (row.isShippingStyle) { totalStr = "-"; netStr = "Bilgi Amaçlı"; }
                         else if (row.unitPrice === 0 && row.type === 3) { totalStr = "-"; netStr = "-"; }
 
-                        // Eğer opsiyonel seçildiyse metni değiştir
                         if (row.type === 3 && row.isOptional) {
                             netStr = "Opsiyonel";
                         }
@@ -253,7 +246,6 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
                                 </div>
                                 <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
 
-                                {/* İNDİRİM SONRASI HÜCRESİ (Yeni Minimalist Tasarım) */}
                                 <div
                                     className={`p-1 px-3 d-flex align-items-center justify-content-end fw-bold position-relative ${row.type === 3 && row.isOptional ? 'optional-cell-selected' : ''}`}
                                     style={{
@@ -265,7 +257,6 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
                                 >
                                     {row.type < 3 ? null : netStr}
 
-                                    {/* Akıllı CSS Boncuk / Switch Butonu */}
                                     {row.type === 3 && !row.isUrgent && (
                                         <div
                                             className={`optional-indicator-dot ${row.isOptional ? 'optional-dot-active' : ''}`}

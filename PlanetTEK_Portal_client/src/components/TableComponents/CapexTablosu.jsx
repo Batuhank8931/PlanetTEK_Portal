@@ -33,11 +33,14 @@ function CapexTablosu() {
     const updateSection = useTeklifStore((state) => state.updateSection);
 
     const teklifDili = formData?.customerInfo?.teklifDili || "Yerli";
-    const storeCapex = formData?.tables?.capextablosu;
+    
+    // Güvenli okuma yapısı: store'daki nesneden rows dizisini veya eski yapıyı desteklemesi için yedekli okuma
+    const storeCapexObj = formData?.tables?.capextablosu;
+    const storeCapexRows = storeCapexObj?.rows || (Array.isArray(storeCapexObj) ? storeCapexObj : []);
 
     const [loading, setLoading] = useState(false);
     const [localRows, setLocalRows] = useState([]);
-    const [history, setHistory] = useState([]); // 👈 Geri alma geçmişi için state eklendi
+    const [history, setHistory] = useState([]);
 
     const priceData = useMemo(() => {
         return {
@@ -47,13 +50,29 @@ function CapexTablosu() {
         };
     }, [teklifDili]);
 
+    // Net toplamı hesaplayan yardımcı fonksiyon
+    const calculateTotalNetPrice = (rowsArray) => {
+        return rowsArray.reduce((sum, row) => {
+            if (row.type === 3 && !row.isUrgent && !row.isOptional && row.piece > 0) {
+                return sum + (row.netTotal || 0);
+            }
+            return sum;
+        }, 0);
+    };
+
     // Store ve yerel state'i senkronize eden fonksiyon
     const updateStore = useCallback((updatedRows) => {
         const finalRowsWithNumbers = generateWBSNumbers(updatedRows);
         setLocalRows(finalRowsWithNumbers);
+        
+        const currentNetTotal = calculateTotalNetPrice(finalRowsWithNumbers);
+
         updateSection("tables", {
             ...formData?.tables,
-            capextablosu: finalRowsWithNumbers
+            capextablosu: {
+                rows: finalRowsWithNumbers,
+                totalNetPrice: currentNetTotal
+            }
         });
     }, [formData?.tables, updateSection]);
 
@@ -61,27 +80,29 @@ function CapexTablosu() {
     const handleUndo = useCallback(() => {
         if (history.length === 0) return;
 
-        // Geçmişteki son durumu al ve havuzdan çıkar
         const previousState = history[history.length - 1];
         setHistory(prev => prev.slice(0, -1));
 
-        // Numaraları koruyarak store ve yerel state'e bas
         setLocalRows(previousState);
+        const currentNetTotal = calculateTotalNetPrice(previousState);
+
         updateSection("tables", {
             ...formData?.tables,
-            capextablosu: previousState
+            capextablosu: {
+                rows: previousState,
+                totalNetPrice: currentNetTotal
+            }
         });
     }, [history, formData?.tables, updateSection]);
 
-    // Mevcut aktif satırların derin bir kopyasını (deep copy) geçmişe atan yardımcı fonksiyon
     const saveToHistory = useCallback(() => {
-        const activeRows = storeCapex && storeCapex.length > 0 ? storeCapex : localRows;
+        const activeRows = storeCapexRows.length > 0 ? storeCapexRows : localRows;
         setHistory(prev => [...prev, JSON.parse(JSON.stringify(activeRows))]);
-    }, [storeCapex, localRows]);
+    }, [storeCapexRows, localRows]);
 
     useEffect(() => {
-        if (storeCapex && storeCapex.length > 0) {
-            setLocalRows(storeCapex);
+        if (storeCapexRows && storeCapexRows.length > 0) {
+            setLocalRows(storeCapexRows);
             return;
         }
 
@@ -92,9 +113,14 @@ function CapexTablosu() {
                 const initialDataWithNo = generateWBSNumbers(rawInitialData);
                 
                 setLocalRows(initialDataWithNo);
+                const currentNetTotal = calculateTotalNetPrice(initialDataWithNo);
+
                 updateSection("tables", {
                     ...formData?.tables,
-                    capextablosu: initialDataWithNo
+                    capextablosu: {
+                        rows: initialDataWithNo,
+                        totalNetPrice: currentNetTotal
+                    }
                 });
             } catch (error) {
                 console.error("CAPEX tablosu hesaplanırken hata oluştu:", error);
@@ -104,7 +130,7 @@ function CapexTablosu() {
         }
 
         fetchAndCalculateCapex();
-    }, [storeCapex, priceData]); 
+    }, [storeCapexRows, priceData]); 
 
     const handleRefresh = async () => {
         setLoading(true);
@@ -112,12 +138,16 @@ function CapexTablosu() {
             const rawFreshData = await capexHesapFonksiyonu(formData, priceData);
             const freshDataWithNo = generateWBSNumbers(rawFreshData);
             
-            // Yenileme işlemi yapıldığında geçmişi temizlemek veya korumak tercih edilebilir; koruyoruz:
             saveToHistory(); 
+
+            const currentNetTotal = calculateTotalNetPrice(freshDataWithNo);
 
             updateSection("tables", {
                 ...formData?.tables,
-                capextablosu: freshDataWithNo
+                capextablosu: {
+                    rows: freshDataWithNo,
+                    totalNetPrice: currentNetTotal
+                }
             });
             setLocalRows(freshDataWithNo);
         } catch (error) {
@@ -128,10 +158,9 @@ function CapexTablosu() {
     };
 
     const handleCellChange = (id, field, val) => {
-        // Değişiklik uygulanmadan hemen önce eski halini hafızaya alıyoruz
         saveToHistory();
 
-        const activeRows = storeCapex && storeCapex.length > 0 ? storeCapex : localRows;
+        const activeRows = storeCapexRows.length > 0 ? storeCapexRows : localRows;
         const updated = activeRows.map(row => {
             if (row.id === id) {
                 const updatedRow = { ...row, [field]: val };
@@ -150,10 +179,9 @@ function CapexTablosu() {
     };
 
     const insertAfterRow = (index, selectedType) => {
-        // Satır eklenmeden hemen önce mevcut tabloyu hafızaya alıyoruz
         saveToHistory();
 
-        const activeRows = storeCapex && storeCapex.length > 0 ? storeCapex : localRows;
+        const activeRows = storeCapexRows.length > 0 ? storeCapexRows : localRows;
         const newRow = {
             id: "_" + Math.random().toString(36).substr(2, 9),
             type: selectedType,
@@ -172,17 +200,15 @@ function CapexTablosu() {
     };
 
     const deleteRow = (id) => {
-        // Satır silinmeden hemen önce mevcut tabloyu hafızaya alıyoruz
         saveToHistory();
 
-        const activeRows = storeCapex && storeCapex.length > 0 ? storeCapex : localRows;
+        const activeRows = storeCapexRows.length > 0 ? storeCapexRows : localRows;
         const updated = activeRows.filter(row => String(row.id) !== String(id));
         updateStore(updated);
     };
 
     return (
         <div className="w-100" style={{ position: "relative", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-            {/* Loading Arayüzü */}
             {loading && (
                 <div style={{
                     position: "absolute",
@@ -198,13 +224,13 @@ function CapexTablosu() {
 
             <div style={{ minWidth: "950px" }}>
                 <CapexTableView
-                    numberedRows={storeCapex && storeCapex.length > 0 ? storeCapex : localRows}
+                    numberedRows={storeCapexRows.length > 0 ? storeCapexRows : localRows}
                     handleCellChange={handleCellChange}
                     insertAfterRow={insertAfterRow}
                     deleteRow={deleteRow}
                     handleRefresh={handleRefresh}
-                    handleUndo={handleUndo}             // 👈 Alt bileşene aktarıldı
-                    historyLength={history.length}      // 👈 Sıfır yerine dinamik uzunluk paslandı
+                    handleUndo={handleUndo}             
+                    historyLength={history.length}      
                     teklifDili={teklifDili}
                 />
             </div>

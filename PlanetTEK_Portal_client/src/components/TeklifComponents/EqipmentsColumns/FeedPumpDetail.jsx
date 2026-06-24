@@ -63,7 +63,7 @@ function FeedPumpDetail() {
   // 🚀 KRİTİK DÜZELTME: Hem "1.5" sayı hem de "1.50" string key yapılarını güvenle okur
   const getMssValue = (pump, qSaat) => {
     if (!pump || !pump.mssData) return null;
-    
+
     // Key'leri kesin olarak sayıya döküp sıralıyoruz
     const steps = Object.keys(pump.mssData).map(Number).sort((a, b) => a - b);
     if (steps.length === 0) return null;
@@ -72,7 +72,7 @@ function FeedPumpDetail() {
     const maxStep = steps[steps.length - 1];
 
     if (qSaat < minStep || qSaat > maxStep) return null;
-    
+
     // Obje içinden veriyi güvenli çekmek için bir yardımcı fonksiyon
     const getSafeValue = (keyNum) => {
       if (pump.mssData[keyNum] !== undefined) return Number(pump.mssData[keyNum]);
@@ -90,7 +90,7 @@ function FeedPumpDetail() {
       if (qSaat >= currentStep && qSaat <= nextStep) {
         const mssCurrent = getSafeValue(currentStep);
         const mssNext = getSafeValue(nextStep);
-        
+
         if (mssCurrent === null || mssNext === null) continue;
 
         const ratio = (qSaat - currentStep) / (nextStep - currentStep);
@@ -153,6 +153,7 @@ function FeedPumpDetail() {
     if (pumpDatabase.length === 0) return;
 
     let pumpString = "---";
+    let pumpkW = 0;
     const currentHourlyNum = parseFloat(nextHourly) || 0;
     const parsedNextMss = parseFloat(nextMss) || 5.9;
 
@@ -191,7 +192,12 @@ function FeedPumpDetail() {
     const targetMss = targetPump ? getMssValue(targetPump, simQ) : 0;
 
     if (currentHourlyNum > 0 && targetPump) {
-      pumpString = `${targetPump.name}`;
+      // API'den gelebilecek `name` veya `pompa_adi` olasılıklarına karşılık fallback koruması
+      pumpString = targetPump.name || targetPump.pompa_adi || "Bilinmeyen Pompa";
+
+      // 🚀 KW Değerini Güvenli Çekme: Hem string/number dönüşümü hem de null/farklı key koruması
+      const rawKw = targetPump.kw !== undefined ? targetPump.kw : targetPump.pompa_kw;
+      pumpkW = rawKw ? parseFloat(rawKw) : 0;
     } else if (currentHourlyNum > 0 && !targetPump) {
       pumpString = "Kapasite Aşımı";
     }
@@ -207,6 +213,7 @@ function FeedPumpDetail() {
         pumpOffset: nextOffset,
         pompaAdeti: targetPump ? simAdet : 0,
         secilenPompaMetni: pumpString,
+        pumpkW: pumpkW, // Store'a güvenle yazılıyor
         isManualUserControl: isManual,
         calculatedMainDebi: debi,
         hasDistributionStructure: finalDistributionState,
@@ -247,6 +254,9 @@ function FeedPumpDetail() {
   const handleDistributionCheckboxChange = (e) => {
     updateFeedPumpStore(manualHourlyFlow, manualMinMss, pumpOffset, true, e.target.checked);
   };
+
+  // UI'da göstermek için kW değerini yakalıyoruz
+  const displayKw = selectedPump ? (selectedPump.kw || selectedPump.pompa_kw || 0) : (storeFeedPump.pumpkW || 0);
 
   return (
     <div className="d-flex flex-column gap-3">
@@ -291,6 +301,10 @@ function FeedPumpDetail() {
               </span>
               <span className="text-info fw-semibold" style={{ fontSize: "11px" }}>
                 ({hesaplananDebi.toFixed(2)} m³/h @ {currentMss} MSS {pompaAdeti > 1 && "pompa başına"})
+                {/* 🚀 kW BİLGİSİ BURAYA EKLENDİ */}
+                <span className="badge bg-dark text-warning ms-2 border border-secondary" style={{ fontSize: "10px" }}>
+                  {displayKw} kW
+                </span>
               </span>
             </div>
           )}
@@ -316,7 +330,7 @@ function FeedPumpDetail() {
               ) : (
                 pumpDatabase.map((pump) => (
                   <option key={pump.id} value={pump.id} style={{ backgroundColor: "#1e293b", color: "#fff" }}>
-                    {pump.name}
+                    {pump.name || pump.pompa_adi} {/* Fallback isim kontrolü */}
                   </option>
                 ))
               )}

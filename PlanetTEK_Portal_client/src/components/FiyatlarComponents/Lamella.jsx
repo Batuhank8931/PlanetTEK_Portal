@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import ExcelGrid from "./ExcelGrid";
 import API from "../../utils/utilRequest";
 import PriceChangeUpdateConfirmationModal from "../modals/PriceChangeUpdateConfirmationModal";
+import AlertModal from "../modals/AlertModal";
 
 function Lamella() {
   const [lamellaData, setLamellaData] = useState([]);
@@ -12,9 +13,15 @@ function Lamella() {
   const [showModal, setShowModal] = useState(false);
   const [pendingChanges, setPendingChanges] = useState([]);
 
-  // 📊 Kolon Yapısı: Yeni veritabanı şemamıza göre yd_fiyat ve yi_fiyat olarak ayrıldı
-  const headers = ["Lamella Tipi Seçeneği", "Yurt Dışı Fiyatı (€)", "Yurt İçi Fiyatı (€)"];
-  const fields = ["tipi", "yd_fiyat", "yi_fiyat"];
+  // 📊 Kolon Yapısı: Yeni veritabanı şemamıza göre Alan ve Hacim bilgileri eklendi
+  const headers = [
+    "Lamella Tipi Seçeneği",
+    "Yurt Dışı Fiyatı (€)",
+    "Yurt İçi Fiyatı (€)",
+    "Alan (m²)",
+    "Hacim (m³)"
+  ];
+  const fields = ["tipi", "yd_fiyat", "yi_fiyat", "alan", "hacim"];
 
   const fetchLamellaData = async () => {
     try {
@@ -36,13 +43,15 @@ function Lamella() {
   // ➕ Yeni Boş Lamella Satırı Ekleme Fonksiyonu
   const handleAddNewRow = () => {
     const nextNum = lamellaData.length + 1;
-    const defaultName = `LS ${nextNum}`; // Yeni şemamıza uygun sade isimlendirme
+    const defaultName = `LS ${nextNum}`;
 
     const newRow = {
       id: `new_${Date.now()}`, // Benzersiz geçici ID
       tipi: defaultName,
       yd_fiyat: 0,
       yi_fiyat: 0,
+      alan: 0,
+      hacim: 0,
       isNew: true
     };
     setLamellaData(prev => [...prev, newRow]);
@@ -55,7 +64,7 @@ function Lamella() {
     lamellaData.forEach((item) => {
       // ❌ DURUM A: Satır Silinmiş mi? (DELETE)
       if (item.isDeleted) {
-        if (String(item.id).startsWith("new_")) return; // DB'ye yazılmadan silindiyse pas geç
+        if (String(item.id).startsWith("new_")) return;
 
         changes.push({
           type: "DELETE",
@@ -75,13 +84,15 @@ function Lamella() {
           type: "INSERT",
           tableName: "lamella_data",
           id: undefined,
-          columnName: "tipi", // İlk tetikleyici alanımız (Model Adı)
+          columnName: "tipi",
           newValue: item.tipi,
           rowName: item.tipi,
           oldValue: 0,
           additionalData: {
             yd_fiyat: Number(item.yd_fiyat) || 0,
-            yi_fiyat: Number(item.yi_fiyat) || 0
+            yi_fiyat: Number(item.yi_fiyat) || 0,
+            alan: Number(item.alan) || 0,
+            hacim: Number(item.hacim) || 0
           }
         });
         return;
@@ -112,7 +123,12 @@ function Lamella() {
     });
 
     if (changes.length === 0) {
-      alert("Değişen bir veri bulunamadı.");
+      setAlertConfig({
+        show: true,
+        title: "Uyarı",
+        message: "Değişen bir veri bulunamadı.",
+        type: "warning"
+      });
       return;
     }
 
@@ -143,12 +159,16 @@ function Lamella() {
         updates: updatesPayload
       });
 
-      // Güncel verileri veritabanından çek ve mühürle
       await fetchLamellaData();
       setPendingChanges([]);
     } catch (error) {
-      console.error("Lamella fiyatları güncellenirken teknik hata:", error);
-      alert("Veriler kaydedilirken sistemsel bir hata meydana geldi.");
+      console.error("Lamella verileri güncellenirken teknik hata:", error);
+      setAlertConfig({
+        show: true,
+        title: "Veriler kaydedilirken sistemsel bir hata meydana geldi",
+        message: error,
+        type: "error"
+      });
     } finally {
       setLoading(false);
     }
@@ -171,7 +191,7 @@ function Lamella() {
       <div className="d-flex justify-content-between align-items-center mb-3">
         <div className="mb-2 d-flex align-items-center" style={{ color: "#94a3b8" }}>
           <i className="bi bi-layers-half me-2 text-success"></i>
-          <span className="fw-semibold small">Lamella Tipi ve Bölgesel Fiyat Yönetimi</span>
+          <span className="fw-semibold small">Lamella Tipi, Ölçü ve Bölgesel Fiyat Yönetimi</span>
         </div>
         <div className="d-flex gap-2">
           <button className="btn btn-outline-primary btn-sm px-3" onClick={handleAddNewRow}>
@@ -188,7 +208,7 @@ function Lamella() {
         data={visibleLamellaData}
         fields={fields}
         onDataChange={setLamellaData}
-        isMainTable={true} // Aksiyon (Silme) kolonu aktif
+        isMainTable={true}
       />
 
       <PriceChangeUpdateConfirmationModal
@@ -196,6 +216,14 @@ function Lamella() {
         onClose={() => setShowModal(false)}
         onConfirm={handleConfirmSave}
         changesList={pendingChanges}
+      />
+
+      <AlertModal
+        show={alertConfig.show}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={() => setAlertConfig(prev => ({ ...prev, show: false }))}
       />
     </div>
   );

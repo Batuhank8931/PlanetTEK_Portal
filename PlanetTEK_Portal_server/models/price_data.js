@@ -32,7 +32,7 @@ const ALLOWED_TABLES = {
     grease_trap_data: ["kapasite", "plakaboyut", "yd_fiyat", "yi_fiyat"],
     coarse_screen_data: ["kapasite", "tipi", "yd_fiyat", "yi_fiyat"],
     fine_screen_data: ["kapasite", "tipi", "yd_fiyat", "yi_fiyat"],
-    lamella_data: ["tipi", "yd_fiyat", "yi_fiyat"],
+    lamella_data: ["tipi", "yd_fiyat", "yi_fiyat", "alan", "hacim"],
     stainless_steel_data: ["fiyat"],
     flow_distribution: ["ad", "yd", "yi"],
     unit_labor_costs: [

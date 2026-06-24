@@ -7,7 +7,7 @@ const NON_MONETARY_FIELDS = [
     "parametre_adi", "parametre_key",
     "debi", "geri_yikama_debi", "besleme_kw",
     "geri_yikama_kw", "mekkisi", "mekgun",
-    "elkkisi", "elkgun" 
+    "elkkisi", "elkgun", "hacim", "alan"
 ];
 
 function PriceChangeUpdateConfirmationModal({ show, onClose, onConfirm, changesList }) {

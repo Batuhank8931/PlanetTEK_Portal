@@ -2,12 +2,20 @@ import React, { useState, useEffect } from "react";
 import ExcelGrid from "./ExcelGrid";
 import API from "../../utils/utilRequest";
 import PriceChangeUpdateConfirmationModal from "../modals/PriceChangeUpdateConfirmationModal";
+import AlertModal from "../modals/AlertModal";
 
 function Izgara() {
   // 3 bağımsız tablo için 3 ayrı state yönetimi
   const [greaseData, setGreaseData] = useState([]);
   const [coarseData, setCoarseData] = useState([]);
   const [fineData, setFineData] = useState([]);
+
+  const [alertConfig, setAlertConfig] = useState({
+    show: false,
+    title: "",
+    message: "",
+    type: "success"
+  });
 
   // Orijinal verileri mühürlemek için
   const [originalData, setOriginalData] = useState({ grease: [], coarse: [], fine: [] });
@@ -161,7 +169,12 @@ function Izgara() {
     diffTable(fineData, originalData.fine, "fine_screen_data", ["kapasite", "tipi"]);
 
     if (changes.length === 0) {
-      alert("Değişen bir veri bulunamadı.");
+      setAlertConfig({
+        show: true,
+        title: "Uyarı",
+        message: "Değişen bir veri bulunamadı.",
+        type: "warning"
+      });
       return;
     }
 
@@ -196,7 +209,12 @@ function Izgara() {
       setPendingChanges([]);
     } catch (error) {
       console.error("Maliyetler güncellenirken hata oluştu:", error);
-      alert("Veriler kaydedilirken bir hata meydana geldi.");
+      setAlertConfig({
+        show: true,
+        title: "Veriler kaydedilirken sistemsel bir hata meydana geldi",
+        message: error,
+        type: "error"
+      });
     } finally {
       setLoading(false);
     }
@@ -293,6 +311,13 @@ function Izgara() {
         onClose={() => setShowModal(false)}
         onConfirm={handleConfirmSave}
         changesList={pendingChanges}
+      />
+      <AlertModal
+        show={alertConfig.show}
+        title={alertConfig.title}
+        message={alertConfig.message}
+        type={alertConfig.type}
+        onClose={() => setAlertConfig(prev => ({ ...prev, show: false }))}
       />
     </div>
   );

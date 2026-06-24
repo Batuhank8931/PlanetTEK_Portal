@@ -3,6 +3,7 @@ import ExcelGrid from "./ExcelGrid";
 import API from "../../utils/utilRequest";
 import PriceChangeUpdateConfirmationModal from "../modals/PriceChangeUpdateConfirmationModal";
 import PumpCurveUpdateModal from "../modals/PumpCurveUpdateModal.jsx";
+import AlertModal from "../modals/AlertModal.jsx";
 
 function DalgicPompa() {
     const [pumpsData, setPumpsData] = useState([]);
@@ -18,6 +19,13 @@ function DalgicPompa() {
     const [curveModalOpen, setCurveModalOpen] = useState(false);
     const [selectedPumpId, setSelectedPumpId] = useState(null);
     const [selectedPumpName, setSelectedPumpName] = useState("");
+    // 🌟 AlertModal kontrolü için state
+    const [alertConfig, setAlertConfig] = useState({
+        show: false,
+        title: "",
+        message: "",
+        type: "success"
+    });
 
     const headers = ["@", "Pompa Modeli", "Pompa Tipi", "kW", "Alış Fiyatı (€)", "Yurt İçi Satış Yİ (€)", "Yurt Dışı Satış YD (€)"];
     const fields = ["curve_action", "pompa_adi", "pompa_tipi", "kw", "alis_fiyati", "yi_satis", "yd_satis"];
@@ -67,7 +75,13 @@ function DalgicPompa() {
     const handleOpenCurveModal = (pumpId, pumpName) => {
         const isNewPump = String(pumpId).startsWith("new_");
         if (isNewPump) {
-            alert("Eğri yüklemek/düzenlemek için önce pompayı kaydetmelisiniz.");
+            // Oski alert satırını sil, yerine bunu ekle:
+            setAlertConfig({
+                show: true,
+                title: "İnfo",
+                message: "Eğri yüklemek/düzenlemek için önce pompayı kaydetmelisiniz",
+                type: "info"
+            });
             return;
         }
         setSelectedPumpId(pumpId);
@@ -243,7 +257,12 @@ function DalgicPompa() {
         });
 
         if (changes.length === 0) {
-            alert("Değişen bir veri bulunamadı.");
+            setAlertConfig({
+                show: true,
+                title: "Uyarı",
+                message: "Değişen bir veri bulunamadı.",
+                type: "warning"
+            });
             return;
         }
 
@@ -328,7 +347,12 @@ function DalgicPompa() {
 
         } catch (error) {
             console.error("Dalgıç pompa fiyatları güncellenirken teknik hata:", error);
-            alert("Veriler kaydedilirken bir hata meydana geldi.");
+            setAlertConfig({
+                show: true,
+                title: "Veriler kaydedilirken sistemsel bir hata meydana geldi",
+                message: error,
+                type: "error"
+            });
         } finally {
             setLoading(false);
         }
@@ -407,6 +431,13 @@ function DalgicPompa() {
                 }}
                 pumpId={selectedPumpId}
                 pumpName={selectedPumpName}
+            />
+            <AlertModal
+                show={alertConfig.show}
+                title={alertConfig.title}
+                message={alertConfig.message}
+                type={alertConfig.type}
+                onClose={() => setAlertConfig(prev => ({ ...prev, show: false }))}
             />
         </div>
     );
