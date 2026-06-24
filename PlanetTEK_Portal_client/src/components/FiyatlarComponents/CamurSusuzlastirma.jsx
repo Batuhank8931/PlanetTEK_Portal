@@ -20,7 +20,9 @@ function CamurSusuzlastirma() {
         show: false,
         title: "",
         message: "",
-        type: "success"
+        type: "success",
+        showCancel: false,
+        action: null
     });
 
     // 📊 Kolon Yapısı: Tam 1:1 Eşleşme sağlandı!
@@ -258,7 +260,9 @@ function CamurSusuzlastirma() {
                 show: true,
                 title: "Uyarı",
                 message: "Değişen bir veri bulunamadı.",
-                type: "warning"
+                type: "warning",
+                showCancel: false,
+                action: null
             });
             return;
         }
@@ -299,7 +303,9 @@ function CamurSusuzlastirma() {
                 show: true,
                 title: "Veriler kaydedilirken sistemsel bir hata meydana geldi",
                 message: error,
-                type: "error"
+                type: "error",
+                showCancel: false,
+                action: null
             });
         } finally {
             setLoading(false);

@@ -28,7 +28,9 @@ function DashBoardPage() {
     show: false,
     title: "",
     message: "",
-    type: "success"
+    type: "success",
+    showCancel: false, // İptal butonu olsun mu?
+    action: null       // "Evet" denirse ne çalışsın?
   });
 
   // --- OTO SÜRE KONTROLÜ (30 Gün Geçenleri Ayıklama) ---
@@ -85,7 +87,9 @@ function DashBoardPage() {
         show: true,
         title: "Uyarı",
         message: "Lütfen gerekli bilgi notunu doldurunuz.",
-        type: "warning"
+        type: "warning",
+        showCancel: false,
+        action: null
       });
       return;
     }
@@ -315,6 +319,8 @@ function DashBoardPage() {
         title={alertConfig.title}
         message={alertConfig.message}
         type={alertConfig.type}
+        showCancel={alertConfig.showCancel} // State ne derse o (true/false)
+        onConfirm={alertConfig.action}     // Varsa fonksiyon çalışır, yoksa pas geçer
         onClose={() => setAlertConfig(prev => ({ ...prev, show: false }))}
       />
     </div>

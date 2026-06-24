@@ -32,7 +32,9 @@ function SelectTables() {
     show: false,
     title: "",
     message: "",
-    type: "success"
+    type: "success",
+    showCancel: false, // İptal butonu olsun mu?
+    action: null       // "Evet" denirse ne çalışsın?
   });
 
   const tablesList = [
@@ -80,7 +82,9 @@ function SelectTables() {
       show: true,
       title: "İşlem Tamamlandı",
       message: "Tüm tablolar başarıyla baştan hesaplandı ve oluşturuldu!",
-      type: "success"
+      type: "success",
+      showCancel: false,
+      action: null
     });
   };
 
@@ -194,6 +198,8 @@ function SelectTables() {
         title={alertConfig.title}
         message={alertConfig.message}
         type={alertConfig.type}
+        showCancel={alertConfig.showCancel} // State ne derse o (true/false)
+        onConfirm={alertConfig.action}     // Varsa fonksiyon çalışır, yoksa pas geçer
         onClose={() => setAlertConfig(prev => ({ ...prev, show: false }))}
       />
     </div>

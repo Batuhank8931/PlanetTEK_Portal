@@ -25,7 +25,9 @@ function PumpCurveUpdateModal({ show, onClose, pumpId, pumpName }) {
         show: false,
         title: "",
         message: "",
-        type: "success"
+        type: "success",
+        showCancel: false, // İptal butonu olsun mu?
+        action: null       // "Evet" denirse ne çalışsın?
     });
 
     // ExcelGrid için gerekli header ve field eşleşmeleri
@@ -52,7 +54,9 @@ function PumpCurveUpdateModal({ show, onClose, pumpId, pumpName }) {
                 show: true,
                 title: "Veriler kaydedilirken sistemsel bir hata meydana geldi",
                 message: error,
-                type: "error"
+                type: "error",
+                showCancel: false,
+                action: null
             });
         } finally {
             setLoading(false);
@@ -98,7 +102,9 @@ function PumpCurveUpdateModal({ show, onClose, pumpId, pumpName }) {
                 show: true,
                 title: "İşlem Tamamlandı",
                 message: "Pompa eğrisi başarıyla güncellendi!",
-                type: "success"
+                type: "success",
+                showCancel: false,
+                action: null
             });
             onClose();
         } catch (error) {

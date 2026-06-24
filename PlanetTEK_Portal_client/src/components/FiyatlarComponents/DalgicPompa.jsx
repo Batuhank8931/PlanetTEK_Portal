@@ -24,7 +24,9 @@ function DalgicPompa() {
         show: false,
         title: "",
         message: "",
-        type: "success"
+        type: "success",
+        showCancel: false,
+        action: null,
     });
 
     const headers = ["@", "Pompa Modeli", "Pompa Tipi", "kW", "Alış Fiyatı (€)", "Yurt İçi Satış Yİ (€)", "Yurt Dışı Satış YD (€)"];
@@ -80,7 +82,9 @@ function DalgicPompa() {
                 show: true,
                 title: "İnfo",
                 message: "Eğri yüklemek/düzenlemek için önce pompayı kaydetmelisiniz",
-                type: "info"
+                type: "info",
+                showCancel: false,
+                action: null
             });
             return;
         }
@@ -261,7 +265,9 @@ function DalgicPompa() {
                 show: true,
                 title: "Uyarı",
                 message: "Değişen bir veri bulunamadı.",
-                type: "warning"
+                type: "warning",
+                showCancel: false,
+                action: null
             });
             return;
         }
@@ -351,7 +357,9 @@ function DalgicPompa() {
                 show: true,
                 title: "Veriler kaydedilirken sistemsel bir hata meydana geldi",
                 message: error,
-                type: "error"
+                type: "error",
+                showCancel: false,
+                action: null
             });
         } finally {
             setLoading(false);

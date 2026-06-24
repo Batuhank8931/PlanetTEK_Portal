@@ -19,7 +19,9 @@ function CalculationPage() {
     show: false,
     title: "",
     message: "",
-    type: "success"
+    type: "success",
+    showCancel: false, // İptal butonu olsun mu?
+    action: null       // "Evet" denirse ne çalışsın?
   });
 
   const fetchParameters = async () => {
@@ -119,7 +121,9 @@ function CalculationPage() {
         show: true,
         title: "Değişiklik Yok",
         message: "Herhangi bir değişiklik algılanmadı. Kaydetmek için önce hücreleri düzenleyin.",
-        type: "warning"
+        type: "warning",
+        showCancel: false,
+        action: null
       });
       return;
     }
@@ -141,7 +145,9 @@ function CalculationPage() {
         show: true,
         title: "İşlem Tamamlandı",
         message: "Proses parametreleri başarıyla güncellendi.",
-        type: "success"
+        type: "success",
+        showCancel: false,
+        action: null
       });
     } catch (error) {
       console.error("Parametreler güncellenirken teknik hata:", error);
@@ -150,7 +156,9 @@ function CalculationPage() {
         show: true,
         title: "Sistem Hatası",
         message: "Parametreler veritabanına kaydedilirken teknik bir sorun oluştu.",
-        type: "error"
+        type: "error",
+        showCancel: false,
+        action: null
       });
     } finally {
       setLoading(false);
@@ -298,6 +306,8 @@ function CalculationPage() {
         title={alertConfig.title}
         message={alertConfig.message}
         type={alertConfig.type}
+        showCancel={alertConfig.showCancel} // State ne derse o (true/false)
+        onConfirm={alertConfig.action}     // Varsa fonksiyon çalışır, yoksa pas geçer
         onClose={() => setAlertConfig(prev => ({ ...prev, show: false }))}
       />
     </div>

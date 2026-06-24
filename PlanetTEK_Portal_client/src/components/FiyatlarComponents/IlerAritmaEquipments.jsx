@@ -20,7 +20,9 @@ function IleriAritmaEquipments() {
         show: false,
         title: "",
         message: "",
-        type: "success"
+        type: "success",
+        showCancel: false, // İptal butonu olsun mu?
+        action: null       // "Evet" denirse ne çalışsın?
     });
 
     const headers = ["Ekipman Modeli", "Ekipman Tipi", "kW", "Alış Fiyatı (€)", "Yurt İçi Satış Yİ (€)", "Yurt Dışı Satış YD (€)"];
@@ -235,7 +237,9 @@ function IleriAritmaEquipments() {
                 show: true,
                 title: "Uyarı",
                 message: "Değişen bir veri bulunamadı.",
-                type: "warning"
+                type: "warning",
+                showCancel: false,
+                action: null
             });
             return;
         }
@@ -325,7 +329,9 @@ function IleriAritmaEquipments() {
                 show: true,
                 title: "Veriler kaydedilirken sistemsel bir hata meydana geldi",
                 message: error,
-                type: "error"
+                type: "error",
+                showCancel: false,
+                action: null
             });
         } finally {
             setLoading(false);

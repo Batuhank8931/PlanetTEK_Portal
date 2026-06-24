@@ -20,7 +20,9 @@ function KullanicilarPage() {
     show: false,
     title: "",
     message: "",
-    type: "success"
+    type: "success",
+    showCancel: false, // İptal butonu olsun mu?
+    action: null       // "Evet" denirse ne çalışsın?
   });
 
   // ==========================================
@@ -133,7 +135,9 @@ function KullanicilarPage() {
         show: true,
         title: "Hata",
         message: err.response?.data?.message,
-        type: "error"
+        type: "error",
+        showCancel: false,
+        action: null
       });
 
     }
@@ -143,21 +147,48 @@ function KullanicilarPage() {
   // ❌ 5. GERÇEK SİLME AKSİYONU (DELETE)
   // ==========================================
   const handleDelete = async (id) => {
-    if (window.confirm("Bu kullanıcıyı sistemden silmek istediğinize emin misiniz?")) {
-      try {
-        await API.deleteUser(id);
-        // Silme onaylandıktan sonra state'i yerel olarak da temizle veya listeyi tazele
-        setUsers((prev) => prev.filter((u) => u.id !== id));
-      } catch (err) {
-        console.error("Silme işlemi sırasında hata oluştu:", err);
-        setAlertConfig({
-          show: true,
-          title: "Kullanıcı silinemedi",
-          message: err,
-          type: "error"
-        });
+    setAlertConfig({
+      show: true,
+      title: "Kullanıcıyı Sil",
+      message: "Bu kullanıcıyı sistemden silmek istediğinize emin misiniz? Bu işlem geri alınamaz.",
+      type: "warning",
+      showCancel: true, // İptal butonu gözüksün
+      action: async () => {
+        // Kullanıcı "Evet, Eminim" dediğinde burası tetiklenir:
+        try {
+          // Modalı hemen kapat veya loading durumuna al, biz kapatıyoruz:
+          setAlertConfig((prev) => ({ ...prev, show: false }));
+
+          await API.deleteUser(id);
+
+          // Silme onaylandıktan sonra state'i yerel olarak da temizle veya listeyi tazele
+          setUsers((prev) => prev.filter((u) => u.id !== id));
+
+          // İsteğe bağlı: Silindiğine dair tatlı bir başarı mesajı göstermek istersen:
+          setAlertConfig({
+            show: true,
+            title: "Başarılı",
+            message: "Kullanıcı sistemden başarıyla kaldırıldı.",
+            type: "success",
+            showCancel: false,
+            action: null
+          });
+
+        } catch (err) {
+          console.error("Silme işlemi sırasında hata oluştu:", err);
+
+          // Hata durumunda hata modalı gösteriliyor
+          setAlertConfig({
+            show: true,
+            title: "Kullanıcı Silinemedi",
+            message: err?.response?.data?.message || "Silme işlemi sırasında teknik bir hata oluştu.",
+            type: "error",
+            showCancel: false,
+            action: null
+          });
+        }
       }
-    }
+    });
   };
 
   return (
@@ -376,9 +407,11 @@ function KullanicilarPage() {
         title={alertConfig.title}
         message={alertConfig.message}
         type={alertConfig.type}
+        showCancel={alertConfig.showCancel} // State ne derse o (true/false)
+        onConfirm={alertConfig.action}     // Varsa fonksiyon çalışır, yoksa pas geçer
         onClose={() => setAlertConfig(prev => ({ ...prev, show: false }))}
       />
-      
+
       {/* DIŞARIYA ALINAN EKLEME/DÜZENLEME PENCERESİ */}
       <AnimatePresence>
         {isPanelOpen && (

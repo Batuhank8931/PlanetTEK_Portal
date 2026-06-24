@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from "react";
 import AddPutMusteri from "./MusteriComponents/AddPutMusteri";
 import { AnimatePresence } from "framer-motion";
+import AlertModal from "./modals/AlertModal";
 
 const INITIAL_CUSTOMERS = [
   {
@@ -119,9 +120,31 @@ function MusterilerPage() {
   };
 
   const handleDelete = (id) => {
-    if (window.confirm("Bu müşteriyi silmek istediğinize emin misiniz?")) {
-      setCustomers((prev) => prev.filter((c) => c.id !== id));
-    }
+    // window.confirm yerine şık onay modalımız 🚀
+    setAlertConfig({
+      show: true,
+      title: "Müşteriyi Sil",
+      message: "Bu müşteriyi silmek istediğinize emin misiniz? Bu işlem geri alınamaz.",
+      type: "warning",
+      showCancel: true, // İptal/Vazgeç butonu aktif
+      action: () => {
+        // Kullanıcı "Evet, Eminim" butonuna bastığında çalışacak kısım:
+        setCustomers((prev) => prev.filter((c) => c.id !== id));
+
+        // Modalı kapatıyoruz
+        setAlertConfig((prev) => ({ ...prev, show: false }));
+
+        // İsteğe bağlı: Silme işleminden sonra küçük bir başarı bildirimi fırlatmak istersen:
+        setAlertConfig({
+          show: true,
+          title: "Müşteri Silindi",
+          message: "Müşteri kaydı yerel listeden başarıyla kaldırıldı.",
+          type: "success",
+          showCancel: false,
+          action: null
+        });
+      }
+    });
   };
 
   return (

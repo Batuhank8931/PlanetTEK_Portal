@@ -24,7 +24,9 @@ function TeklifPage() {
     show: false,
     title: "",
     message: "",
-    type: "success"
+    type: "success",
+    showCancel: false, // İptal butonu olsun mu?
+    action: null       // "Evet" denirse ne çalışsın?
   });
 
   const steps = [
@@ -67,14 +69,25 @@ function TeklifPage() {
       show: true,
       title: "İşlem Tamamlandı",
       message: "Teklif başarıyla oluşturuldu!",
-      type: "success"
+      type: "success",
+      showCancel: false,
+      action: null
     });
   };
 
+
   const handleResetForm = () => {
-    if (window.confirm("Formdaki tüm verileri sıfırlamak istediğinize emin misiniz?")) {
-      resetForm();
-    }
+    setAlertConfig({
+      show: true,
+      title: "Formu Sıfırla",
+      message: "Formdaki tüm verileri sıfırlamak istediğinize emin misiniz?",
+      type: "warning",
+      showCancel: true, // İptal butonu aktif
+      action: () => {
+        resetForm(); // Kullanıcı "Evet" derse tetiklenecek fonksiyon
+        setAlertConfig(prev => ({ ...prev, show: false })); // Modalı kapat
+      }
+    });
   };
 
   const isFormDataNotEmpty = formData && Object.keys(formData).length > 0;
@@ -274,6 +287,8 @@ function TeklifPage() {
         title={alertConfig.title}
         message={alertConfig.message}
         type={alertConfig.type}
+        showCancel={alertConfig.showCancel} // State ne derse o (true/false)
+        onConfirm={alertConfig.action}     // Varsa fonksiyon çalışır, yoksa pas geçer
         onClose={() => setAlertConfig(prev => ({ ...prev, show: false }))}
       />
     </div>

@@ -26,7 +26,9 @@ function Filtration() {
         show: false,
         title: "",
         message: "",
-        type: "success"
+        type: "success",
+        showCancel: false, // İptal butonu olsun mu?
+        action: null       // "Evet" denirse ne çalışsın?
     });
 
     const [loading, setLoading] = useState(true);
@@ -237,7 +239,9 @@ function Filtration() {
                 show: true,
                 title: "Uyarı",
                 message: "Değişen bir veri bulunamadı.",
-                type: "warning"
+                type: "warning",
+                showCancel: false,
+                action: null
             });
             return;
         }
@@ -277,7 +281,9 @@ function Filtration() {
                 show: true,
                 title: "Veriler kaydedilirken sistemsel bir hata meydana geldi",
                 message: error,
-                type: "error"
+                type: "error",
+                showCancel: false,
+                action: null
             });
         } finally {
             setLoading(false);

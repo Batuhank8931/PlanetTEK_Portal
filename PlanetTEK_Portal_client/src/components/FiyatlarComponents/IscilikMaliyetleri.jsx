@@ -16,7 +16,9 @@ function IscilikMaliyetleri() {
         show: false,
         title: "",
         message: "",
-        type: "success"
+        type: "success",
+        showCancel: false, // İptal butonu olsun mu?
+        action: null       // "Evet" denirse ne çalışsın?
     });
 
     // 📊 Kolon Yapısı: 9 Başlık ve 9 Field tam 1:1 senkronize edildi, hiçbir alan hidden değil!
@@ -176,7 +178,9 @@ function IscilikMaliyetleri() {
                 show: true,
                 title: "Uyarı",
                 message: "Değişen bir veri bulunamadı.",
-                type: "warning"
+                type: "warning",
+                showCancel: false,
+                action: null
             });
             return;
         }
@@ -217,7 +221,9 @@ function IscilikMaliyetleri() {
                 show: true,
                 title: "Veriler kaydedilirken sistemsel bir hata meydana geldi",
                 message: error,
-                type: "error"
+                type: "error",
+                showCancel: false,
+                action: null
             });
         } finally {
             setLoading(false);

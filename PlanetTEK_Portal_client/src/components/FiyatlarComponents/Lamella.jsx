@@ -127,7 +127,9 @@ function Lamella() {
         show: true,
         title: "Uyarı",
         message: "Değişen bir veri bulunamadı.",
-        type: "warning"
+        type: "warning",
+        showCancel: false,
+        action: null
       });
       return;
     }
@@ -167,7 +169,9 @@ function Lamella() {
         show: true,
         title: "Veriler kaydedilirken sistemsel bir hata meydana geldi",
         message: error,
-        type: "error"
+        type: "error",
+        showCancel: false,
+        action: null
       });
     } finally {
       setLoading(false);
@@ -223,6 +227,8 @@ function Lamella() {
         title={alertConfig.title}
         message={alertConfig.message}
         type={alertConfig.type}
+        showCancel={alertConfig.showCancel} // State ne derse o (true/false)
+        onConfirm={alertConfig.action}     // Varsa fonksiyon çalışır, yoksa pas geçer
         onClose={() => setAlertConfig(prev => ({ ...prev, show: false }))}
       />
     </div>
