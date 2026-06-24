@@ -429,11 +429,26 @@ function InputParameters() {
                     <div className="row g-2 p-1">
                         <div className="col-6">
                             <label className="text-white-50 mb-1" style={{ fontSize: "11px" }}>Giriş BOİ (mg/l)</label>
-                            <input type="number" name="girisBoi" value={currentParamData.girisBoi === 0 ? "" : currentParamData.girisBoi} onChange={handleChange} className="form-control form-control-sm text-white fw-bold border-0 text-center" style={{ backgroundColor: "rgba(239, 68, 68, 0.15)", borderRadius: "6px" }} />
+                            <input
+                                type="number"
+                                name="girisBoi"
+                                // Hem 0 hem undefined/null durumunu boş string'e düşürürüz
+                                value={(currentParamData.girisBoi === 0 || currentParamData.girisBoi === undefined) ? "" : currentParamData.girisBoi}
+                                onChange={handleChange}
+                                className="form-control form-control-sm text-white fw-bold border-0 text-center"
+                                style={{ backgroundColor: "rgba(239, 68, 68, 0.15)", borderRadius: "6px" }}
+                            />
                         </div>
                         <div className="col-6">
                             <label className="text-white-50 mb-1" style={{ fontSize: "11px" }}>Debi (m³/gün)</label>
-                            <input type="number" name="debi" value={currentParamData.debi === 0 ? "" : currentParamData.debi} onChange={handleChange} className="form-control form-control-sm text-white fw-bold border-0 text-center" style={{ backgroundColor: "rgba(239, 68, 68, 0.15)", borderRadius: "6px" }} />
+                            <input
+                                type="number"
+                                name="debi"
+                                value={(currentParamData.debi === 0 || currentParamData.debi === undefined) ? "" : currentParamData.debi}
+                                onChange={handleChange}
+                                className="form-control form-control-sm text-white fw-bold border-0 text-center"
+                                style={{ backgroundColor: "rgba(239, 68, 68, 0.15)", borderRadius: "6px" }}
+                            />
                         </div>
                     </div>
                 ) : (
@@ -489,15 +504,36 @@ function InputParameters() {
             <div className="row g-1 pt-2" style={{ borderTop: "1px dashed #334155" }}>
                 <div className="col-4">
                     <label className="text-white-50 d-block text-center mb-1" style={{ fontSize: "10px" }}>Hedef BOİ</label>
-                    <input type="number" name="cikisBoi" value={currentParamData.cikisBoi === 0 ? "" : currentParamData.cikisBoi} onChange={handleChange} className="form-control form-control-sm border-0 text-white text-center fw-bold" style={{ backgroundColor: "#1e293b", fontSize: "12px", borderBottom: "2px solid #38bdf8", borderRadius: "4px 4px 0 0" }} />
+                    <input
+                        type="number"
+                        name="cikisBoi"
+                        value={(currentParamData.cikisBoi === 0 || currentParamData.cikisBoi === undefined) ? "" : currentParamData.cikisBoi}
+                        onChange={handleChange}
+                        className="form-control form-control-sm border-0 text-white text-center fw-bold"
+                        style={{ backgroundColor: "#1e293b", fontSize: "12px", borderBottom: "2px solid #38bdf8", borderRadius: "4px 4px 0 0" }}
+                    />
                 </div>
                 <div className="col-4">
                     <label className="text-white-50 d-block text-center mb-1" style={{ fontSize: "10px" }}>Sıcaklık</label>
-                    <input type="number" name="sicaklik" value={currentParamData.sicaklik === 0 ? "" : currentParamData.sicaklik} onChange={handleChange} className="form-control form-control-sm border-0 text-white text-center fw-bold" style={{ backgroundColor: "#1e293b", fontSize: "12px", borderBottom: "2px solid #38bdf8", borderRadius: "4px 4px 0 0" }} />
+                    <input
+                        type="number"
+                        name="sicaklik"
+                        value={(currentParamData.sicaklik === 0 || currentParamData.sicaklik === undefined) ? "" : currentParamData.sicaklik}
+                        onChange={handleChange}
+                        className="form-control form-control-sm border-0 text-white text-center fw-bold"
+                        style={{ backgroundColor: "#1e293b", fontSize: "12px", borderBottom: "2px solid #38bdf8", borderRadius: "4px 4px 0 0" }}
+                    />
                 </div>
                 <div className="col-4">
                     <label className="text-white-50 d-block text-center mb-1" style={{ fontSize: "10px" }}>Ön Arıtma Verim, (%)</label>
-                    <input type="number" name="giderimVerimi" value={currentParamData.giderimVerimi === 0 ? "" : currentParamData.giderimVerimi} onChange={handleChange} className="form-control form-control-sm border-0 text-white text-center fw-bold" style={{ backgroundColor: "#1e293b", fontSize: "12px", borderBottom: "2px solid #38bdf8", borderRadius: "4px 4px 0 0" }} />
+                    <input
+                        type="number"
+                        name="giderimVerimi"
+                        value={(currentParamData.giderimVerimi === 0 || currentParamData.giderimVerimi === undefined) ? "" : currentParamData.giderimVerimi}
+                        onChange={handleChange}
+                        className="form-control form-control-sm border-0 text-white text-center fw-bold"
+                        style={{ backgroundColor: "#1e293b", fontSize: "12px", borderBottom: "2px solid #38bdf8", borderRadius: "4px 4px 0 0" }}
+                    />
                 </div>
             </div>
 
@@ -532,17 +568,40 @@ function InputParameters() {
                     <div className="row g-2 pt-1">
                         <div className="col-4">
                             <label className="text-white-50 d-block text-center mb-1" style={{ fontSize: "9px" }}>Giriş Amonyum (mg/l)</label>
-                            <input type="number" name="girisAmonyum" value={currentParamData.girisAmonyum === 0 ? "" : currentParamData.girisAmonyum} onChange={handleChange} className="form-control form-control-sm bg-dark text-white text-center fw-semibold border-0 py-1" style={{ fontSize: "11px", borderRadius: "4px" }} />
+                            <input
+                                type="number"
+                                name="girisAmonyum"
+                                value={(currentParamData.girisAmonyum === 0 || currentParamData.girisAmonyum === undefined) ? "" : currentParamData.girisAmonyum}
+                                onChange={handleChange}
+                                className="form-control form-control-sm bg-dark text-white text-center fw-semibold border-0 py-1"
+                                style={{ fontSize: "11px", borderRadius: "4px" }}
+                            />
                         </div>
                         <div className="col-4">
                             <label className="text-white-50 d-block text-center mb-1" style={{ fontSize: "9px" }}>Çıkış Amonyum (mg/l)</label>
-                            <input type="number" name="cikisAmonyum" value={currentParamData.cikisAmonyum === 0 ? "" : currentParamData.cikisAmonyum} onChange={handleChange} className="form-control form-control-sm bg-dark text-white text-center fw-semibold border-0 py-1" style={{ fontSize: "11px", borderRadius: "4px" }} />
+                            <input
+                                type="number"
+                                name="cikisAmonyum"
+                                value={(currentParamData.cikisAmonyum === 0 || currentParamData.cikisAmonyum === undefined) ? "" : currentParamData.cikisAmonyum}
+                                onChange={handleChange}
+                                className="form-control form-control-sm bg-dark text-white text-center fw-semibold border-0 py-1"
+                                style={{ fontSize: "11px", borderRadius: "4px" }}
+                            />
                         </div>
                         <div className="col-4">
                             <label className="text-white-50 d-flex align-items-center justify-content-center gap-1 mb-1" style={{ fontSize: "9px" }}>
-                                Nit. Emperiği <i className="bi bi-info-circle-fill text-info cursor-pointer" style={{ fontSize: "10px" }} onClick={() => setShowInfoModal(true)}></i>
+                                Nit. Emperiği ...
                             </label>
-                            <input type="number" middle step="0.1" name="nitrifikasyonEmperik" value={currentParamData.nitrifikasyonEmperik === 0 ? "" : currentParamData.nitrifikasyonEmperik} onChange={handleChange} className="form-control form-control-sm text-center fw-bold border-0 py-1 text-warning" style={{ backgroundColor: "rgba(255, 193, 7, 0.15)", fontSize: "11px", borderRadius: "4px" }} />
+                            <input
+                                type="number"
+                                step="0.1"
+                                name="nitrifikasyonEmperik"
+                                // Buraya ekstra koruma ekliyoruz
+                                value={(currentParamData.nitrifikasyonEmperik === 0 || currentParamData.nitrifikasyonEmperik === undefined) ? "" : currentParamData.nitrifikasyonEmperik}
+                                onChange={handleChange}
+                                className="form-control form-control-sm text-center fw-bold border-0 py-1 text-warning"
+                                style={{ backgroundColor: "rgba(255, 193, 7, 0.15)", fontSize: "11px", borderRadius: "4px" }}
+                            />
                         </div>
                     </div>
                 )}

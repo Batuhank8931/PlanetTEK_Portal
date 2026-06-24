@@ -53,7 +53,7 @@ function SarfMalzemeTablosu() {
           // İlk yüklemede genel toplamı ve yağların toplamını hesaplıyoruz
           const freshGrandTotal = freshRows.reduce((sum, row) => sum + calculateRowTotal(row), 0);
           const oilTotal = calculateOilTotal(freshRows);
-          s
+
           updateSection("tables", {
             ...formData?.tables,
             sarfmalzemettablosu: {

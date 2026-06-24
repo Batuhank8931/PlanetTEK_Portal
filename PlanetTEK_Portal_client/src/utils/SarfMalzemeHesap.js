@@ -44,11 +44,11 @@ export default async function sarfMalsemeHesapFonksiyonu(formData) {
     const camurPompasikW = planetDiskDetails?.tasarim?.lamella?.camurPompasi?.kw || 0;
 
     const ileriAritmaObj = equipmentsObject?.ileriAritma || {};
-    const ileriAritmaPompaAdet = ileriAritmaObj?.IleriAritmaPumpSelections.pompaAdeti || 0;
-    const ileriAritmaPompakw = ileriAritmaObj?.IleriAritmaPumpSelections.pumpkW || 0;
-    const ileriAritmaMikserkw = ileriAritmaObj?.IleriAritmaTankMixerSelections.gerekliGucKw || 0;
-    const ileriAritmaDozajAdedi = ileriAritmaObj?.IleriAritmaDozajSelections.pompaAdedi || 0;
-    const gerekliFeCl3 = ileriAritmaObj?.IleriAritmaDozajSelections.gerekliFeCl3 || 0;
+    const ileriAritmaPompaAdet = ileriAritmaObj?.IleriAritmaPumpSelections?.pompaAdeti || 0;
+    const ileriAritmaPompakw = ileriAritmaObj?.IleriAritmaPumpSelections?.pumpkW || 0;
+    const ileriAritmaMikserkw = ileriAritmaObj?.IleriAritmaTankMixerSelections?.gerekliGucKw || 0;
+    const ileriAritmaDozajAdedi = ileriAritmaObj?.IleriAritmaDozajSelections?.pompaAdedi || 0;
+    const gerekliFeCl3 = ileriAritmaObj?.IleriAritmaDozajSelections?.gerekliFeCl3 || 0;
 
     const filtrasyonObj = equipmentsObject?.filtrationSystem || {};
     const filtrsayonAdedi = filtrasyonObj?.sistemAdet || 0;
