@@ -3,6 +3,7 @@ import React, { useMemo, useState, useEffect, useCallback } from "react";
 import { useTeklifStore } from "../../utils/teklifStore";
 import CapexTableView from "./CapexTableView";
 import capexHesapFonksiyonu from "../../utils/CapexHesap";
+import SmallLoading from "../modals/smallLoading";
 
 const generateWBSNumbers = (rowsArray) => {
     let level0 = 0; let level1 = 0; let level2 = 0; let level3 = 0;
@@ -33,7 +34,7 @@ function CapexTablosu() {
     const updateSection = useTeklifStore((state) => state.updateSection);
 
     const teklifDili = formData?.customerInfo?.teklifDili || "Yerli";
-    
+
     // Güvenli okuma yapısı: store'daki nesneden rows dizisini veya eski yapıyı desteklemesi için yedekli okuma
     const storeCapexObj = formData?.tables?.capextablosu;
     const storeCapexRows = storeCapexObj?.rows || (Array.isArray(storeCapexObj) ? storeCapexObj : []);
@@ -44,7 +45,7 @@ function CapexTablosu() {
 
     const priceData = useMemo(() => {
         return {
-            screens: [], 
+            screens: [],
             pumps: [],
             isYurtIci: teklifDili === "Yerli"
         };
@@ -64,7 +65,7 @@ function CapexTablosu() {
     const updateStore = useCallback((updatedRows) => {
         const finalRowsWithNumbers = generateWBSNumbers(updatedRows);
         setLocalRows(finalRowsWithNumbers);
-        
+
         const currentNetTotal = calculateTotalNetPrice(finalRowsWithNumbers);
 
         updateSection("tables", {
@@ -111,7 +112,7 @@ function CapexTablosu() {
             try {
                 const rawInitialData = await capexHesapFonksiyonu(formData, priceData);
                 const initialDataWithNo = generateWBSNumbers(rawInitialData);
-                
+
                 setLocalRows(initialDataWithNo);
                 const currentNetTotal = calculateTotalNetPrice(initialDataWithNo);
 
@@ -130,15 +131,15 @@ function CapexTablosu() {
         }
 
         fetchAndCalculateCapex();
-    }, [storeCapexRows, priceData]); 
+    }, [storeCapexRows, priceData]);
 
     const handleRefresh = async () => {
         setLoading(true);
         try {
             const rawFreshData = await capexHesapFonksiyonu(formData, priceData);
             const freshDataWithNo = generateWBSNumbers(rawFreshData);
-            
-            saveToHistory(); 
+
+            saveToHistory();
 
             const currentNetTotal = calculateTotalNetPrice(freshDataWithNo);
 
@@ -209,18 +210,10 @@ function CapexTablosu() {
 
     return (
         <div className="w-100" style={{ position: "relative", overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
-            {loading && (
-                <div style={{
-                    position: "absolute",
-                    top: 0, left: 0, right: 0, bottom: 0,
-                    backgroundColor: "rgba(255,255,255,0.7)",
-                    zIndex: 10,
-                    display: "flex", justifyContent: "center", alignItems: "center",
-                    fontWeight: "bold", color: "#333"
-                }}>
-                    <span>Fiyatlar Güncelleniyor ve Tablo Hesaplanıyor...</span>
-                </div>
-            )}
+            <SmallLoading
+                isLoading={loading}
+                text="Fiyatlar Güncelleniyor ve Tablo Hesaplanıyor..."
+            />
 
             <div style={{ minWidth: "950px" }}>
                 <CapexTableView
@@ -229,8 +222,8 @@ function CapexTablosu() {
                     insertAfterRow={insertAfterRow}
                     deleteRow={deleteRow}
                     handleRefresh={handleRefresh}
-                    handleUndo={handleUndo}             
-                    historyLength={history.length}      
+                    handleUndo={handleUndo}
+                    historyLength={history.length}
                     teklifDili={teklifDili}
                 />
             </div>

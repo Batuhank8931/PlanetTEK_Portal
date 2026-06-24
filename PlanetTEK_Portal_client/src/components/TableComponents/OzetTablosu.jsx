@@ -1,92 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { useTeklifStore } from "../../utils/teklifStore";
+import { generateInitialData } from "../../utils/OzettabloHesap"; // Dışarıdan export edilen fonksiyonu aldık
 
 function OzetTablosu() {
   const formData = useTeklifStore((state) => state.formData);
   const updateSection = useTeklifStore((state) => state.updateSection);
 
   const storeOzetVerisi = formData?.tables?.ozettablosu;
-  const pDetails = formData?.planetDiskDetails?.tasarim?.aritmaParametreleri || {};
-
-  // Parametreleri ve teklif içeriğini formData'dan dinamik üreten motor
-  const generateInitialData = () => {
-    const debiM3 = pDetails.debi || 0;
-    const girisBoi = pDetails.girisBoi || 0;
-    const organikYukKg = ((debiM3 * girisBoi) / 1000).toFixed(0);
-
-    // Kaynaklar üzerinden toplam kişi sayısını bulma
-    const kaynaklar = pDetails.kaynaklar || [];
-    const totalKisi = kaynaklar.reduce((sum, k) => sum + (parseFloat(k.kisiSayisi) || 0), 0);
-
-    // Sistem yerleşim detayları
-    const yerlesim = formData?.planetDiskDetails?.tasarim?.yerlesimSiralanisi || [];
-    const rbcSiralari = yerlesim.filter(y => !y.isLamella);
-    const toplamMilAdet = rbcSiralari.reduce((sum, item) => sum + (parseInt(item.adet) || 0), 0);
-    const milBasinaDisk = rbcSiralari[0]?.milBasinaDisk || 0;
-    const toplamDiskSayisi = toplamMilAdet * milBasinaDisk;
-    const beklemeSuresi = rbcSiralari[0]?.beklemeSuresi || 0;
-
-    // Lamella detayları
-    const lamellaObj = formData?.planetDiskDetails?.tasarim?.lamella || {};
-    const lamellaAdet = parseInt(lamellaObj.lamellaAdet) || 0;
-    const lamellaAlani = parseFloat(lamellaObj.secilenModelAlan) || 0;
-    const lamellaModeli = (lamellaObj.secilenLamellaModeli || "LS_45").replace("_", " ");
-
-    // Modül durumları
-    const equipmentsObject = formData.equipments || {};
-    const { modulesState = {} } = equipmentsObject;
-
-    const initialGeneralInfo = {
-      offerNo: formData?.customerInfo?.teklifNo || "2026 / 3500",
-      refNo: `YİD R0 01 01 2026 ${toplamMilAdet} ${pDetails.RBCUnite || 'MX'} 1 ${debiM3} ${organikYukKg} 0`,
-      clientName: formData?.customerInfo?.ticariUnvan || "İSKİ",
-    };
-
-    const initialParams = [
-      { id: 1, label: "- Atıksu Kaynağı", value: "Yalnızca kişisel kullanımdan kaynaklanan evsel atıksulara göre tasarım yapılmış olup, hayvanlardan kaynaklanan atıksular, klorlu havuz suları ve yağmur suları hesaba dahil edilmemiştir.", unit: "", isLongText: true },
-      { id: 2, label: "- Nihai Kullanım Amacı", value: "Deşarj Amaçlı", unit: "" },
-      { id: 3, label: "- Hidrolik Yük", value: debiM3.toFixed(2), unit: "m³/gün" },
-      { id: 4, label: "- Saatlik Debi", value: (debiM3 / 24).toFixed(2), unit: "m³/saat" },
-      { id: 5, label: "- Pik Debi", value: ((debiM3 / 24) * 2).toFixed(2), unit: "m³/saat" },
-      { id: 6, label: "- Organik Yük", value: organikYukKg, unit: "kg/gün" },
-      { id: 7, label: "- Atıksu Sıcaklığı", value: pDetails.sicaklik || "19", unit: "°C" },
-      { id: 8, label: "- PlanetDISK® Ünitesi Alıkonma Süresi", value: beklemeSuresi.toFixed(2), unit: "saat" },
-      { id: 9, label: `- PlanetDISK® ${pDetails.RBCUnite || 'MX'} 1 DBD Ünitesi Sayısı`, value: String(toplamMilAdet), unit: "adet" },
-      { id: 10, label: "- Disk Adedi", value: String(milBasinaDisk), unit: "adet/ünite" },
-      { id: 11, label: "- Disk Çapı", value: pDetails.RBCUnite === "MINI" ? "1,30" : "2,05", unit: "m" },
-      { id: 12, label: "- 1 Diskin Yüzey Alanı", value: pDetails.RBCUnite === "MINI" ? "2,60" : "6,60", unit: "m²/disk" },
-      { id: 13, label: `- PlanetDISK® ${pDetails.RBCUnite || 'MX'} 1 DBD Ünitesi Yüzey Alanı`, value: (milBasinaDisk * (pDetails.RBCUnite === "MINI" ? 2.6 : 6.6)).toFixed(2), unit: "m²/ünite" },
-      { id: 14, label: "- Bu Projedeki Toplam Disk Yüzey Alanı", value: (toplamDiskSayisi * (pDetails.RBCUnite === "MINI" ? 2.6 : 6.6)).toFixed(2), unit: "m²" },
-      { id: 15, label: `- Lamella Seperatör ${lamellaModeli} Son Çöktürme Tankı`, value: String(lamellaAdet), unit: "adet" },
-      { id: 16, label: `- 1 Adet Lamella Seperatör ${lamellaModeli} Son Çöktürme Tankı`, value: lamellaAlani.toFixed(0), unit: "m²/ünite" },
-      { id: 17, label: `- Lamella Seperatör ${lamellaModeli} Son Çöktürme Tankı Toplam Yüzey Alanı`, value: (lamellaAlani * lamellaAdet).toFixed(0), unit: "m²" }
-    ];
-
-    const initialContent = [
-      { id: 1, isChecked: modulesState.onAritma?.checked || false, qty: "1", unit: "set", desc: "Elle Temizlemeli Kaba Izgara" },
-      { id: 2, isChecked: modulesState.onAritma?.checked || false, qty: "1", unit: "set", desc: "Elle Temizlemeli İnce Izgara" },
-      { id: 3, isChecked: true, qty: "4", unit: "adet", desc: "Kum-Yağ Tutucu Plakaları" },
-      { id: 4, isChecked: modulesState.feedPump?.checked || false, qty: "2", unit: "adet", desc: "Dengeleme Tankı Terfi Pompaları" },
-      { id: 5, isChecked: true, qty: String(toplamMilAdet), unit: "adet", desc: `PlanetDISK® ${pDetails.RBCUnite || 'MX'} 1 DBD Ünitesi` },
-      { id: 6, isChecked: true, qty: String(toplamMilAdet), unit: "adet", desc: `PlanetDISK® ${pDetails.RBCUnite || 'MX'} 1 DBD Ünitesi Kapağı` },
-      { id: 7, isChecked: lamellaAdet > 0, qty: String(lamellaAdet), unit: "adet", desc: `${lamellaModeli} Lamella Seperatör Son Çöktürme Tankı` },
-      { id: 8, isChecked: lamellaAdet > 0, qty: String(lamellaAdet), unit: "adet", desc: `${lamellaModeli} Lamella Seperatör Son Çöktürme Tankı Çamur Pompası` },
-      { id: 9, isChecked: modulesState.ileriAritma?.checked || false, qty: "1", unit: "set", desc: "FeCl3 Koagülant Dozaj Sistemi" },
-      { id: 10, isChecked: modulesState.filtrasyon?.checked || false, qty: "1", unit: "set", desc: "Ön Klorlama Sistemi" },
-      { id: 11, isChecked: modulesState.filtrasyon?.checked || false, qty: "2", unit: "adet", desc: "Filtrasyon Besleme ve Geri Yıkama Pompası" },
-      { id: 12, isChecked: modulesState.filtrasyon?.checked || false, qty: "1", unit: "adet", desc: "Seperatör Filtre" },
-      { id: 13, isChecked: modulesState.filtrasyon?.checked || false, qty: "1", unit: "adet", desc: "Tam Otomatik Multimedia Filtrasyon Sistemi" },
-      { id: 14, isChecked: modulesState.filtrasyon?.checked || false, qty: "1", unit: "adet", desc: "Tam Otomatik Aktif Karbon Filtrasyon Sistemi" },
-      { id: 15, isChecked: modulesState.sludgeDewatering?.checked || false, qty: "1", unit: "set", desc: "Çamur Susuzlaştırma Ünitesi" },
-      { id: 16, isChecked: false, qty: "", unit: "", desc: "İnşaat İşleri – idare tarafından yapılacaktır", isHeaderStyle: true },
-      { id: 17, isChecked: true, qty: "", unit: "", desc: "Borulama & Elektrik İşleri" },
-      { id: 18, isChecked: true, qty: "1", unit: "adet", desc: "PlanetDISK® Kontrol Panosu" },
-      { id: 19, isChecked: true, qty: "", unit: "", desc: "Proje Onay Dosyasının Hazırlanması ve Onayının Alınması (Harçlar Hariç)" },
-      { id: 20, isChecked: true, qty: "", unit: "", desc: "Proje ve Mühendislik, Devreye Alma ve Eğitim Verilmesi" }
-    ];
-
-    return { generalInfo: initialGeneralInfo, params: initialParams, content: initialContent };
-  };
 
   // KURAL 1: Store'da data varsa oradan başlat, yoksa geçici boş şablon kur
   const [generalInfo, setGeneralInfo] = useState(() => storeOzetVerisi?.generalInfo || { offerNo: "", refNo: "", clientName: "" });
@@ -95,16 +15,19 @@ function OzetTablosu() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(!storeOzetVerisi);
 
-  // KURAL 2: Eğer store tamamen boşsa (ilk yükleme anı), dataları üretip yerel state ve store'a yazar
+  // KURAL 2: Eğer store tamamen boşsa (ilk yükleme anı) ve formData geldiyse dataları üretir
   useEffect(() => {
-    if (!storeOzetVerisi) {
-      const generated = generateInitialData();
+    if (!storeOzetVerisi && formData && Object.keys(formData).length > 0) {
+      const generated = generateInitialData(formData);
       setGeneralInfo(generated.generalInfo);
       setParams(generated.params);
       setContent(generated.content);
       setLoading(false);
+    } else if (storeOzetVerisi) {
+      // Store dolmuşsa loading'i kapat
+      setLoading(false);
     }
-  }, []);
+  }, [storeOzetVerisi, formData]);
 
   // KURAL 3: Yerel datalardan herhangi biri değiştikçe (manuel müdahale) store'u güncel tutar
   useEffect(() => {
@@ -130,8 +53,9 @@ function OzetTablosu() {
 
   // KURAL 4: REFRESH BUTONU - Tüm manuel değişiklikleri temizler ve taze form parametrelerini basar
   const handleRefresh = () => {
-    setHistory([]);
-    const generated = generateInitialData();
+    if (!formData) return;
+    saveToHistory();
+    const generated = generateInitialData(formData);
     setGeneralInfo(generated.generalInfo);
     setParams(generated.params);
     setContent(generated.content);

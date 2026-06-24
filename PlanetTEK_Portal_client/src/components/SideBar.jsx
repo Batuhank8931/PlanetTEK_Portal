@@ -28,7 +28,7 @@ function SideBar({ logout }) {
     { label: "Ana Sayfa", path: "/mainpage", icon: "bi-house-door" },
     { label: "Teklif", path: "/teklif", icon: "bi-file-earmark-text" },
     { label: "Müşteriler", path: "/musteriler", icon: "bi-people" }, // Yeni ikon
-    { label: "Calculation", path: "/calculation", icon: "bi-calculator" },
+    { label: "Katsayılar", path: "/calculation", icon: "bi-calculator" },
     { label: "Fiyatlar", path: "/fiyatlar", icon: "bi-tags" },
     { label: "Kullanıcılar", path: "/kullanicilar", icon: "bi-person-gear" }, // İpucu: Bunu da değiştirebilirsin!
   ];

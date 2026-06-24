@@ -22,7 +22,6 @@ function SludgeDewateringDetail() {
 
   const [secilenEkipmanTipi, setSecilenEkipmanTipi] = useState(storeDewatering.ekipmanTipi || "Dekantör");
 
-  // 🚀 MANUEL MANİPÜLASYON İÇİN SIFIRLANABİLİR OFFSET STATE'LERİ
   const [anaOffset, setAnaOffset] = useState(storeDewatering.anaOffset || 0);
   const [beslemeOffset, setBeslemeOffset] = useState(storeDewatering.beslemeOffset || 0);
   const [suzuntuOffset, setSuzuntuOffset] = useState(storeDewatering.suzuntuOffset || 0);
@@ -59,8 +58,13 @@ function SludgeDewateringDetail() {
   useEffect(() => {
     if (dbLoading || dbData.length === 0) return;
 
-    if (storeDewatering.opsiyonlar && Object.keys(storeDewatering.opsiyonlar).length > 0) {
-      setOpsiyonlar(storeDewatering.opsiyonlar);
+    // Eğer store'da eski veri varsa veya yeni yapıda polimerUnitesi ayrılmışsa state senkronizasyonu
+    if ((storeDewatering.opsiyonlar && Object.keys(storeDewatering.opsiyonlar).length > 0) || storeDewatering.polimerUnitesi) {
+      const restoreOpsiyonlar = { ...storeDewatering.opsiyonlar };
+      if (storeDewatering.polimerUnitesi) {
+        restoreOpsiyonlar["polimer_unitesi"] = storeDewatering.polimerUnitesi;
+      }
+      setOpsiyonlar(restoreOpsiyonlar);
       return;
     }
 
@@ -68,7 +72,6 @@ function SludgeDewateringDetail() {
     opsiyonelTipler.forEach((tip) => {
       const ilkModel = ekipmanGruplari[tip]?.[0];
       const varsayilanSecili = tip === "polimer_unitesi";
-      // 🚀 Yapıya 'adet: 1' bilgisini entegre ettik
       baslangicOpsiyonlari[tip] = { 
         secili: varsayilanSecili, 
         id: ilkModel ? ilkModel.id : "",
@@ -84,7 +87,6 @@ function SludgeDewateringDetail() {
     return { debi: d, boi: b };
   }, [formData]);
 
-  // 🚀 TEKNİK HESAPLAMA VE KİLİTSİZ MODEL SEÇİM MOTORU
   const otomatikKonfigurasyon = useMemo(() => {
     if (dbLoading || dbData.length === 0 || Object.keys(ekipmanGruplari).length === 0) {
       return { ana: null, besleme: null, suzuntu: null, idealAnaIndex: -1, idealBeslemeIndex: -1, idealSuzuntuIndex: -1, hamIhtiyac: 0, birim: "" };
@@ -121,7 +123,6 @@ function SludgeDewateringDetail() {
       aramaKapasitesi = 1.00;
     }
 
-    // 1. ANA TEKNOLOJİ (DEKANTÖR VEYA FİLTREPRES) INDEX SEÇİMİ
     const anaModeller = ekipmanGruplari[tipKey] || [];
     const idealAnaIndex = anaModeller.findIndex((e) => parseFloat(e.kapasite_degeri) >= aramaKapasitesi);
     let finalAnaIndex = idealAnaIndex !== -1 ? idealAnaIndex : anaModeller.length - 1;
@@ -135,7 +136,6 @@ function SludgeDewateringDetail() {
 
     const pompaReferansDebi = ((onCokturmeCamuruKutle / 20) + (sonCokturmeCamuruKutle / 10)) / calismaSaati;
 
-    // 2. ÇAMUR BESLEME POMPASI INDEX SEÇİMİ
     const beslemePompalari = ekipmanGruplari["besleme_pompasi"] || [];
     const idealBeslemeIndex = beslemePompalari.findIndex((e) => parseFloat(e.kapasite_degeri) >= pompaReferansDebi);
     let finalBeslemeIndex = idealBeslemeIndex !== -1 ? idealBeslemeIndex : beslemePompalari.length - 1;
@@ -147,7 +147,6 @@ function SludgeDewateringDetail() {
     }
     const secilenBesleme = beslemePompalari[finalBeslemeIndex] || null;
 
-    // 3. SÜZÜNTÜ POMPASI INDEX SEÇİMİ
     const suzuntuPompalari = ekipmanGruplari["suzuntu_pompasi"] || [];
     const idealSuzuntuIndex = suzuntuPompalari.findIndex((e) => parseFloat(e.kapasite_degeri) >= pompaReferansDebi * 0.9);
     let finalSuzuntuIndex = idealSuzuntuIndex !== -1 ? idealSuzuntuIndex : suzuntuPompalari.length - 1;
@@ -175,20 +174,13 @@ function SludgeDewateringDetail() {
     setAnaOffset(0);
   }, [secilenEkipmanTipi]);
 
+  // 🚀 STORE UPDATE MOTORU (YENİLENEN MODEL)
   useEffect(() => {
     if (dbLoading || dbData.length === 0) return;
 
     const temizleEkipman = (ekipmanObj) => {
       if (!ekipmanObj) return null;
-      const {
-        id,
-        ekipman_tipi,
-        kapasite_degeri,
-        kapasite_birimi,
-        besleme_kw,
-        geri_yikama_kw
-      } = ekipmanObj;
-
+      const { id, ekipman_tipi, kapasite_degeri, kapasite_birimi, besleme_kw, geri_yikama_kw } = ekipmanObj;
       return {
         id,
         ekipman_tipi,
@@ -198,6 +190,9 @@ function SludgeDewateringDetail() {
         ...(geri_yikama_kw && { geri_yikama_kw })
       };
     };
+
+    // 🚀 Polimer Ünitesini opsiyonlar içinden ayırıyoruz
+    const { polimer_unitesi, ...gercekOpsiyonlar } = opsiyonlar;
 
     updateSection("equipments", {
       ...equipmentsCache,
@@ -210,7 +205,8 @@ function SludgeDewateringDetail() {
         anaOffset,
         beslemeOffset,
         suzuntuOffset,
-        opsiyonlar,
+        polimerUnitesi: polimer_unitesi || null, // 🚀 Doğrudan kök obje seviyesinde
+        opsiyonlar: gercekOpsiyonlar,          // 🚀 İçinde polimer_unitesi barındırmayan saf opsiyonlar
         gerekliIhtiyac: otomatikKonfigurasyon.hamIhtiyac,
       },
     });
@@ -474,7 +470,7 @@ function SludgeDewateringDetail() {
           </div>
         </div>
 
-        {/* 🚀 4. YARDIMCI VE OPSİYONEL EKİPMAN PANELİ (YENİLENEN INT INPUT ALANI) */}
+        {/* 4. YARDIMCI VE OPSİYONEL EKİPMAN PANELİ */}
         <div className="d-flex flex-column gap-2 mt-2">
           <div className="d-flex align-items-center">
             <span className="fw-bold text-uppercase pe-2" style={{ fontSize: "11px", letterSpacing: "0.7px", color: "#00874e" }}>
@@ -514,7 +510,6 @@ function SludgeDewateringDetail() {
                           {baslikFormatli} Entegrasyonu
                         </label>
                       </div>
-                      {/* Kapasite bilgisini etiket altında bilgilendirme olarak gösteriyoruz */}
                       {ilkModel && (
                         <span className="text-white-50 ms-4 mt-0.5" style={{ fontSize: "9px" }}>
                           Kapasite: {parseFloat(ilkModel.kapasite_degeri).toFixed(2)} {ilkModel.kapasite_birimi}
@@ -522,7 +517,6 @@ function SludgeDewateringDetail() {
                       )}
                     </div>
 
-                    {/* 🚀 Dropdown kaldırıldı, yerine dinamik INT Adet Input Alanı eklendi */}
                     {mevcutOpsiyon.secili && (
                       <div className="d-flex align-items-center gap-1">
                         <span className="text-white-50" style={{ fontSize: "10px" }}>Adet:</span>

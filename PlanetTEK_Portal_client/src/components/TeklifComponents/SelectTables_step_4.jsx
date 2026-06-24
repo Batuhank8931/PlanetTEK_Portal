@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from "react";
 import { useTeklifStore } from "../../utils/teklifStore";
 import AlertModal from "../modals/AlertModal";
+import LoadingEkrani from "../modals/LoadingEkrani";
+import { motion, AnimatePresence } from "framer-motion";
 
-// Tablo importların aynen kalıyor...
 import KapakTablosu from "../TableComponents/KapakTablosu";
 import ParametreTablosu from "../TableComponents/ParametreTablosu";
 import CapexTablosu from "../TableComponents/CapexTablosu";
@@ -19,22 +20,19 @@ import EkipmanTablosu from "../TableComponents/EkipmanTablosu";
 
 function SelectTables() {
   const [activeTab, setActiveTab] = useState(1);
-
-  // Otomatik çalışma durumunu kontrol eden stateler
   const [isGenerating, setIsGenerating] = useState(false);
   const [generatingTableName, setGeneratingTableName] = useState("");
 
   const formData = useTeklifStore((state) => state.formData);
-  const updateSection = useTeklifStore((state) => state.updateSection);
+  const resetTable = useTeklifStore((state) => state.resetTables);
 
-  // 🌟 AlertModal kontrolü için state
   const [alertConfig, setAlertConfig] = useState({
     show: false,
     title: "",
     message: "",
     type: "success",
-    showCancel: false, // İptal butonu olsun mu?
-    action: null       // "Evet" denirse ne çalışsın?
+    showCancel: false,
+    action: null
   });
 
   const tablesList = [
@@ -53,31 +51,21 @@ function SelectTables() {
     { id: 13, name: "Ekipman Tablosu", component: <EkipmanTablosu /> },
   ];
 
-  // SİHİRLİ OTOMASYON FONKSİYONU
   const handleAutoGenerateAll = async () => {
     setIsGenerating(true);
+    resetTable();
 
-    // 1. Önce store'daki mevcut tabloları temizliyoruz (Sıfırdan temiz render olsunlar diye)
-    updateSection("tables", {});
-
-    // 2. Her tabloyu sırayla açıp render olması için bekliyoruz
     for (let i = 0; i < tablesList.length; i++) {
       const currentTable = tablesList[i];
       setGeneratingTableName(currentTable.name);
-
-      // Sekmeyi aktifleştir (React bunu DOM'a basacak)
       setActiveTab(currentTable.id);
-
-      // Tablonun mount olması ve useEffect'inin çalışması için 400ms bekleme süresi
-      // (Bunu bilgisayarın hızına göre 300-500ms arası ayarlayabilirsin)
       await new Promise((resolve) => setTimeout(resolve, 400));
     }
 
-    // 3. İşlem bitince modu kapat ve ilk tabloya geri dön
     setIsGenerating(false);
     setGeneratingTableName("");
     setActiveTab(1);
-    // Oski alert satırını sil, yerine bunu ekle:
+
     setAlertConfig({
       show: true,
       title: "İşlem Tamamlandı",
@@ -90,28 +78,24 @@ function SelectTables() {
 
   const currentTable = tablesList.find((t) => t.id === activeTab);
 
+  // Animasyon varyasyonları
+  const tabContentVariants = {
+    initial: { opacity: 0, y: 10 },
+    animate: { opacity: 1, y: 0, transition: { duration: 0.25, ease: "easeOut" } },
+    exit: { opacity: 0, y: -10, transition: { duration: 0.15, ease: "easeIn" } },
+  };
+
   return (
     <div
       className="container-fluid py-4 d-flex flex-column text-start align-items-stretch"
       style={{ minHeight: "100vh", backgroundColor: "#0b0c0c", overflow: "visible", position: "relative" }}
     >
-
-      {/* ⚠️ TAM EKRAN LOADING PANELİ (Oluşturma esnasında arkaya tıklanmasın diye) */}
-      {isGenerating && (
-        <div
-          style={{
-            position: "fixed", top: 0, left: 0, width: "100vw", height: "100vh",
-            backgroundColor: "rgba(11, 12, 12, 0.9)", zIndex: 9999,
-            display: "flex", flexDirection: "column", justifyContent: "center", alignItems: "center"
-          }}
-        >
-          <div className="spinner-border text-success mb-3" role="status" style={{ width: "3rem", height: "3rem" }}></div>
-          <h4 className="text-white fw-bold">Tablolar Yeniden Oluşturuluyor...</h4>
-          <p className="text-white-50" style={{ fontSize: "14px" }}>
-            Şu an hazırlanan: <span className="text-success fw-bold">{generatingTableName}</span>
-          </p>
-        </div>
-      )}
+      <LoadingEkrani
+        isGenerating={isGenerating}
+        generatingModuleName={generatingTableName}
+        debi={formData.planetDiskDetails?.debi}
+        version="TBL-V10"
+      />
 
       {/* ÜST SABİT BAŞLIK SATIRI */}
       <div className="d-flex align-items-center justify-content-between mb-4">
@@ -122,7 +106,6 @@ function SelectTables() {
           <div className="flex-grow-1 border-bottom" style={{ borderColor: "rgba(255,255,255,0.1)", borderWidth: "1px" }}></div>
         </div>
 
-        {/* TETİKLEYİCİ BUTONUMUZ */}
         <button
           type="button"
           onClick={handleAutoGenerateAll}
@@ -142,41 +125,73 @@ function SelectTables() {
 
       <div className="row g-3 flex-grow-1 align-items-start align-content-start">
         {/* SOL YAN MENÜ */}
-        <div className="col-12 col-md-2">
-          <div className="card border-0 text-white sticky-md-top" style={{ backgroundColor: "#141617", borderRadius: "12px", top: "24px" }}>
+        <div className="col-12 col-md-3 col-xl-2">
+          <div
+            className="card border-0 text-white sticky-md-top"
+            style={{
+              backgroundColor: "#111314",
+              borderRadius: "12px",
+              top: "24px",
+              border: "1px solid rgba(255, 255, 255, 0.05)"
+            }}
+          >
             <div className="card-body p-2">
-              <div className="row g-1 m-0">
-                {tablesList.map((table) => (
-                  <div key={table.id} className="col-4 col-md-12 p-1">
+              <div className="d-flex flex-row flex-md-column gap-1 overflow-x-auto pb-2 pb-md-0 snap-inline custom-scrollbar" style={{ whiteSpace: "nowrap" }}>
+                {tablesList.map((table) => {
+                  const isActive = activeTab === table.id;
+                  return (
                     <button
+                      key={table.id}
                       type="button"
-                      disabled={isGenerating} // Otomasyon çalışırken menü butonlarını kilitliyoruz
-                      className="w-100 border-0 text-center text-md-start py-1.5 py-md-2.5 px-2 rounded-3 text-white"
+                      disabled={isGenerating}
+                      className="border-0 text-start py-2 px-3 rounded-2 text-white flex-shrink-0 flex-md-shrink-1"
                       style={{
-                        backgroundColor: activeTab === table.id ? "#2e7d32" : "transparent",
+                        backgroundColor: isActive ? "rgba(74, 222, 128, 0.08)" : "transparent",
+                        color: isActive ? "#4ade80" : "#94a3b8",
                         fontSize: "11px",
-                        fontWeight: activeTab === table.id ? "600" : "400",
-                        transition: "all 0.15s ease",
-                        whiteSpace: "nowrap",
-                        overflow: "hidden",
-                        textOverflow: "ellipsis",
+                        fontWeight: isActive ? "600" : "500",
+                        transition: "all 0.2s ease-in-out",
+                        width: "auto",
+                        minWidth: "120px",
                         display: "block",
-                        opacity: isGenerating ? 0.5 : 1
+                        borderLeft: isActive ? "3px solid #4ade80" : "3px solid transparent",
+                        paddingLeft: isActive ? "9px" : "12px",
+                        opacity: isGenerating ? 0.4 : 1,
+                        cursor: isGenerating ? "not-allowed" : "pointer"
                       }}
                       onClick={() => setActiveTab(table.id)}
                       title={table.name}
+                      onMouseEnter={(e) => {
+                        if (!isActive && !isGenerating) {
+                          e.currentTarget.style.backgroundColor = "rgba(255, 255, 255, 0.03)";
+                          e.currentTarget.style.color = "#f8fafc";
+                        }
+                      }}
+                      onMouseLeave={(e) => {
+                        if (!isActive && !isGenerating) {
+                          e.currentTarget.style.backgroundColor = "transparent";
+                          e.currentTarget.style.color = "#94a3b8";
+                        }
+                      }}
                     >
-                      {table.name}
+                      <div className="d-flex align-items-center justify-content-between">
+                        <span style={{ overflow: "hidden", textOverflow: "ellipsis" }}>
+                          {table.name}
+                        </span>
+                        {isActive && (
+                          <span className="ms-2 d-none d-md-inline" style={{ color: "#4ade80", fontSize: "9px" }}>●</span>
+                        )}
+                      </div>
                     </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           </div>
         </div>
 
-        {/* SAĞ PANEL: TABLONUN DOĞAL UZAMA ALANI */}
-        <div className="col-12 col-md-10">
+        {/* SAĞ PANEL (AKICI GEÇİŞLİ) */}
+        <div className="col-12 col-md-9 col-xl-10">
           <div className="card border-0 text-white" style={{ backgroundColor: "#141617", borderRadius: "12px" }}>
             <div className="card-body py-4 d-flex flex-column gap-3">
               <div className="d-flex align-items-center w-100 mb-2">
@@ -186,20 +201,46 @@ function SelectTables() {
                 <div className="flex-grow-1 border-bottom" style={{ borderColor: "rgba(255,255,255,0.1)", borderWidth: "1px" }}></div>
               </div>
 
-              <div className="rounded-3" style={{ backgroundColor: "#0d0e0f", border: "1px solid rgba(255,255,255,0.03)", height: "auto", overflow: "visible" }}>
-                {currentTable ? currentTable.component : <span className="text-white-50" style={{ fontSize: "12px" }}>Lütfen listeden bir tablo seçin.</span>}
+              {/* Animasyon esnasında taşmaları engellemek ve sarsıntısız geçiş için overflow: hidden eklendi */}
+              <div className="rounded-3" style={{ backgroundColor: "#0d0e0f", border: "1px solid rgba(255,255,255,0.03)", height: "auto", overflow: "hidden" }}>
+                <AnimatePresence mode="wait">
+                  {currentTable ? (
+                    <motion.div
+                      key={currentTable.id} // Key değiştiğinde AnimatePresence tetiklenir
+                      variants={tabContentVariants}
+                      initial="initial"
+                      animate="animate"
+                      exit="exit"
+                      style={{ width: "100%" }}
+                    >
+                      {currentTable.component}
+                    </motion.div>
+                  ) : (
+                    <motion.div
+                      key="empty-state"
+                      variants={tabContentVariants}
+                      initial="initial"
+                      animate="animate"
+                      exit="exit"
+                      className="p-3"
+                    >
+                      <span className="text-white-50" style={{ fontSize: "12px" }}>Lütfen listeden bir tablo seçin.</span>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </div>
             </div>
           </div>
         </div>
       </div>
+
       <AlertModal
         show={alertConfig.show}
         title={alertConfig.title}
         message={alertConfig.message}
         type={alertConfig.type}
-        showCancel={alertConfig.showCancel} // State ne derse o (true/false)
-        onConfirm={alertConfig.action}     // Varsa fonksiyon çalışır, yoksa pas geçer
+        showCancel={alertConfig.showCancel}
+        onConfirm={alertConfig.action}
         onClose={() => setAlertConfig(prev => ({ ...prev, show: false }))}
       />
     </div>

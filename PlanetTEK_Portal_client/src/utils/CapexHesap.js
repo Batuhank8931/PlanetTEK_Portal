@@ -64,11 +64,10 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
         .reduce((sum, curr) => sum + (parseInt(curr.adet) || 0), 0);
     const milBasinaDisk = yerlesimListesi.find(y => y.isLamella === false)?.milBasinaDisk || 120;
 
-    const lamellaObjesi = yerlesimListesi.find(y => y.isLamella === true);
     const lamellaAdeti = parseInt(lamellaDetaylar?.lamellaAdet) || 0;
-    const lamellaModeli = lamellaObjesi?.secilenLamellaModeli || "LS 45";
+    const lamellaModeli = lamellaDetaylar?.secilenLamellaModeli || "LS 45";
     const lamellaPomapasiAdedi = parseInt(lamellaDetaylar?.camurPompasiAdet) || 0;
-    const lamellaPomapasiModeli = lamellaObjesi?.camurPompasi?.name || "smt 100A";
+    const lamellaPomapasiModeli = lamellaDetaylar?.camurPompasi?.name || "smt 100A";
 
     // İleri Arıtma Metrikleri
     const mixerData = ileriAritmaObj?.IleriAritmaTankMixerSelections;
@@ -361,7 +360,7 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
         {
             id: "5_polimer_unitesi",
             type: 3,
-            piece: isCamurAktif && camurOpsiyonlari?.polimer_unitesi?.secili ? (camurOpsiyonlari.polimer_unitesi.adet || 1) : 0,
+            piece: isCamurAktif && (sludgeObj.polimerUnitesi.adet || 1),
             label: "Polimer Hazırlama ve Dozaj Ünitesi",
             unitPrice: susuzlastirmaPrices.polimerUnitesi,
             discount: ekipmanIndirim
