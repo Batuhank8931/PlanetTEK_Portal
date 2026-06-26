@@ -33,6 +33,24 @@ function CapexTablosu() {
     const formData = useTeklifStore((state) => state.formData);
     const updateSection = useTeklifStore((state) => state.updateSection);
 
+    const customerInfo = formData?.customerInfo;
+    const teklifNo = formData.customerInfo.teklifNo;
+    const refNO = formData.customerInfo.offer_number;
+
+    const formatDate = () => {
+        return new Intl.DateTimeFormat('tr-TR', {
+            year: 'numeric'
+        }).format(new Date()).replace(/\./g, ' ');
+        // Intl.DateTimeFormat her zaman sistemin o anki taze yılını (örn: 2026) dinamik olarak alır.
+    };
+
+    const initialGeneralInfo = {
+        offerNo: `${formatDate()} / ${teklifNo} `,
+        refNo: refNO,
+        clientName: customerInfo?.ticariUnvan || "-",
+    };
+
+
     const teklifDili = formData?.customerInfo?.teklifDili || "Yerli";
 
     // Güvenli okuma yapısı: store'daki nesneden rows dizisini veya eski yapıyı desteklemesi için yedekli okuma
@@ -225,6 +243,7 @@ function CapexTablosu() {
                     handleUndo={handleUndo}
                     historyLength={history.length}
                     teklifDili={teklifDili}
+                    initialGeneralInfo={initialGeneralInfo}
                 />
             </div>
         </div>

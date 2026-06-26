@@ -78,12 +78,15 @@ function SelectCustomer() {
         const enGuncelIndirim = siraliIndirimler[0] || {};
 
         // "customerInfo" key'ini ilk kez burada komple doldurarak store'a pushluyoruz
+        // revizyonNo: "R0" arka planda formData'ya eklendi
         updateSection("customerInfo", {
+            ...customerInfo,
             ticariUnvan: customer.ticariUnvan,
             teklifDili: customer.teklifDili || "Türkçe",
             planetTekIndirim: enGuncelIndirim.planetTekIndirim || "",
             ekipmanIndirim: enGuncelIndirim.ekipmanIndirim || "",
-            ilgiliKisi: customer.ilgiliKisiler[0] || ""
+            ilgiliKisi: customer.ilgiliKisiler[0] || "",
+            revizyonNo: "R0" 
         });
     };
 
@@ -92,16 +95,29 @@ function SelectCustomer() {
         updateSection("customerInfo", { [e.target.name]: e.target.value });
     };
 
+    // Teklif numarası için özel tamsayı ve 4 hane kontrolü
+    const handleTeklifNoChange = (e) => {
+        let val = e.target.value;
+        
+        if (val === "") {
+            updateSection("customerInfo", { teklifNo: "" });
+            return;
+        }
+
+        // Sadece sayıları al, tamsayıya çevir (fixedTo0 mantığı) ve ilk 4 hanesini kes
+        let numericValue = parseInt(val, 10);
+        if (isNaN(numericValue)) return;
+
+        let fixedVal = Math.floor(numericValue).toString().slice(0, 4);
+        
+        updateSection("customerInfo", { teklifNo: parseInt(fixedVal, 10) });
+    };
+
     // Seçilen müşterinin indirimlerini tarihe göre sıralayalım (En yeni -> En eski)
     const siraliIndirimler = selectedCustomer?.indirimler
         ? [...selectedCustomer.indirimler].sort((a, b) => new Date(b.indirimTarihi) - new Date(a.indirimTarihi))
         : [];
-/* 
-    const formData = useTeklifStore((state) => state.formData);
 
-    // Her render anında konsola güncel veriyi basar
-    console.log("Güncel Form Verisi:", formData); */
-    
     return (
         <div className="card border-0 text-white h-100 p-4 gap-3" style={{ backgroundColor: "#1a1c1d", borderRadius: "5px", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)" }}>
 
@@ -113,9 +129,10 @@ function SelectCustomer() {
                 <div className="flex-grow-1 border-bottom" style={{ borderColor: "rgba(255,255,255,0.1)" }}></div>
             </div>
 
-            {/* ANA SATIR: Müşteri Arama ve Dil Seçimi */}
+            {/* ANA SATIR: Müşteri Arama, Teklif Numarası ve Dil Seçimi */}
             <div className="row g-3 py-3">
-                <div className="col-12 col-md-8 position-relative">
+                {/* Ticari Ünvan */}
+                <div className="col-12 col-md-5 position-relative">
                     <label className="form-label mb-1 small fw-medium text-white-50" style={{ fontSize: "11px" }}>
                         Ticari Ünvan / Şirket Adı *
                     </label>
@@ -126,8 +143,10 @@ function SelectCustomer() {
                             setSearchTerm(e.target.value);
                             if (e.target.value === "") {
                                 setSelectedCustomer(null);
-                                // Arama silinirse store'daki bu key'in içini temizliyoruz
+                                // Arama silinirse store'daki bu key'in içini temizliyoruz (Teklif no ve revizyonNo korunur)
                                 updateSection("customerInfo", {
+                                    teklifNo: customerInfo.teklifNo || "",
+                                    revizyonNo: customerInfo.revizyonNo || "R0",
                                     ticariUnvan: "",
                                     planetTekIndirim: "",
                                     ekipmanIndirim: "",
@@ -158,6 +177,25 @@ function SelectCustomer() {
                             ))}
                         </ul>
                     )}
+                </div>
+
+                {/* Teklif Numarası */}
+                <div className="col-12 col-md-3">
+                    <label className="form-label mb-1 small fw-medium text-white-50" style={{ fontSize: "11px" }}>
+                        Teklif Numarası (4 Haneli) *
+                    </label>
+                    <input
+                        type="number"
+                        name="teklifNo"
+                        value={customerInfo.teklifNo ?? ""}
+                        onChange={handleTeklifNoChange}
+                        onKeyDown={(e) => ["e", "E", "+", "-", ",", "."].includes(e.key) && e.preventDefault()}
+                        className="form-control form-control-sm text-white fw-bold border-0"
+                        style={{ backgroundColor: "#1e293b", borderRadius: "6px", fontSize: "12px" }}
+                        placeholder="Örn: 1024"
+                        min="1000"
+                        max="9999"
+                    />
                 </div>
 
                 {/* Teklif Dili Seçimi */}

@@ -121,6 +121,23 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
         resolveMontajPrices(formData, priceData)
     ]);
 
+
+    const dinamikOpsiyonKalemleri = Object.entries(camurOpsiyonlari)
+        .filter(([key, value]) => isCamurAktif && value?.secili === true) // Aktif ve seçiliyse al
+        .map(([key, value]) => {
+            // "Burgu Konveyor" gibi boşluklu isimleri id'de güvenle kullanmak için snake_case veya lowercase yapabilirsin
+            const safeIdKey = key.toLowerCase().replace(/\s+/g, '_');
+
+            return {
+                id: `5_${safeIdKey}`,
+                type: 3,
+                piece: value.adet || 1,
+                label: key, // "Konveyör" veya "Burgu Konveyör" orijinal adı korur
+                unitPrice: susuzlastirmaPrices[key] || 0, // Fiyat nesnesinden dinamik key ile oku
+                discount: ekipmanIndirim
+            };
+        });
+
     // 5. Ana Şablon Tanımı (baseTemplate)
     const baseTemplate = [
         { id: "1_ana_mekanik", type: 0, label: "MEKANİK EKİPMANLAR" },
@@ -373,22 +390,7 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
             unitPrice: susuzlastirmaPrices.suzuntuSuyuPompa,
             discount: ekipmanIndirim
         },
-        {
-            id: "5_konveyor_normal",
-            type: 3,
-            piece: isCamurAktif && camurOpsiyonlari?.konveyor?.secili ? (camurOpsiyonlari.konveyor.adet || 1) : 0,
-            label: "Konveyör",
-            unitPrice: susuzlastirmaPrices.konveyorNormal,
-            discount: ekipmanIndirim
-        },
-        {
-            id: "5_konveyor_burgu",
-            type: 3,
-            piece: isCamurAktif && camurOpsiyonlari?.["Burgu Konveyor"]?.secili ? (camurOpsiyonlari["Burgu Konveyor"].adet || 1) : 0,
-            label: "Burgu Konveyör",
-            unitPrice: susuzlastirmaPrices.konveyorBurgu,
-            discount: ekipmanIndirim
-        },
+        ...dinamikOpsiyonKalemleri,
 
         { id: "1_ana_insaat", type: 0, label: "İNŞAAT İŞLERİ" },
         { id: "6_insaat_kanal_izgara", type: 3, piece: isOnAritmaChecked ? 1 : 0, label: "Izgara ve Kum-Yağ Tutucu Kanalı", unitPrice: 0, discount: 0, isUrgent: true },

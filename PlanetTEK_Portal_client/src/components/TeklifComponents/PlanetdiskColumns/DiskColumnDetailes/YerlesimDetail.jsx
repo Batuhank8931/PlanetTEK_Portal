@@ -41,14 +41,21 @@ function YerlesimDetail() {
     const maxDiskAdedi = aritmaParametreleri?.maxDisk;
     const minDiskAdedi = aritmaParametreleri?.minDisk;
 
-    // LOCAL STATELER
+    // LOCAL STATELER (Eğer store'da daha önce kaydedilmiş el ile girişler varsa ilk değer olarak onları alıyoruz)
     const [secilenUnite, setSecilenUnite] = useState(kaydedilmisTasarim.secilenUnite || 1);
     const [secilenSira, setSecilenSira] = useState(kaydedilmisTasarim.secilenSira || 1);
     const [yerlesimDuzeni, setYerlesimDuzeni] = useState(kaydedilmisTasarim.yerlesimDuzeni || []);
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedKademeData, setSelectedKademeData] = useState(null);
     const [hrtInputStr, setHrtInputStr] = useState(minimumBeklemeSuresi.toString());
-    const [manuelSiraDiskleri, setManuelSiraDiskleri] = useState([]);
+    
+    // Manuel disk adetlerini store'dan veya başlangıçta boş arrayden besliyoruz
+    const [manuelSiraDiskleri, setManuelSiraDiskleri] = useState(() => {
+        if (kaydedilmisTasarim.yerlesimSiralanisi && kaydedilmisTasarim.yerlesimSiralanisi.length > 0) {
+            return kaydedilmisTasarim.yerlesimSiralanisi.map(sira => sira.milBasinaDisk);
+        }
+        return [];
+    });
 
     // API Verilerini Çekme ve Sıralı Akış Başlatma
     useEffect(() => {
@@ -93,8 +100,15 @@ function YerlesimDetail() {
         }
     }, [minimumBeklemeSuresi]);
 
+    // Sıra sayısı el ile değiştiğinde array boyutunu koru/güncelle
     useEffect(() => {
-        setManuelSiraDiskleri(Array(secilenSira).fill(null));
+        setManuelSiraDiskleri(prev => {
+            const yeniArray = Array(secilenSira).fill(null);
+            prev.forEach((val, idx) => {
+                if (idx < secilenSira) yeniArray[idx] = val;
+            });
+            return yeniArray;
+        });
     }, [secilenSira]);
 
     // HESAPLAMA UTILS KULLANIMLARI
@@ -108,10 +122,22 @@ function YerlesimDetail() {
         [finalMetrekare, tekDiskAlani]
     );
 
-    // İdeal ünite adedi tetikleyicisi (Sadece loading bittiğinde ve gerçek hacim geldiğinde çalışır)
+    // KİRİTİK DEĞİŞİKLİK: İdeal ünite adedi tetikleyicisi kontrolü
     useEffect(() => {
         if (loading || globalSistemOzet.toplamGerekliDisk === 0) return;
 
+        // EĞER finalMetrekare daha önceden hesaplananla AYNIYSA ve store'da zaten bir yerleşim varsa HESAPLAMA YAPMA!
+        // `lastCalculatedFinalMetrekare` kontrolü ile elindeki yerleşimSiralanisi'nı koru.
+        const eskiFinalMetrekare = kaydedilmisTasarim.lastCalculatedFinalMetrekare;
+        const yeniFinalMetrekareStr = JSON.stringify(finalMetrekare);
+        const eskiFinalMetrekareStr = JSON.stringify(eskiFinalMetrekare);
+
+        if (yeniFinalMetrekareStr === eskiFinalMetrekareStr && kaydedilmisTasarim.yerlesimSiralanisi?.length > 0) {
+            // Parametreler değişmedi, kullanıcının elindeki sıralama ve disk sayıları birebir doğrudur.
+            return;
+        }
+
+        // Eğer ilk defa yükleniyorsa veya finalMetrekare değiştiyse ideal adetleri baştan hesapla
         const idealUniteSayisi = hesaplaIdealUniteAdedi({
             toplamGerekliDisk: globalSistemOzet.toplamGerekliDisk,
             maxDiskAdedi, minDiskAdedi, Q, hacim, minimumBeklemeSuresi, varsayilanSira: 1
@@ -120,7 +146,8 @@ function YerlesimDetail() {
         setSecilenUnite(idealUniteSayisi);
         setSecilenSira(1);
         setYerlesimDuzeni([]);
-    }, [globalSistemOzet.toplamGerekliDisk, maxDiskAdedi, minDiskAdedi, Q, hacim, minimumBeklemeSuresi, loading]);
+        setManuelSiraDiskleri(Array(1).fill(null));
+    }, [globalSistemOzet.toplamGerekliDisk, maxDiskAdedi, minDiskAdedi, Q, hacim, minimumBeklemeSuresi, loading, finalMetrekare]);
 
     const sistemHesabi = useMemo(() => {
         if (loading) return null;
@@ -155,13 +182,18 @@ function YerlesimDetail() {
 
         const guncelTasarimState = {
             ...useTeklifStore.getState().formData?.planetDiskDetails?.tasarim,
-            secilenUnite, secilenSira, yerlesimDuzeni, yerlesimSiralanisi: tumSiralar, minimumBeklemeSuresi
+            secilenUnite, 
+            secilenSira, 
+            yerlesimDuzeni, 
+            yerlesimSiralanisi: tumSiralar, 
+            minimumBeklemeSuresi,
+            lastCalculatedFinalMetrekare: finalMetrekare // Bir sonraki renderda karşılaştırmak için buraya kaydediyoruz!
         };
 
         if (JSON.stringify(useTeklifStore.getState().formData?.planetDiskDetails?.tasarim) === JSON.stringify(guncelTasarimState)) return;
 
         updateSection("planetDiskDetails", { tasarim: guncelTasarimState });
-    }, [tumSiralar, secilenUnite, secilenSira, yerlesimDuzeni, minimumBeklemeSuresi, updateSection, loading]);
+    }, [tumSiralar, secilenUnite, secilenSira, yerlesimDuzeni, minimumBeklemeSuresi, updateSection, loading, finalMetrekare]);
 
     const handleUniteChange = useCallback((adet) => {
         setSecilenUnite(parseInt(adet, 10));

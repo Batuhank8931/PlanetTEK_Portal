@@ -110,10 +110,10 @@ export default async function enerjiIsletmeHesapFonksiyonu(formData) {
         // 7. ÇAMUR SUSUZLAŞTIRMA MODÜLÜ (isCamurAktif)
         ...(isCamurAktif ? [
             { id: "s5", label: "Çamur Susuzlaştırma Ünitesi", isSubHeader: true },
-            { id: "r13", label: "Çamur Besleme Pompası", qty: 1, power: 2.2, consumed: 90, hours: 8 },
+            { id: "r13", label: "Çamur Besleme Pompası", qty: 1, power: 1.5, consumed: 90, hours: 8 },
             { id: "r14", label: `${CamurEkipman}`, qty: 1, power: CamurEkipman === "Dekantör" ? 11.5 : 2.2, consumed: 90, hours: 8 },
-            { id: "r15", label: "Süzüntü Suyu Pompası", qty: 1, power: 2.2, consumed: 90, hours: 8 },
-            { id: "r16", label: "Polimer Dozaj Ünitesi", qty: 1, power: 0.09, consumed: 90, hours: 8 }
+            { id: "r15", label: "Süzüntü Suyu Pompası", qty: 1, power: 0.75, consumed: 90, hours: 8 },
+            { id: "r16", label: "Polimer Dozaj Ünitesi", qty: 1, power: 1.10, consumed: 90, hours: 8 }
         ] : []),
     ];
 

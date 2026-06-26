@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import { useTeklifStore } from "../../utils/teklifStore";
-import { generateInitialData } from "../../utils/OzettabloHesap"; // Dışarıdan export edilen fonksiyonu aldık
+import { ozetTabloHesap } from "../../utils/OzettabloHesap"; // Dışarıdan export edilen fonksiyonu aldık
 
 function OzetTablosu() {
   const formData = useTeklifStore((state) => state.formData);
@@ -18,7 +18,7 @@ function OzetTablosu() {
   // KURAL 2: Eğer store tamamen boşsa (ilk yükleme anı) ve formData geldiyse dataları üretir
   useEffect(() => {
     if (!storeOzetVerisi && formData && Object.keys(formData).length > 0) {
-      const generated = generateInitialData(formData);
+      const generated = ozetTabloHesap(formData);
       setGeneralInfo(generated.generalInfo);
       setParams(generated.params);
       setContent(generated.content);
@@ -55,7 +55,7 @@ function OzetTablosu() {
   const handleRefresh = () => {
     if (!formData) return;
     saveToHistory();
-    const generated = generateInitialData(formData);
+    const generated = ozetTabloHesap(formData);
     setGeneralInfo(generated.generalInfo);
     setParams(generated.params);
     setContent(generated.content);

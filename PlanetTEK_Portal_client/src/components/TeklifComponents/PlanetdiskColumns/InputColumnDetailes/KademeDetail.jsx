@@ -2,6 +2,8 @@ import React, { useEffect, useState, useMemo } from "react";
 import { useTeklifStore } from "../../../../utils/teklifStore"; // Store yolunu kontrol et
 import hesaplaDiskKatsayisiDetayli from "../../../../utils/hesaplaDiskKatsayisiDetayli";
 import EmperikDetail from "./EmperikDetail";
+import API from "../../../../utils/utilRequest";
+
 
 function KademeDetail() {
     // 1. ZUSTAND STORE BAĞLANTISI

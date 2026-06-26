@@ -1,37 +1,53 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
+import { useTeklifStore } from "../../utils/teklifStore";
+import { ekipmanTabloHesap } from "../../utils/ekipmanTablosuHesap";
 
 function EkipmanTablosu() {
-  const [rows, setRows] = useState([
-    { id: "m1", type: "main", label: "MEKANİK EKİPMANLAR" },
-    
-    { id: "e1", type: "equip", label: "Elle Temizlemeli Kaba Izgara", isUrgent: false },
-    { id: "s1_1", type: "spec", label: "Adet", value: "1 Adet" },
-    { id: "s1_2", type: "spec", label: "Malzeme", value: "Epoksi boyalı ST37 Karbon Çelik" },
-    { id: "s1_3", type: "spec", label: "Çubuk Arası Boşluk", value: "25 mm" },
+  const formData = useTeklifStore((state) => state.formData);
+  const updateSection = useTeklifStore((state) => state.updateSection);
 
-    { id: "e2", type: "equip", label: "Dengeleme Tankı Terfi Pompaları", isUrgent: false },
-    { id: "s2_1", type: "spec", label: "Adet", value: "2 adet (1 asil + 1 yedek)" },
-    { id: "s2_2", type: "spec", label: "Kapasite", value: "3 m³/saat @ 10 mSS" },
-    { id: "s2_3", type: "spec", label: "Motor Gücü", value: "1.1 kW" },
-    { id: "s2_4", type: "spec", label: "Malzeme", value: "Pik Döküm Gövde, Paslanmaz Çelik Fan" },
+  // Store içindeki tablo verisini güvenli oku
+  const storeEkipmanTablosuVerisi = formData?.tables?.ekipantablosu;
 
-    { id: "e3", type: "equip", label: "PlanetDISK® MX1 DBD Ünitesi", isUrgent: false },
-    { id: "s3_1", type: "spec", label: "Adet", value: "8 Adet" },
-    { id: "s3_2", type: "spec", label: "Disk Çapı", value: "2.05 m" },
-    { id: "s3_3", type: "spec", label: "Motor Gücü", value: "0.37 kW / Ünite" },
-    
-    { id: "m2", type: "main", label: "İNŞAAT İŞLERİ" },
+  // KURAL 1: Store'da data varsa oradan başlat, yoksa şablondan üret
+  const [rows, setRows] = useState(() => {
+    if (storeEkipmanTablosuVerisi && storeEkipmanTablosuVerisi.content) {
+      return storeEkipmanTablosuVerisi.content;
+    }
+    return ekipmanTabloHesap(formData);
+  });
 
-    { id: "e4", type: "equip", label: "Izgara Kanalı", isUrgent: true },
-    { id: "s4_1", type: "spec", label: "Adet", value: "1 Adet" },
-    { id: "s4_2", type: "spec", label: "Açıklama", value: "İdare tarafından projesine uygun yapılacaktır." },
-
-    { id: "e5", type: "equip", label: "Anoksik Denitrifikasyon Tankı", isUrgent: true },
-    { id: "s5_1", type: "spec", label: "Adet", value: "1 Adet" },
-    { id: "s5_2", type: "spec", label: "Kapasite", value: "Projesine göre" }
-  ]);
-
+  const [loading, setLoading] = useState(!storeEkipmanTablosuVerisi);
   const [history, setHistory] = useState([]);
+
+  // KURAL 2: İlk yüklemede store boşsa ve formData geldiyse datayı üret
+  useEffect(() => {
+    if (!storeEkipmanTablosuVerisi && formData && Object.keys(formData).length > 0) {
+      const generated = ekipmanTabloHesap(formData);
+      setRows(generated);
+      setLoading(false);
+    } else if (storeEkipmanTablosuVerisi) {
+      setLoading(false);
+    }
+  }, [storeEkipmanTablosuVerisi, formData]);
+
+  // KURAL 3: Satırlar her değiştiğinde Store'u günceller
+  useEffect(() => {
+    if (loading) return;
+    updateSection("tables", {
+      ...formData?.tables,
+      ekipantablosu: { content: rows }
+    });
+  }, [rows, loading]);
+
+  // --- ACTIONS ---
+
+  // 🔄 REFRESH (Yenileme) Fonksiyonu
+  const handleRefresh = () => {
+    setHistory([]);
+    const freshRows = ekipmanTabloHesap(formData);
+    setRows(freshRows);
+  };
 
   const saveToHistory = (currentRows) => {
     setHistory([...history, JSON.stringify(currentRows)]);
@@ -48,11 +64,6 @@ function EkipmanTablosu() {
     setRows(rows.map(row => row.id === id ? { ...row, [field]: value } : row));
   };
 
-  const toggleUrgent = (id) => {
-    saveToHistory(rows);
-    setRows(rows.map(row => row.id === id && row.type === "equip" ? { ...row, isUrgent: !row.isUrgent } : row));
-  };
-
   const deleteRow = (id) => {
     saveToHistory(rows);
     setRows(rows.filter(row => row.id !== id));
@@ -60,11 +71,11 @@ function EkipmanTablosu() {
 
   const addNewEquipment = () => {
     saveToHistory(rows);
-    const newId = `equip_${Date.now()}`;
+    const timestamp = Date.now();
     setRows([
-      ...rows, 
-      { id: newId, type: "equip", label: "Yeni Ekipman / Ünite Adı", isUrgent: false },
-      { id: `spec_${Date.now()}_1`, type: "spec", label: "Adet", value: "1 Adet" }
+      ...rows,
+      { id: `equip_${timestamp}`, type: "equip", label: "Yeni Ekipman / Ünite Adı" },
+      { id: `spec_${timestamp}_1`, type: "spec", label: "Adet", value: "1 Adet" }
     ]);
   };
 
@@ -72,88 +83,82 @@ function EkipmanTablosu() {
     saveToHistory(rows);
     const newId = `spec_${Date.now()}`;
     const newSpec = { id: newId, type: "spec", label: "Yeni Özellik", value: "Değer giriniz..." };
-    
+
     const updatedRows = [...rows];
     updatedRows.splice(index + 1, 0, newSpec);
     setRows(updatedRows);
   };
 
   const getRowBg = (row) => {
-    if (row.type === "main") return "#0b1329"; 
-    if (row.type === "equip") return row.isUrgent ? "#991b1b" : "#1e293b"; 
-    return "#151f32"; 
+    if (row.type === "main") return "#0b1329";
+    if (row.type === "equip") return "#1e293b";
+    return "#151f32";
   };
 
   return (
-    <div className="d-flex flex-column gap-3 w-100 text-white">
-      
+    <div className="d-flex flex-column w-100 text-white">
       <style>{`
-        .equip-row {
-          border-bottom: 1px solid #334155;
-          transition: background-color 0.15s ease;
-        }
+        .equip-row { border-bottom: 1px solid #334155; transition: background-color 0.15s ease; }
         .equip-row:last-child { border-bottom: none; }
-        
-        .equip-input {
-          font-size: 12px;
-          box-shadow: none;
-          background: transparent;
-          border: none;
-          color: white;
-          width: 100%;
-          resize: none;
-        }
-        .equip-input:focus {
-          outline: none;
-          background-color: rgba(255, 255, 255, 0.05);
-          border-radius: 4px;
-        }
-        
-        .main-title-input {
-          font-size: 14px;
-          font-weight: 900;
-          color: #94a3b8;
-          text-transform: uppercase;
-          letter-spacing: 1px;
-        }
-        
-        .equip-title-input {
-          font-size: 13px;
-          font-weight: 700;
-          color: white;
-        }
+        .equip-input { font-size: 12px; background: transparent; border: none; color: white; width: 100%; resize: none; }
+        .equip-input:focus { outline: none; background-color: rgba(255, 255, 255, 0.05); border-radius: 4px; }
+        .main-title-input { font-size: 14px; font-weight: 900; color: #94a3b8; text-transform: uppercase; letter-spacing: 1px; }
+        .equip-title-input { font-size: 13px; font-weight: 700; color: white; }
       `}</style>
 
-      <div className="d-flex justify-content-end align-items-center mb-1">
-        <button
-          onClick={handleUndo}
-          disabled={history.length === 0}
-          className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1"
-          style={{ backgroundColor: history.length === 0 ? "#334155" : "#1e3a8a", fontSize: "11px", borderRadius: "6px", opacity: history.length === 0 ? 0.4 : 1 }}
-        >
-          ↶ 
-        </button>
+      {/* ÜST KONTROL PANELİ */}
+      <div className="d-flex justify-content-between align-items-center p-3" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
+        <div className="fw-semibold text-white" style={{ fontSize: "14px" }}>
+          Ekipman Listesi
+        </div>
+
+        <div className="d-flex gap-2">
+          {/* 🔄 YENİLE BUTONU */}
+          <button
+            onClick={handleRefresh}
+            className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
+            style={{ backgroundColor: "#d97706", fontSize: "11px", borderRadius: "6px" }}
+            title="Tabloyu İlk Hesaplanan Ayarlarına Döndür"
+          >
+            🔄 Yenile
+          </button>
+
+          {/* ↶ GERİ AL BUTONU */}
+          <button
+            onClick={handleUndo}
+            disabled={history.length === 0}
+            className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1"
+            style={{
+              backgroundColor: history.length === 0 ? "#334155" : "#1e3a8a",
+              fontSize: "11px",
+              borderRadius: "6px",
+              opacity: history.length === 0 ? 0.4 : 1
+            }}
+          >
+            ↶
+          </button>
+        </div>
       </div>
 
+
+      {/* TABLO ALANI */}
       <div className="w-100" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
         <div className="d-flex flex-column rounded-3 overflow-hidden" style={{ border: "1px solid #334155", minWidth: "800px" }}>
-          
           {rows.map((row, index) => {
-            
             if (row.type === "main") {
               return (
                 <div key={row.id} className="d-flex align-items-stretch equip-row" style={{ backgroundColor: getRowBg(row) }}>
                   <div className="p-2 px-3 d-flex align-items-center" style={{ width: "94%" }}>
-                    <input 
-                      type="text" 
-                      className="equip-input main-title-input text-center" 
-                      value={row.label} 
-                      onChange={(e) => handleChange(row.id, "label", e.target.value)} 
+                    <input
+                      type="text"
+                      className="equip-input main-title-input text-center"
+                      value={row.label}
+                      onChange={(e) => handleChange(row.id, "label", e.target.value)}
                     />
                   </div>
                   <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
                   <div className="p-1 d-flex align-items-center justify-content-center" style={{ width: "6%" }}>
-                    <button onClick={() => deleteRow(row.id)} className="btn btn-sm p-0 border-0 text-danger opacity-40 hover-opacity-100" style={{ fontSize: "16px" }}>&times;</button>
+                    <button onClick={() => deleteRow(row.id)} className="btn btn-sm p-0 border-0 text-danger" style={{ fontSize: "16px" }}>&times;</button>
                   </div>
                 </div>
               );
@@ -163,58 +168,58 @@ function EkipmanTablosu() {
               return (
                 <div key={row.id} className="d-flex align-items-stretch equip-row" style={{ backgroundColor: getRowBg(row) }}>
                   <div className="p-2 px-3 d-flex align-items-center" style={{ width: "94%" }}>
-                    <input 
-                      type="text" 
-                      className="equip-input equip-title-input" 
-                      value={row.label} 
-                      onChange={(e) => handleChange(row.id, "label", e.target.value)} 
+                    <input
+                      type="text"
+                      className="equip-input equip-title-input"
+                      value={row.label}
+                      onChange={(e) => handleChange(row.id, "label", e.target.value)}
                     />
                   </div>
                   <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
                   <div className="p-1 d-flex align-items-center justify-content-center gap-2" style={{ width: "6%" }}>
-                    <button onClick={() => toggleUrgent(row.id)} className="btn btn-sm p-0 border-0 text-warning opacity-60 hover-opacity-100" style={{ fontSize: "14px" }} title="Kırmızı Vurgu">★</button>
-                    <button onClick={() => insertSpecAfter(index)} className="btn btn-sm p-0 border-0 text-success opacity-60 hover-opacity-100 fw-bold" style={{ fontSize: "16px", lineHeight: "1" }} title="Özellik Ekle">+</button>
-                    <button onClick={() => deleteRow(row.id)} className="btn btn-sm p-0 border-0 text-danger opacity-40 hover-opacity-100" style={{ fontSize: "16px", lineHeight: "1" }} title="Ekipmanı Sil">&times;</button>
+                    <button onClick={() => insertSpecAfter(index)} className="btn btn-sm p-0 border-0 text-success fw-bold" style={{ fontSize: "16px", lineHeight: "1" }} title="Özellik Ekle">+</button>
+                    <button onClick={() => deleteRow(row.id)} className="btn btn-sm p-0 border-0 text-danger" style={{ fontSize: "16px", lineHeight: "1" }} title="Ekipmanı Sil">&times;</button>
                   </div>
                 </div>
               );
             }
 
+            // Spec Tipi Satırlar (Özellikler)
             return (
               <div key={row.id} className="d-flex align-items-stretch equip-row" style={{ backgroundColor: getRowBg(row) }}>
                 <div className="p-2 px-4 d-flex align-items-start border-end" style={{ width: "30%", borderColor: "#334155" }}>
-                  <textarea 
+                  <textarea
                     rows={1}
-                    className="equip-input fw-medium text-white-50" 
-                    value={row.label} 
-                    onChange={(e) => handleChange(row.id, "label", e.target.value)} 
+                    className="equip-input fw-medium text-white-50"
+                    value={row.label}
+                    onChange={(e) => handleChange(row.id, "label", e.target.value)}
                   />
                 </div>
-                
+
                 <div className="p-2 px-3 d-flex align-items-start" style={{ width: "64%" }}>
-                  <textarea 
-                    rows={row.value.length > 50 ? 2 : 1}
-                    className="equip-input fw-bold" 
-                    value={row.value} 
-                    onChange={(e) => handleChange(row.id, "value", e.target.value)} 
+                  <textarea
+                    rows={row.value && row.value.length > 50 ? 2 : 1}
+                    className="equip-input fw-bold"
+                    value={row.value || ""}
+                    onChange={(e) => handleChange(row.id, "value", e.target.value)}
                   />
                 </div>
-                
+
                 <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                
+
                 <div className="p-1 d-flex align-items-center justify-content-center gap-2" style={{ width: "6%" }}>
-                  <button onClick={() => insertSpecAfter(index)} className="btn btn-sm p-0 border-0 text-success opacity-50 hover-opacity-100 fw-bold" style={{ fontSize: "15px", lineHeight: "1" }} title="Altına Özellik Ekle">+</button>
-                  <button onClick={() => deleteRow(row.id)} className="btn btn-sm p-0 border-0 text-danger opacity-40 hover-opacity-100" style={{ fontSize: "16px", lineHeight: "1" }} title="Özelliği Sil">&times;</button>
+                  <button onClick={() => insertSpecAfter(index)} className="btn btn-sm p-0 border-0 text-success fw-bold" style={{ fontSize: "15px", lineHeight: "1" }} title="Altına Özellik Ekle">+</button>
+                  <button onClick={() => deleteRow(row.id)} className="btn btn-sm p-0 border-0 text-danger" style={{ fontSize: "16px", lineHeight: "1" }} title="Özelliği Sil">&times;</button>
                 </div>
               </div>
             );
-            
           })}
         </div>
       </div>
 
+      {/* ALT EKLEME BUTONLARI */}
       <div className="d-flex justify-content-start gap-2 mt-2">
-        <button 
+        <button
           onClick={addNewEquipment}
           className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1"
           style={{ backgroundColor: "#2e7d32", fontSize: "11px", borderRadius: "6px" }}
@@ -222,7 +227,7 @@ function EkipmanTablosu() {
           <span style={{ fontSize: "14px" }}>+</span> Yeni Ekipman Grubu Ekle
         </button>
 
-        <button 
+        <button
           onClick={() => {
             saveToHistory(rows);
             setRows([...rows, { id: `main_${Date.now()}`, type: "main", label: "YENİ ANA KATEGORİ" }]);
@@ -233,7 +238,6 @@ function EkipmanTablosu() {
           <span style={{ fontSize: "14px" }}>+</span> Yeni Ana Başlık Ekle
         </button>
       </div>
-
     </div>
   );
 }

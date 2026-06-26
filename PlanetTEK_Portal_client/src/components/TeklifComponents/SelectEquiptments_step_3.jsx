@@ -1,4 +1,4 @@
-import React, { useState } from "react"; // 🌟 useState eklendi
+import React, { useState, useEffect } from "react"; // 🌟 useEffect eklendi
 import { useTeklifStore } from "../../utils/teklifStore";
 import { motion, AnimatePresence } from "framer-motion";
 import LoadingEkrani from "../modals/LoadingEkrani";
@@ -19,12 +19,11 @@ const DETAIL_COMPONENTS = {
 };
 
 // Modül ID'leri ile store'daki veri key'lerinin eşleşme haritası
-// (filtrasyon -> filtrationSystem farkını çözmek için)
 const MODULE_DATA_KEYS = {
   onAritma: "onAritma",
   feedPump: "feedPump",
   ileriAritma: "ileriAritma",
-  filtrasyon: "filtrationSystem", // Store'da filtrationSystem olarak kayıtlı
+  filtrasyon: "filtrationSystem",
   sludgeDewatering: "sludgeDewatering"
 };
 
@@ -64,23 +63,81 @@ function SelectEquiptments() {
 
   const syncEquipmentsStore = (nextModules) => {
     updateSection("equipments", {
-      ...equipmentsCache, // Mevcut diğer dataları kaybetmemek için spread ediyoruz
+      ...equipmentsCache,
       modulesState: nextModules,
     });
   };
 
+  const formatDate = () => {
+    return new Intl.DateTimeFormat('tr-TR', {
+      day: '2-digit',
+      month: '2-digit',
+      year: 'numeric'
+    }).format(new Date()).replace(/\./g, ' ');
+  };
+
+  const planetDiskDetails = formData.planetDiskDetails || {};
+  const aritmaParametreleriObjesi = formData.planetDiskDetails?.tasarim?.aritmaParametreleri || {};
+  const girisBoi = aritmaParametreleriObjesi.girisBoi || 0;
+  const debiM3 = parseFloat(planetDiskDetails.debi || 0).toFixed(0);
+  const organikYukKg = ((debiM3 * girisBoi) / 1000).toFixed(0);
+  const rbcModeli = planetDiskDetails?.tasarim?.aritmaParametreleri?.RBCUnite || "MX";
+  const yerlesimListesi = planetDiskDetails?.tasarim?.yerlesimSiralanisi || [];
+
+  const toplamRbcAdeti = yerlesimListesi
+    .filter(y => y.isLamella === false)
+    .reduce((sum, curr) => sum + (parseInt(curr.adet) || 0), 0);
+
+  const projeToplamDisk = yerlesimListesi
+    .filter(y => y.isLamella === false)
+    .reduce((sum, curr) => {
+      const adet = parseInt(curr.adet) || 0;
+      const milBasinaDisk = parseInt(curr.milBasinaDisk) || 0;
+      return sum + (adet * milBasinaDisk);
+    }, 0);
+
+  // 🌟 OTO RE-RENDER TEKLİF NO OLUŞTURMA SİHİRBAZI (useEffect)
+  useEffect(() => {
+    if (!formData.equipments?.modulesState) return;
+
+    const A_p = formData.equipments.modulesState.filtrasyon?.checked ? "YDS" : "YDD";
+    const B_p = formData.customerInfo?.revizyonNo || "";
+    const C_p = formatDate();
+    const D_p = toplamRbcAdeti;
+    const E_p = rbcModeli === "MX" ? "MX 1" : "MINI";
+    const F_p = debiM3;
+    const G_p = organikYukKg;
+    const H_p = projeToplamDisk;
+
+    const current_offer_number = [A_p, B_p, C_p, D_p, E_p, F_p, G_p, H_p].join(" ");
+
+    // Sonsuz döngüyü (Infinite Render Loop) engellemek için kontrol
+    if (formData.offer_number !== current_offer_number) {
+      updateSection("customerInfo", {
+        ...formData.customerInfo,
+        offer_number: current_offer_number
+      });
+    }
+  }, [
+    formData.equipments?.modulesState?.filtrasyon?.checked,
+    formData.customerInfo?.revizyonNo,
+    toplamRbcAdeti,
+    rbcModeli,
+    debiM3,
+    organikYukKg,
+    projeToplamDisk
+  ]);
+
   // SİHİRLİ EKİPMAN HESAPLAMA VE TEMİZLEME OTOMASYONU 🔄🌟
   const handleAutoCalculateEquipments = async () => {
     setIsGenerating(true);
-
     resetEquipments();
-    // 1. ADIM: Seçili olmayan modüllerin datalarını store'dan temizle
 
-    // Temizlenmiş objeyi ve tüm visited durumlarını sıfırlayarak store'a yaz
+    // 1. ADIM: Seçili olmayan modüllerin datalarını store'dan temizle
     let currentModulesState = Object.keys(modules).reduce((acc, key) => {
       acc[key] = {
         ...modules[key],
-        visited: false, // Baştan hesaplanacağı için visited'ları sıfırla
+        visited: false,
         isActiveTab: false
       };
       return acc;
@@ -90,14 +147,13 @@ function SelectEquiptments() {
       modulesState: currentModulesState
     });
 
-    // 2. ADIM: Sadece seçili olan sekmeleri sırayla gezerek render et (useEffect tetiklensin)
+    // 2. ADIM: Sadece seçili olan sekmeleri sırayla gezerek render et
     const checkedModules = Object.values(modules).filter(m => m.checked);
 
     for (let i = 0; i < checkedModules.length; i++) {
       const currentMod = checkedModules[i];
       setGeneratingModuleName(currentMod.label);
 
-      // Sekmeyi aktif et ve visited'ı true yap (Böylece alt component mount olur)
       currentModulesState = Object.keys(currentModulesState).reduce((acc, key) => {
         acc[key] = {
           ...currentModulesState[key],
@@ -109,7 +165,7 @@ function SelectEquiptments() {
 
       updateSection("equipments", { modulesState: currentModulesState });
 
-      // Component'in içindeki formüllerin çalışması ve store'u güncellemesi için bekleme süresi
+      // Alt component formüllerinin tetiklenmesi için bekleme süresi
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
 
@@ -193,7 +249,6 @@ function SelectEquiptments() {
         version="EQ-V10"
       />
 
-      {/* Adım Başlığı ve Tetikleyici Buton */}
       <div className="d-flex align-items-center justify-content-between">
         <div className="d-flex align-items-center flex-grow-1">
           <span className="fw-bold text-uppercase pe-2" style={{ fontSize: "11px", letterSpacing: "0.7px", color: "#00874e" }}>
@@ -202,7 +257,6 @@ function SelectEquiptments() {
           <div className="flex-grow-1 border-bottom" style={{ borderColor: "rgba(255,255,255,0.1)" }}></div>
         </div>
 
-        {/* HESAPLAMA BUTONU 🔄 */}
         <button
           type="button"
           onClick={handleAutoCalculateEquipments}
@@ -227,7 +281,6 @@ function SelectEquiptments() {
         </span>
       </div>
 
-      {/* ZORUNLULUK KONTROL UYARI BANNERI */}
       <AnimatePresence>
         {hasUnvisitedActiveModule && (
           <motion.div
@@ -243,10 +296,7 @@ function SelectEquiptments() {
         )}
       </AnimatePresence>
 
-      {/* ANA DÜZEN */}
       <div className="row g-3" style={{ minHeight: "250px" }}>
-
-        {/* SOL KOLON: MODÜL SEÇİM VE KONTROL */}
         <div className="col-md-4 col-12 border-end" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
           <div className="d-flex flex-column gap-2 pe-2">
             <span className="text-white-50 mb-1 d-block" style={{ fontSize: "10px", fontWeight: "600", textTransform: "uppercase" }}>
@@ -323,11 +373,9 @@ function SelectEquiptments() {
           </div>
         </div>
 
-        {/* SAĞ KOLON: DİNAMİK ÖZELLİK DETAY ALANI */}
         <div className="col-md-8 col-12 d-flex flex-column justify-content-center">
           {Object.values(modules).some(m => m.checked) ? (
             <div className="p-3 rounded" style={{ backgroundColor: "#1e293b", border: "1px solid #334155", height: "100%", overflow: "hidden" }}>
-
               <AnimatePresence mode="wait">
                 {activeTabId && modules[activeTabId]?.checked ? (
                   <motion.div
@@ -352,7 +400,6 @@ function SelectEquiptments() {
                   </motion.div>
                 )}
               </AnimatePresence>
-
             </div>
           ) : (
             <div className="text-center p-4 text-muted border rounded border-dashed" style={{ borderColor: "#334155", fontSize: "11px" }}>
@@ -361,7 +408,6 @@ function SelectEquiptments() {
             </div>
           )}
         </div>
-
       </div>
     </div>
   );

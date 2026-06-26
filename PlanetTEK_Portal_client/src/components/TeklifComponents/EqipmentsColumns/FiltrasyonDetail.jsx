@@ -133,6 +133,15 @@ function FiltrasyonDetail() {
     const pompaMatch = dbOnKlorlama.find(x => x.id === parseInt(currentKlorPompaId)) || {};
     const tankMatch = dbOnKlorlama.find(x => x.id === parseInt(currentKlorTankId)) || {};
 
+    // KAPASİTE VERİLERİNİN AYIKLANMASI
+    const pompaKapasite = pompaMatch.ekipman_adi
+      ? pompaMatch.ekipman_adi.match(/\(([^)]+)\)/)?.[1] || pompaMatch.ekipman_adi
+      : "";
+
+    const tankKapasite = tankMatch.ekipman_adi
+      ? parseFloat(tankMatch.ekipman_adi.match(/(\d+)\s*(lt|Litre)/i)?.[1]) || ""
+      : "";
+
     return {
       separatorDebi: currentSeparatorDebi,
       kumDebi: currentKumDebi,
@@ -144,7 +153,9 @@ function FiltrasyonDetail() {
       klorPompaId: currentKlorPompaId,
       klorPompaAdi: pompaMatch.ekipman_adi || "—",
       klorTankId: currentKlorTankId,
-      klorTankAdi: tankMatch.ekipman_adi || "—"
+      klorTankAdi: tankMatch.ekipman_adi || "—",
+      dozajPompasiKapasitesi: pompaKapasite, // KAPASİTE 1
+      kimyasalTankKapasitesi: tankKapasite    // KAPASİTE 2
     };
   }, [idealDegerler, selectedSeparatorDebi, selectedKumDebi, selectedKarbonDebi, selectedFeedDebi, selectedBwDebi, selectedKlorPompaId, selectedKlorTankId, dbFeedPumps, dbBackwashPumps, dbOnKlorlama]);
 
@@ -161,7 +172,9 @@ function FiltrasyonDetail() {
         pompaId: aktifSecimler.klorPompaId,
         pompaAdi: aktifSecimler.klorPompaAdi,
         tankId: aktifSecimler.klorTankId,
-        tankAdi: aktifSecimler.klorTankAdi
+        tankAdi: aktifSecimler.klorTankAdi,
+        dozajPompasiKapasitesi: aktifSecimler.dozajPompasiKapasitesi, // STORE'A EKLENDİ
+        kimyasalTankKapasitesi: aktifSecimler.kimyasalTankKapasitesi  // STORE'A EKLENDİ
       },
       pompalar: {
         besleme: { debiM3h: aktifSecimler.feedDebi, kw: aktifSecimler.feedKw },

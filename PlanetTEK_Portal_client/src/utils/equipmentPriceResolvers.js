@@ -479,17 +479,15 @@ export async function resolveFiltrationPrices(filtrationObj, priceData) {
  * priceData: { teklifDili: "Yerli" } veya { isYurtIci: true }
  */
 export async function resolveSusuzlastirmaPrices(sludgeObj, priceData) {
-
     const isYurtIci = priceData?.teklifDili === "Yerli" || priceData?.isYurtIci === true;
 
+    // Temel ana ekipmanlar yine sabit kalabilir
     const results = {
         camurBeslemePompa: 0,
         dekantor: 0,
         filtrepress: 0,
         polimerUnitesi: 0,
-        suzuntuSuyuPompa: 0,
-        konveyorNormal: 0,
-        konveyorBurgu: 0
+        suzuntuSuyuPompa: 0
     };
 
     try {
@@ -497,7 +495,6 @@ export async function resolveSusuzlastirmaPrices(sludgeObj, priceData) {
         const dbRows = response?.data?.data || response?.data || [];
 
         if (dbRows.length > 0) {
-            // Helper function: Tip ve kapasiteye göre fiyata float olarak gezinme sağlasın
             const getPrice = (type, capacity = null) => {
                 const found = dbRows.find(item => {
                     const typeMatch = String(item.ekipman_tipi).trim().toLowerCase() === type.toLowerCase();
@@ -512,7 +509,7 @@ export async function resolveSusuzlastirmaPrices(sludgeObj, priceData) {
                 return 0;
             };
 
-            // 1. Ana Ekipman Çözümleme (Seçilen tipe göre Dekantör veya Filtrepress)
+            // 1. Ana Ekipman Çözümleme
             const secilenTip = String(sludgeObj?.ekipmanTipi || "").trim().toLowerCase();
             const anaKapasite = sludgeObj?.anaEkipman?.kapasite_degeri;
 
@@ -532,10 +529,16 @@ export async function resolveSusuzlastirmaPrices(sludgeObj, priceData) {
                 results.suzuntuSuyuPompa = getPrice("suzuntu_pompasi", sludgeObj.suzuntuPompasi.kapasite_degeri);
             }
 
-            // 4. Sabit/Global Opsiyon Kalemleri (Kapasite bağımsız doğrudan tipten çekiyoruz)
+            // 4. Sabit/Global Opsiyon Kalemleri
             results.polimerUnitesi = getPrice("polimer_unitesi");
-            results.konveyorNormal = getPrice("konveyor");
-            results.konveyorBurgu = getPrice("Burgu Konveyor");
+
+            // --- DİNAMİK OPSİYON ÇÖZÜMLEME KISMI ---
+            // sludgeObj.opsiyonlar altındaki tüm key'leri ("konveyor", "Burgu Konveyor" vb.) dönüyoruz
+            const opsiyonlar = sludgeObj?.opsiyonlar || {};
+            Object.keys(opsiyonlar).forEach(opsiyonKey => {
+                // DB'deki ekipman_tipi ile eşleştirip fiyatını doğrudan results objesine ekliyoruz
+                results[opsiyonKey] = getPrice(opsiyonKey);
+            });
         }
 
     } catch (error) {

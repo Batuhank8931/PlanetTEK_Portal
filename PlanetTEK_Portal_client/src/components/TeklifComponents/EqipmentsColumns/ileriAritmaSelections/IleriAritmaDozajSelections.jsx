@@ -139,12 +139,23 @@ function IleriAritmaDozajSelections() {
         ? secilenTankObj.ekipman_adi 
         : "---";
 
+      // YENİ DATALARIN AYIKLANMASI (Örn: "5 L/h @ 5 Bar" veya "200")
+      const dozajPompasiKapasitesi = secilenPompaObj
+        ? secilenPompaObj.ekipman_adi.match(/\(([^)]+)\)/)?.[1] || secilenPompaObj.ekipman_adi
+        : "";
+        
+      const kimyasalTankKapasitesi = secilenTankObj
+        ? parseFloat(secilenTankObj.ekipman_adi.match(/(\d+)\s*(lt|Litre)/i)?.[1]) || ""
+        : "";
+
       if (
         storeDozajSelections.dozajPompasi !== dozajPompasiString ||
         storeDozajSelections.kimyasalTanki !== kimyasalTankString ||
         storeDozajSelections.secilenPompaId !== finalPompaId ||
         storeDozajSelections.secilenTankId !== finalTankId ||
-        storeDozajSelections.gerekliFe === undefined
+        storeDozajSelections.gerekliFe === undefined ||
+        storeDozajSelections.dozajPompasiKapasitesi !== dozajPompasiKapasitesi ||
+        storeDozajSelections.kimyasalTankKapasitesi !== kimyasalTankKapasitesi
       ) {
         updateSection("equipments", {
           ...equipmentsCache,
@@ -162,7 +173,9 @@ function IleriAritmaDozajSelections() {
               dozajPompasi: dozajPompasiString,
               kimyasalTanki: kimyasalTankString,
               pompaBirimFiyat: secilenPompaObj?.alis_fiyati || 0,
-              tankBirimFiyat: secilenTankObj?.alis_fiyati || 0
+              tankBirimFiyat: secilenTankObj?.alis_fiyati || 0,
+              dozajPompasiKapasitesi: dozajPompasiKapasitesi, // EKLENEN DATA 1
+              kimyasalTankKapasitesi: kimyasalTankKapasitesi  // EKLENEN DATA 2
             }
           }
         });
@@ -171,7 +184,7 @@ function IleriAritmaDozajSelections() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hesaplananDegerler, apiEquipments]);
 
-  // 5. MANUEL DROPDOWN VE INPUT YÖNETİMİ (Kritik Düzeltme Alanı)
+  // 5. MANUEL DROPDOWN VE INPUT YÖNETİMİ
   const handleInputChange = (field, value) => {
     let nextState = { ...storeDozajSelections };
 
@@ -181,14 +194,17 @@ function IleriAritmaDozajSelections() {
       const currentPompaAdedi = parseInt(storeDozajSelections.pompaAdedi ?? hesaplananDegerler.pompaAdedi, 10) || 1;
 
       if (secilenPompaObj) {
+        const pompaKapasite = secilenPompaObj.ekipman_adi.match(/\(([^)]+)\)/)?.[1] || secilenPompaObj.ekipman_adi;
         nextState = {
           ...nextState,
           secilenPompaId: targetId,
           dozajPompasi: `${currentPompaAdedi} Adet ${secilenPompaObj.ekipman_adi}`,
-          pompaBirimFiyat: secilenPompaObj.alis_fiyati || 0
+          pompaBirimFiyat: secilenPompaObj.alis_fiyati || 0,
+          dozajPompasiKapasitesi: pompaKapasite // MANUEL SEÇİMDE GÜNCELLEME
         };
       } else {
         nextState.secilenPompaId = targetId;
+        nextState.dozajPompasiKapasitesi = "";
       }
     } 
     else if (field === "secilenTankId") {
@@ -196,21 +212,23 @@ function IleriAritmaDozajSelections() {
       const secilenTankObj = apiEquipments.find(e => String(e.id) === targetId);
 
       if (secilenTankObj) {
+        const tankKapasite = parseFloat(secilenTankObj.ekipman_adi.match(/(\d+)\s*(lt|Litre)/i)?.[1]) || "";
         nextState = {
           ...nextState,
           secilenTankId: targetId,
           kimyasalTanki: secilenTankObj.ekipman_adi,
-          tankBirimFiyat: secilenTankObj.alis_fiyati || 0
+          tankBirimFiyat: secilenTankObj.alis_fiyati || 0,
+          kimyasalTankKapasitesi: tankKapasite // MANUEL SEÇİMDE GÜNCELLEME
         };
       } else {
         nextState.secilenTankId = targetId;
+        nextState.kimyasalTankKapasitesi = "";
       }
     } 
     else if (field === "pompaAdedi") {
       const targetCount = value === "" ? "" : parseInt(value, 10) || 0;
       nextState.pompaAdedi = targetCount;
 
-      // Adet değişince üst metni de (Örn: "2 Adet Prominent...") anlık güncelle
       const asilPompaId = storeDozajSelections.secilenPompaId || hesaplananDegerler.otomatikPompaId;
       const secilenPompaObj = apiEquipments.find(e => String(e.id) === String(asilPompaId));
       if (secilenPompaObj) {
@@ -218,7 +236,6 @@ function IleriAritmaDozajSelections() {
       }
     } 
     else {
-      // Diğer sayısal manuel input girişleri (gerekliFe, gerekliFeCl3 vb.)
       nextState[field] = value === "" ? "" : parseFloat(value) || 0;
     }
 

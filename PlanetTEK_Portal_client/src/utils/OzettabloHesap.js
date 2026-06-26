@@ -1,9 +1,12 @@
 // utils/OzettabloHesap.js
 
-export const generateInitialData = (formData) => {
+export const ozetTabloHesap = (formData) => {
     // 1. İndirimler ve Genel Bilgiler
     const customerInfo = formData?.customerInfo;
     const teklifDili = formData?.customerInfo?.teklifDili || "Yabancı";
+
+    const teklifNo = formData.customerInfo.teklifNo;
+    const refNO = formData.customerInfo.offer_number;
 
     // 2. Input Detayları
     const planetDiskDetails = formData.planetDiskDetails || {};
@@ -26,6 +29,41 @@ export const generateInitialData = (formData) => {
     const toplamMilAdet = rbcSiralari.reduce((sum, item) => sum + (parseInt(item.adet) || 0), 0);
     const toplamDiskSayisi = toplamMilAdet * milBasinaDisk;
     const beklemeSuresi = parseFloat(rbcSiralari[0]?.beklemeSuresi) || 0;
+
+    const projeToplamDisk = yerlesimListesi
+        .filter(y => y.isLamella === false)
+        .reduce((sum, curr) => {
+            const adet = parseInt(curr.adet) || 0;
+            const milBasinaDisk = parseInt(curr.milBasinaDisk) || 0;
+
+            return sum + (adet * milBasinaDisk);
+        }, 0);
+
+
+    const diskGruplari = yerlesimListesi
+        .filter(y => y.isLamella === false)
+        .reduce((acc, curr) => {
+            const diskSayisi = parseInt(curr.milBasinaDisk) || 0;
+            const adet = parseInt(curr.adet) || 0;
+
+            if (diskSayisi > 0) {
+                acc[diskSayisi] = (acc[diskSayisi] || 0) + adet;
+            }
+            return acc;
+        }, {}); // Örn çıktı: { "100": 2 } veya { "100": 5, "110": 6 }
+
+
+    const grupAnahtarlari = Object.keys(diskGruplari);
+
+    // 3. Grup sayısına göre string'i oluştur
+    const uniteBasinaDiskSayisi = grupAnahtarlari.length === 1
+        ? `${grupAnahtarlari[0]}` // Tek tip disk varsa
+        : grupAnahtarlari.map(disk => `${disk} disk / ${diskGruplari[disk]} ünite`).join(" , "); // Farklı tip diskler varsa
+
+    const uniteBasinaDiskAlani = grupAnahtarlari.length === 1
+        ? `${(grupAnahtarlari[0] * (rbcModeli === "MINI" ? 2.6 : 6.6)).toFixed(2)}` // Tek tip disk varsa
+        : grupAnahtarlari.map(disk => `${disk * (rbcModeli === "MINI" ? 2.6 : 6.6)} m² / ${diskGruplari[disk]} ünite`).join(" , "); // Farklı tip diskler varsa
+
 
     // 4. Lamella detayları
     const lamellaObj = formData?.planetDiskDetails?.tasarim?.lamella || {};
@@ -86,9 +124,16 @@ export const generateInitialData = (formData) => {
     const polimerAdet = polimerUnitesiObjesi.adet || 0;
     const opsiyonlar = sludgeObj.opsiyonlar || {};
 
+    const formatDate = () => {
+        return new Intl.DateTimeFormat('tr-TR', {
+            year: 'numeric'
+        }).format(new Date()).replace(/\./g, ' ');
+        // Intl.DateTimeFormat her zaman sistemin o anki taze yılını (örn: 2026) dinamik olarak alır.
+    };
+
     const initialGeneralInfo = {
-        offerNo: customerInfo?.teklifNo || "2026 / 3500",
-        refNo: `YİD R0 01 01 2026 ${toplamRbcAdeti} ${rbcModeli || 'MX'} 1 ${debiM3.toFixed(0)} ${organikYukKg} 0`,
+        offerNo: `${formatDate()} / ${teklifNo} `,
+        refNo: refNO,
         clientName: customerInfo?.ticariUnvan || "-",
     };
 
@@ -102,19 +147,19 @@ export const generateInitialData = (formData) => {
         { id: 7, label: "- Atıksu Sıcaklığı", value: String(sicaklik || "19"), unit: "°C" },
         { id: 8, label: "- PlanetDISK® Ünitesi Alıkonma Süresi", value: beklemeSuresi.toFixed(2), unit: "saat" },
         { id: 9, label: `- PlanetDISK® ${rbcModeli || 'MX'} 1 DBD Ünitesi Sayısı`, value: String(toplamMilAdet), unit: "adet" },
-        { id: 10, label: "- Disk Adedi", value: String(milBasinaDisk), unit: "adet/ünite" },
+        { id: 10, label: "- Disk Adedi", value: uniteBasinaDiskSayisi, unit: "adet/ünite" },
         { id: 11, label: "- Disk Çapı", value: rbcModeli === "MINI" ? "1,30" : "2,05", unit: "m" },
         { id: 12, label: "- 1 Diskin Yüzey Alanı", value: rbcModeli === "MINI" ? "2,60" : "6,60", unit: "m²/disk" },
-        { id: 13, label: `- PlanetDISK® ${rbcModeli || 'MX'} 1 DBD Ünitesi Yüzey Alanı`, value: (milBasinaDisk * (rbcModeli === "MINI" ? 2.6 : 6.6)).toFixed(2), unit: "m²/ünite" },
-        { id: 14, label: "- Bu Projedeki Toplam Disk Yüzey Alanı", value: (toplamDiskSayisi * (rbcModeli === "MINI" ? 2.6 : 6.6)).toFixed(2), unit: "m²" },
+        { id: 13, label: `- PlanetDISK® ${rbcModeli || 'MX'} 1 DBD Ünitesi Yüzey Alanı`, value: uniteBasinaDiskAlani, unit: "m²/ünite" },
+        { id: 14, label: "- Bu Projedeki Toplam Disk Yüzey Alanı", value: (projeToplamDisk * (rbcModeli === "MINI" ? 2.6 : 6.6)).toFixed(2), unit: "m²" },
         { id: 15, label: `- Lamella Seperatör ${lamellaModeli} Son Çöktürme Tankı`, value: String(lamellaAdet), unit: "adet" },
         { id: 16, label: `- 1 Adet Lamella Seperatör ${lamellaModeli} Son Çöktürme Tankı`, value: lamellaAlani.toFixed(0), unit: "m²/ünite" },
         { id: 17, label: `- Lamella Seperatör ${lamellaModeli} Son Çöktürme Tankı Toplam Yüzey Alanı`, value: (lamellaAlani * lamellaAdet).toFixed(0), unit: "m²" }
     ];
 
     const initialContent = [
-        { id: 1, isChecked: modulesState.onAritma?.checked || false, qty: "1", unit: "set", desc: izgaraTipi === "Manuel Izgara" ? "Elle Temizlemeli Kaba Izgara" : "Otomatik Mekanik Izgara" },
-        { id: 2, isChecked: modulesState.onAritma?.checked || false, qty: "1", unit: "set", desc: izgaraTipi === "Manuel Izgara" ? "Elle Temizlemeli İnce Izgara" : "Otomatik İnce Izgara" },
+        { id: 1, isChecked: modulesState.onAritma?.checked || false, qty: "1", unit: "set", desc: izgaraTipi === "Manuel Izgara" ? "Elle Temizlemeli Kaba Izgara" : "Otomatik Temizlemeli Kaba Izgara" },
+        { id: 2, isChecked: modulesState.onAritma?.checked || false, qty: "1", unit: "set", desc: izgaraTipi === "Manuel Izgara" ? "Elle Temizlemeli İnce Izgara" : "Otomatik Temizlemeli İnce Izgara" },
         { id: 3, isChecked: modulesState.onAritma?.checked || false, qty: "4", unit: "adet", desc: "Kum-Yağ Tutucu Plakaları" },
         { id: 4, isChecked: modulesState.feedPump?.checked || false, qty: ToplamFeedpompaAdeti, unit: "adet", desc: "Dengeleme Tankı Terfi Pompaları" },
         { id: 5, isChecked: true, qty: String(toplamMilAdet), unit: "adet", desc: `PlanetDISK® ${rbcModeli || 'MX'} 1 DBD Ünitesi` },

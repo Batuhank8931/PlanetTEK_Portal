@@ -28,7 +28,7 @@ const AutoResizeTextarea = ({ value, onChange, disabled, style, className }) => 
     );
 };
 
-function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellChange, insertAfterRow, deleteRow, handleRefresh }) {
+function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellChange, insertAfterRow, deleteRow, handleRefresh, initialGeneralInfo }) {
     const [activeMenuId, setActiveMenuId] = useState(null);
 
     useEffect(() => {
@@ -48,7 +48,7 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
         return "#151f32";
     };
 
-    // İndirim sonrası toplam fiyatı hesaplama (Sadece normal satırlar ve opsiyonel olmayanlar)
+    // İndirim sonrası toplam fiyatı hesaplama (Orijinal yapın)
     const totalNetPrice = numberedRows.reduce((sum, row) => {
         if (row.type === 3 && !row.isUrgent && !row.isOptional && row.piece > 0) {
             return sum + (row.netTotal || 0);
@@ -152,6 +152,26 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
                         >
                             ↶
                         </button>
+                    </div>
+                </div>
+
+                {/* İSTEDİĞİN BÖLÜM: BİRİM FİYAT TEKLİF CETVELİ */}
+                <div className="p-3 d-flex flex-column gap-2 text-white" style={{ backgroundColor: "#0b1329", borderBottom: "1px solid #334155", fontStyle: "italic" }}>
+                    <div className="d-flex justify-content-between align-items-start">
+                        <div className="fw-bold text-center flex-grow-1 w-100 ps-5" style={{ fontSize: "13px", letterSpacing: "0.5px", textTransform: "uppercase" }}>
+                            BİRİM FİYAT TEKLİF CETVELİ
+                        </div>
+                        <div className="text-end flex-shrink-0" style={{ fontSize: "11px", color: "#94a3b8" }}>
+                            Teklif Numarası : <span className="text-white fw-semibold">{initialGeneralInfo?.offerNo || "-"}</span>
+                        </div>
+                    </div>
+                    <div className="d-flex justify-content-between align-items-center mt-1" style={{ fontSize: "11px" }}>
+                        <div style={{ color: "#94a3b8" }}>
+                            Teklif Referans Numarası : <span className="text-white fw-semibold">{initialGeneralInfo?.refNo || "-"}</span>
+                        </div>
+                        <div className="fw-bold text-white" style={{ letterSpacing: "0.5px" }}>
+                            {initialGeneralInfo?.clientName || "-"}
+                        </div>
                     </div>
                 </div>
 
