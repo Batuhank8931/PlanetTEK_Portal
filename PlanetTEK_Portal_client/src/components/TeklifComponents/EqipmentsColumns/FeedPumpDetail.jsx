@@ -255,13 +255,33 @@ function FeedPumpDetail() {
     updateFeedPumpStore(manualHourlyFlow, manualMinMss, pumpOffset, true, e.target.checked);
   };
 
+  // 🔄 Yenileme (Reset) Tetikleyicisi
+  const handleResetClick = () => {
+    if (debi === 0) return;
+    // Girdileri default formüllere ve offset değerini sıfıra çekerek store'u güncelliyoruz
+    updateFeedPumpStore(defaultHourlyFlowStr, defaultMinMssStr, 0, false, false);
+  };
+
   // UI'da göstermek için kW değerini yakalıyoruz
   const displayKw = selectedPump ? (selectedPump.kw || selectedPump.pompa_kw || 0) : (storeFeedPump.pumpkW || 0);
 
   return (
     <div className="d-flex flex-column gap-3">
-      <div className="text-white-50 border-bottom pb-1 mb-1" style={{ fontSize: "11px", fontWeight: "600" }}>
-        TERFİ POMPASI PARAMETRELERİ
+      
+      {/* Yenileme butonunun entegre edildiği başlık alanı */}
+      <div className="d-flex justify-content-between align-items-center border-bottom pb-1 mb-1">
+        <span className="text-white-50" style={{ fontSize: "11px", fontWeight: "600" }}>
+          TERFİ POMPASI PARAMETRELERİ
+        </span>
+        <button
+          onClick={handleResetClick}
+          disabled={debi === 0}
+          className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
+          style={{ backgroundColor: "#d97706", fontSize: "11px", borderRadius: "6px" }}
+          title="Tabloyu İlk Ayarlarına Döndür"
+        >
+          🔄 Yenile
+        </button>
       </div>
 
       <div className="col-12">

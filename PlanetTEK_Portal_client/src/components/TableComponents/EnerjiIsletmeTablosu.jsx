@@ -6,6 +6,8 @@ function EnerjiIsletmeTablosu() {
     const formData = useTeklifStore((state) => state.formData);
     const updateSection = useTeklifStore((state) => state.updateSection);
 
+    const teklifDili = formData?.customerInfo?.teklifDili;
+
     // storeTabloVerisi'ni güvenli bir şekilde dizi kısmından okuyoruz
     const storeTabloVerisi = formData?.tables?.enerjiisletmettablosu?.rows || formData?.tables?.enerjiisletmettablosu || [];
     const storeDebi = formData?.planetDiskDetails?.tasarim?.aritmaParametreleri?.debi || 0;
@@ -55,7 +57,7 @@ function EnerjiIsletmeTablosu() {
                     const freshTotalKwhDay = freshRows.reduce((sum, row) => sum + calculateRowConsumption(row), 0);
                     const freshDailyCostEuro = freshTotalKwhDay * ((params.energyPrice || 13) / 100);
                     const freshYearlyCostEuro = freshDailyCostEuro * 365;
-                    
+
                     updateSection("tables", {
                         ...formData?.tables,
                         enerjiisletmettablosu: {
@@ -92,7 +94,7 @@ function EnerjiIsletmeTablosu() {
     // 3. KURAL: Kullanıcı manuel bir değişiklik yaparsa store'u update et.
     const updateStoreWithNewRows = (newRows) => {
         setRows(newRows);
-        
+
         // Yeni satırlara göre dinamik maliyeti anlık hesapla ve ek key ile kaydet
         const currentTotalKwhDay = newRows.reduce((sum, row) => sum + calculateRowConsumption(row), 0);
         const currentDailyCostEuro = currentTotalKwhDay * ((parseFloat(params.energyPrice) || 0) / 100);
@@ -181,38 +183,38 @@ function EnerjiIsletmeTablosu() {
     return (
         <div className="d-flex flex-column w-100" onClick={() => setActiveMenuId(null)}>
             <style>{`
-                .table-row-energy { border-bottom: 1px solid #334155; transition: background-color 0.15s ease; position: relative; }
-                .table-row-energy:last-child { border-bottom: none; }
-                .energy-input:focus { outline: none; background-color: rgba(255, 255, 255, 0.05) !important; }
-                .header-cell { font-size: 11px; font-weight: 700; color: #94a3b8; background-color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: center; text-align: center; }
-                .param-input-top { background-color: #0f172a; border: 1px solid #475569; color: white; border-radius: 6px; padding: 3px 8px; font-size: 12px; width: 80px; text-align: right; font-weight: bold; }
-                .opacity-hover:hover { opacity: 1 !important; }
-                
-                .dropdown-menu-custom {
-                    position: absolute;
-                    right: 4%;
-                    top: 80%;
-                    background-color: #0f172a;
-                    border: 1px solid #475569;
-                    border-radius: 6px;
-                    z-index: 100;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-                    padding: 4px 0;
-                    min-width: 130px;
-                }
-                .dropdown-item-custom {
-                    color: #cbd5e1;
-                    padding: 6px 12px;
-                    font-size: 11.5px;
-                    cursor: pointer;
-                    text-align: left;
-                    font-weight: 500;
-                }
-                .dropdown-item-custom:hover {
-                    background-color: #1e293b;
-                    color: white;
-                }
-            `}</style>
+            .table-row-energy { border-bottom: 1px solid #334155; transition: background-color 0.15s ease; position: relative; }
+            .table-row-energy:last-child { border-bottom: none; }
+            .energy-input:focus { outline: none; background-color: rgba(255, 255, 255, 0.05) !important; }
+            .header-cell { font-size: 11px; font-weight: 700; color: #94a3b8; background-color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: center; text-align: center; }
+            .param-input-top { background-color: #0f172a; border: 1px solid #475569; color: white; border-radius: 6px; padding: 3px 8px; font-size: 12px; width: 80px; text-align: right; font-weight: bold; }
+            .opacity-hover:hover { opacity: 1 !important; }
+            
+            .dropdown-menu-custom {
+                position: absolute;
+                right: 4%;
+                top: 80%;
+                background-color: #0f172a;
+                border: 1px solid #475569;
+                border-radius: 6px;
+                z-index: 100;
+                box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+                padding: 4px 0;
+                min-width: 130px;
+            }
+            .dropdown-item-custom {
+                color: #cbd5e1;
+                padding: 6px 12px;
+                font-size: 11.5px;
+                cursor: pointer;
+                text-align: left;
+                font-weight: 500;
+            }
+            .dropdown-item-custom:hover {
+                background-color: #1e293b;
+                color: white;
+            }
+        `}</style>
 
             <div className="d-flex flex-column rounded-3 overflow-x-auto" style={{ border: "1px solid #334155", width: "100%" }}>
                 <div style={{ minWidth: "900px" }}>
@@ -221,17 +223,23 @@ function EnerjiIsletmeTablosu() {
                     <div className="d-flex justify-content-between align-items-center p-3" style={{ backgroundColor: "#1e293b", borderBottom: "1px solid #334155" }}>
                         <div className="d-flex align-items-center gap-4">
                             <div className="fw-semibold text-white" style={{ fontSize: "14px" }}>
-                                Enerji İşletme Maliyeti Tablosu
+                                {teklifDili === "Yabancı" ? "Energy Operation Cost Table" : "Enerji İşletme Maliyeti Tablosu"}
                             </div>
 
                             <div className="d-flex align-items-center gap-3 border-start ps-4" style={{ borderColor: "#475569 !important" }}>
                                 <div className="d-flex align-items-center gap-2">
-                                    <span className="text-white-50" style={{ fontSize: "12px" }}>Hidrolik Yük:</span>
+                                    <span className="text-white-50" style={{ fontSize: "12px" }}>
+                                        {teklifDili === "Yabancı" ? "Total Hydraulic Load:" : "Hidrolik Yük:"}
+                                    </span>
                                     <input type="number" className="param-input-top" value={params.hydraulicLoad} onChange={(e) => setParams({ ...params, hydraulicLoad: e.target.value })} />
-                                    <span className="text-white-50" style={{ fontSize: "11px" }}>m³/saat</span>
+                                    <span className="text-white-50" style={{ fontSize: "11px" }}>
+                                        {teklifDili === "Yabancı" ? "m³/hour" : "m³/saat"}
+                                    </span>
                                 </div>
                                 <div className="d-flex align-items-center gap-2">
-                                    <span className="text-white-50" style={{ fontSize: "12px" }}>Enerji Fiyatı:</span>
+                                    <span className="text-white-50" style={{ fontSize: "12px" }}>
+                                        {teklifDili === "Yabancı" ? "Energy Price for 1 kW.hour:" : "Enerji Fiyatı:"}
+                                    </span>
                                     <input type="number" className="param-input-top text-warning" value={params.energyPrice} onChange={(e) => setParams({ ...params, energyPrice: e.target.value })} />
                                     <span className="text-white-50" style={{ fontSize: "11px" }}>€ cent/kWh</span>
                                 </div>
@@ -243,9 +251,9 @@ function EnerjiIsletmeTablosu() {
                                 onClick={handleRefresh}
                                 className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
                                 style={{ backgroundColor: "#d97706", fontSize: "11px", borderRadius: "6px" }}
-                                title="Tabloyu İlk Ayarlarına Döndür"
+                                title={teklifDili === "Yabancı" ? "Reset Table to Initial Settings" : "Tabloyu İlk Ayarlarına Döndür"}
                             >
-                                🔄 Yenile
+                                🔄 {teklifDili === "Yabancı" ? "Refresh" : "Yenile"}
                             </button>
 
                             <button
@@ -267,21 +275,37 @@ function EnerjiIsletmeTablosu() {
 
                     {/* TABLO BAŞLIKLARI */}
                     <div className="d-flex align-items-stretch border-bottom" style={{ borderColor: "#334155" }}>
-                        <div className="p-2 px-3 header-cell text-start justify-content-start" style={{ width: "32%" }}>Mekanik Ekipmanlar / Üniteler</div>
+                        <div className="p-2 px-3 header-cell text-start justify-content-start" style={{ width: "32%" }}>
+                            {teklifDili === "Yabancı" ? "Mechanical Equipments / Units" : "Mekanik Ekipmanlar / Üniteler"}
+                        </div>
                         <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                        <div className="p-2 header-cell" style={{ width: "6%" }}>Adet</div>
+                        <div className="p-2 header-cell" style={{ width: "6%" }}>
+                            {teklifDili === "Yabancı" ? "Unit" : "Adet"}
+                        </div>
                         <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                        <div className="p-2 header-cell" style={{ width: "10%" }}>Birim Güç<br />(kW)</div>
+                        <div className="p-2 header-cell" style={{ width: "10%" }}>
+                            {teklifDili === "Yabancı" ? <>Unit Installed<br />Power (kW)</> : <>Birim Güç<br />(kW)</>}
+                        </div>
                         <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                        <div className="p-2 header-cell" style={{ width: "10%" }}>Toplam Güç<br />(kW)</div>
+                        <div className="p-2 header-cell" style={{ width: "10%" }}>
+                            {teklifDili === "Yabancı" ? <>Total Installed<br />Power (kW)</> : <>Toplam Güç<br />(kW)</>}
+                        </div>
                         <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                        <div className="p-2 header-cell" style={{ width: "9%" }}>Tüketim<br />(%)</div>
+                        <div className="p-2 header-cell" style={{ width: "9%" }}>
+                            {teklifDili === "Yabancı" ? <>Power<br />Consumed (%)</> : <>Tüketim<br />(%)</>}
+                        </div>
                         <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                        <div className="p-2 header-cell" style={{ width: "10%" }}>Çalışma<br />(saat/gün)</div>
+                        <div className="p-2 header-cell" style={{ width: "10%" }}>
+                            {teklifDili === "Yabancı" ? <>Daily Working<br />(hour)</> : <>Çalışma<br />(saat/gün)</>}
+                        </div>
                         <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                        <div className="p-2 header-cell text-end justify-content-end px-3" style={{ width: "18%" }}>Elektrik Tüketimi<br />(kWh/gün)</div>
+                        <div className="p-2 header-cell text-end justify-content-end px-3" style={{ width: "18%" }}>
+                            {teklifDili === "Yabancı" ? <>Electricity Consumption<br />(kW.hour/day)</> : <>Elektrik Tüketimi<br />(kWh/gün)</>}
+                        </div>
                         <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                        <div className="p-2 header-cell" style={{ width: "5%" }}>Aksiyon</div>
+                        <div className="p-2 header-cell" style={{ width: "5%" }}>
+                            {teklifDili === "Yabancı" ? "Action" : "Aksiyon"}
+                        </div>
                     </div>
 
                     {/* TABLO SATIRLARI */}
@@ -382,18 +406,32 @@ function EnerjiIsletmeTablosu() {
                                             onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === row.id ? null : row.id); }}
                                             className="btn btn-sm p-0 border-0 text-success opacity-50 opacity-hover fw-bold"
                                             style={{ fontSize: "16px", lineHeight: "1" }}
-                                            title="Satır Ekle"
+                                            title={teklifDili === "Yabancı" ? "Add Row" : "Satır Ekle"}
                                             type="button"
                                         >
                                             +
                                         </button>
-                                        <button onClick={() => deleteRow(row.id)} className="btn btn-sm p-0 border-0 text-danger opacity-50 opacity-hover" style={{ fontSize: "16px", lineHeight: "1" }} title="Satırı Sil" type="button">&times;</button>
+                                        <button
+                                            onClick={() => deleteRow(row.id)}
+                                            className="btn btn-sm p-0 border-0 text-danger opacity-50 opacity-hover"
+                                            style={{ fontSize: "16px", lineHeight: "1" }}
+                                            title={teklifDili === "Yabancı" ? "Delete Row" : "Satırı Sil"}
+                                            type="button"
+                                        >
+                                            &times;
+                                        </button>
 
                                         {activeMenuId === row.id && (
                                             <div className="dropdown-menu-custom" onClick={(e) => e.stopPropagation()}>
-                                                <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 0); setActiveMenuId(null); }}>+ Ana Başlık</div>
-                                                <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 1); setActiveMenuId(null); }}>+ Alt Başlık</div>
-                                                <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 3); setActiveMenuId(null); }}>+ Normal Satır</div>
+                                                <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 0); setActiveMenuId(null); }}>
+                                                    {teklifDili === "Yabancı" ? "+ Main Header" : "+ Ana Başlık"}
+                                                </div>
+                                                <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 1); setActiveMenuId(null); }}>
+                                                    {teklifDili === "Yabancı" ? "+ Sub Header" : "+ Alt Başlık"}
+                                                </div>
+                                                <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 3); setActiveMenuId(null); }}>
+                                                    {teklifDili === "Yabancı" ? "+ Normal Row" : "+ Normal Satır"}
+                                                </div>
                                             </div>
                                         )}
                                     </div>
@@ -405,33 +443,53 @@ function EnerjiIsletmeTablosu() {
                     {/* ÖZET VE MALİYET PANELİ */}
                     <div className="d-flex flex-column overflow-hidden border-top" style={{ borderColor: "#475569", backgroundColor: "#0f172a" }}>
                         <div className="d-flex align-items-center p-2 px-3 border-bottom" style={{ borderColor: "#334155" }}>
-                            <div className="fw-bold text-end text-white-50" style={{ width: "75%", fontSize: "12px" }}>TOPLAM ELEKTRİK TÜKETİMİ</div>
+                            <div className="fw-bold text-end text-white-50" style={{ width: "75%", fontSize: "12px" }}>
+                                {teklifDili === "Yabancı" ? "TOTAL ELECTRICITY CONSUMPTION" : "TOPLAM ELEKTRİK TÜKETİMİ"}
+                            </div>
                             <div className="fw-bold text-end text-white" style={{ width: "15%", fontSize: "13px" }}>{totalKwhDay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                            <div className="text-white-50 ms-2" style={{ fontSize: "11px" }}>kWh/gün</div>
+                            <div className="text-white-50 ms-2" style={{ fontSize: "11px" }}>
+                                {teklifDili === "Yabancı" ? "kW.hour/day" : "kWh/gün"}
+                            </div>
                         </div>
 
                         <div className="d-flex align-items-center p-2 px-3 border-bottom" style={{ borderColor: "#334155" }}>
-                            <div className="fw-bold text-end text-white-50" style={{ width: "75%", fontSize: "12px" }}>1 m³ ATIKSU BAŞINA ELEKTRİK TÜKETİMİ</div>
+                            <div className="fw-bold text-end text-white-50" style={{ width: "75%", fontSize: "12px" }}>
+                                {teklifDili === "Yabancı" ? "ELECTRICITY CONSUMPTION PER 1 m³ WASTEWATER" : "1 m³ ATIKSU BAŞINA ELEKTRİK TÜKETİMİ"}
+                            </div>
                             <div className="fw-bold text-end text-white" style={{ width: "15%", fontSize: "13px" }}>{consumptionPerM3.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                            <div className="text-white-50 ms-2" style={{ fontSize: "11px" }}>kWh/m³</div>
+                            <div className="text-white-50 ms-2" style={{ fontSize: "11px" }}>
+                                {teklifDili === "Yabancı" ? "kW.hour / m³" : "kWh/m³"}
+                            </div>
                         </div>
 
                         <div className="d-flex align-items-center p-2 px-3 border-bottom" style={{ borderColor: "#334155" }}>
-                            <div className="fw-bold text-end text-white-50" style={{ width: "75%", fontSize: "12px" }}>1 m³ ATIKSU BAŞINA ELEKTRİK MALİYETİ</div>
+                            <div className="fw-bold text-end text-white-50" style={{ width: "75%", fontSize: "12px" }}>
+                                {teklifDili === "Yabancı" ? "ELECTRICITY COST PER 1 m³ WASTEWATER" : "1 m³ ATIKSU BAŞINA ELEKTRİK MALİYETİ"}
+                            </div>
                             <div className="fw-bold text-end text-white" style={{ width: "15%", fontSize: "13px" }}>{costPerM3Cent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                            <div className="text-white-50 ms-2" style={{ fontSize: "11px" }}>cent/m³</div>
+                            <div className="text-white-50 ms-2" style={{ fontSize: "11px" }}>
+                                {teklifDili === "Yabancı" ? "cent / m³" : "cent/m³"}
+                            </div>
                         </div>
 
                         <div className="d-flex align-items-center p-2 px-3 border-bottom" style={{ borderColor: "#334155" }}>
-                            <div className="fw-bold text-end text-white-50" style={{ width: "75%", fontSize: "12px" }}>ELEKTRİK TÜKETİM MALİYETİ (GÜNLÜK)</div>
+                            <div className="fw-bold text-end text-white-50" style={{ width: "75%", fontSize: "12px" }}>
+                                {teklifDili === "Yabancı" ? "ELECTRICITY CONSUMPTION COST" : "ELEKTRİK TÜKETİM MALİYETİ (GÜNLÜK)"}
+                            </div>
                             <div className="fw-bold text-end text-warning" style={{ width: "15%", fontSize: "14px" }}>{dailyCostEuro.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
-                            <div className="text-warning ms-2" style={{ fontSize: "11px" }}>€ / gün</div>
+                            <div className="text-warning ms-2" style={{ fontSize: "11px" }}>
+                                {teklifDili === "Yabancı" ? "€ / day" : "€ / gün"}
+                            </div>
                         </div>
 
                         <div className="d-flex align-items-center p-2 px-3" style={{ backgroundColor: "#1e293b" }}>
-                            <div className="fw-bold text-end text-white" style={{ width: "75%", fontSize: "12px" }}>ELEKTRİK TÜKETİM MALİYETİ (YILLIK)</div>
+                            <div className="fw-bold text-end text-white" style={{ width: "75%", fontSize: "12px" }}>
+                                {teklifDili === "Yabancı" ? "ELECTRICITY CONSUMPTION COST" : "ELEKTRİK TÜKETİM MALİYETİ (YILLIK)"}
+                            </div>
                             <div className="fw-bold text-end text-success" style={{ width: "15%", fontSize: "15px" }}>{yearlyCostEuro.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
-                            <div className="text-success ms-2" style={{ fontSize: "11px" }}>€ / yıl</div>
+                            <div className="text-success ms-2" style={{ fontSize: "11px" }}>
+                                {teklifDili === "Yabancı" ? "€ / year" : "€ / yıl"}
+                            </div>
                         </div>
                     </div>
 

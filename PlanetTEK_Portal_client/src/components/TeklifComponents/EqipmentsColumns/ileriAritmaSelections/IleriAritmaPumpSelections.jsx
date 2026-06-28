@@ -46,11 +46,11 @@ function IleriAritmaPumpSelections() {
 
     const { hourlyFlow: calculatedHourlyFlow, currentMultiplier } = useMemo(() => {
         if (ActuralHourlyFlow === 0) return { hourlyFlow: 0, currentMultiplier: 0 };
-
         const matchedCriteria = CRITERIA_DATABASE.find(
+
             (c) => girisToplamAzot >= c.minAzot && girisToplamAzot <= c.maxAzot
         );
-        const multiplier = matchedCriteria ? matchedCriteria.multiplier : 3.0;
+        const multiplier = matchedCriteria ? matchedCriteria.multiplier : 4.0;
 
         return {
             hourlyFlow: ActuralHourlyFlow * multiplier,

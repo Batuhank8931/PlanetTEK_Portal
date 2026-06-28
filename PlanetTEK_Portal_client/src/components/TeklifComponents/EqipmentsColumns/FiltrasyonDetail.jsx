@@ -217,6 +217,22 @@ function FiltrasyonDetail() {
     });
   };
 
+  // 🔄 GÜVENLİ SIFIRLAMA FONKSİYONU
+  const handleResetClick = () => {
+    if (anaGunlukDebi === 0) return;
+    updateSection("equipments", {
+      ...equipmentsCache,
+      filtrationSystem: {
+        calismaSaati: "22", // Saati anında varsayılana çekiyoruz
+        calculatedMainDebi: anaGunlukDebi,
+        // Diğer manuel seçimlerin hepsini temizliyoruz ki ideal veri baştan üresin
+        onKlorlama: undefined,
+        pompalar: undefined,
+        SecilenFiltreler: undefined
+      }
+    });
+  };
+
   if (isLoading || dbEquipments.length === 0 || !aktifSecimler) {
     return (
       <div className="d-flex flex-column gap-2 p-3 justify-content-center align-items-center" style={{ minHeight: "150px" }}>
@@ -232,11 +248,24 @@ function FiltrasyonDetail() {
 
   return (
     <div className="d-flex flex-column gap-3 text-white">
-      <div className="d-flex align-items-center">
+      
+      {/* BAŞLIK BÖLÜMÜ VE YENİLEME BUTONU */}
+      <div className="d-flex align-items-center justify-content-between">
         <span className="fw-bold text-uppercase pe-2" style={{ fontSize: "11px", letterSpacing: "0.7px", color: "#00874e" }}>
-          1. İleri Arıtma Parametreleri
+          1. Filtrasyon Parametreleri
         </span>
-        <div className="flex-grow-1 border-bottom" style={{ borderColor: "rgba(255,255,255,0.1)" }}></div>
+        <div className="d-flex align-items-center flex-grow-1 gap-2">
+          <div className="flex-grow-1 border-bottom" style={{ borderColor: "rgba(255,255,255,0.1)" }}></div>
+          <button
+            onClick={handleResetClick}
+            disabled={anaGunlukDebi === 0}
+            className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
+            style={{ backgroundColor: "#d97706", fontSize: "11px", borderRadius: "6px" }}
+            title="Tabloyu İlk Ayarlarına Döndür"
+          >
+            🔄 Yenile
+          </button>
+        </div>
       </div>
 
       {/* ANA PARAMETRE GİRİŞ PANELİ */}

@@ -28,7 +28,7 @@ const AutoResizeTextarea = ({ value, onChange, disabled, style, className }) => 
     );
 };
 
-function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellChange, insertAfterRow, deleteRow, handleRefresh, initialGeneralInfo }) {
+function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellChange, insertAfterRow, deleteRow, handleRefresh, initialGeneralInfo, teklifDili }) {
     const [activeMenuId, setActiveMenuId] = useState(null);
 
     useEffect(() => {
@@ -48,7 +48,7 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
         return "#151f32";
     };
 
-    // İndirim sonrası toplam fiyatı hesaplama (Orijinal yapın)
+    // İndirim sonrası toplam fiyatı hesaplama (Orijinal yapı)
     const totalNetPrice = numberedRows.reduce((sum, row) => {
         if (row.type === 3 && !row.isUrgent && !row.isOptional && row.piece > 0) {
             return sum + (row.netTotal || 0);
@@ -56,13 +56,22 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
         return sum;
     }, 0);
 
+    // Dil seçimine göre sayı formatlama fonksiyonu (Hesaplamaları etkilemez, sadece görünüm)
+    const formatPrice = (value) => {
+        const locale = teklifDili === "Yerli" ? "de-DE" : "en-US";
+        return Number(value).toLocaleString(locale, {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2
+        });
+    };
+
     return (
         <div className="d-flex flex-column w-100">
             <style>{`
                 .capex-row { border-bottom: 1px solid #334155; }
                 .capex-row:last-child { border-bottom: none; }
                 .capex-input:focus { outline: none; background-color: rgba(255, 255, 255, 0.05) !important; }
-                .header-title-cell { font-size: 11px; font-weight: 800; color: #94a3b8; background-color: #090d16; text-transform: uppercase; letter-spacing: 0.6px; }
+                .header-title-cell { font-size: 8px; font-weight: 800; color: #94a3b8; background-color: #090d16; text-transform: uppercase; letter-spacing: 0.6px; }
                 .action-dropdown { 
                     position: relative; 
                     display: inline-block; 
@@ -155,19 +164,19 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
                     </div>
                 </div>
 
-                {/* İSTEDİĞİN BÖLÜM: BİRİM FİYAT TEKLİF CETVELİ */}
+                {/* BİRİM FİYAT TEKLİF CETVELİ */}
                 <div className="p-3 d-flex flex-column gap-2 text-white" style={{ backgroundColor: "#0b1329", borderBottom: "1px solid #334155", fontStyle: "italic" }}>
                     <div className="d-flex justify-content-between align-items-start">
                         <div className="fw-bold text-center flex-grow-1 w-100 ps-5" style={{ fontSize: "13px", letterSpacing: "0.5px", textTransform: "uppercase" }}>
-                            BİRİM FİYAT TEKLİF CETVELİ
+                            {teklifDili === "Yabancı" ? "CAPEX" : "BİRİM FİYAT TEKLİF CETVELİ"}
                         </div>
                         <div className="text-end flex-shrink-0" style={{ fontSize: "11px", color: "#94a3b8" }}>
-                            Teklif Numarası : <span className="text-white fw-semibold">{initialGeneralInfo?.offerNo || "-"}</span>
+                            {teklifDili === "Yabancı" ? "Offer Number : " : "Teklif Numarası : "}<span className="text-white fw-semibold">{initialGeneralInfo?.offerNo || "-"}</span>
                         </div>
                     </div>
                     <div className="d-flex justify-content-between align-items-center mt-1" style={{ fontSize: "11px" }}>
                         <div style={{ color: "#94a3b8" }}>
-                            Teklif Referans Numarası : <span className="text-white fw-semibold">{initialGeneralInfo?.refNo || "-"}</span>
+                            {teklifDili === "Yabancı" ? "Offer Reference Number : " : "Teklif Referans Numarası : "}<span className="text-white fw-semibold">{initialGeneralInfo?.refNo || "-"}</span>
                         </div>
                         <div className="fw-bold text-white" style={{ letterSpacing: "0.5px" }}>
                             {initialGeneralInfo?.clientName || "-"}
@@ -179,17 +188,17 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
                 <div className="d-flex align-items-stretch border-bottom" style={{ borderBottomColor: "#334155" }}>
                     <div className="p-2 px-2 header-title-cell text-center" style={{ width: "4%" }}>No</div>
                     <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                    <div className="p-2 px-3 header-title-cell" style={{ width: "46%" }}>Tanım</div>
+                    <div className="p-2 px-3 header-title-cell" style={{ width: "46%" }}>{teklifDili === "Yabancı" ? "Dsscription" : "Tanım"}</div>
                     <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                    <div className="p-2 px-2 header-title-cell text-center" style={{ width: "5%" }}>Adet</div>
+                    <div className="p-2 px-2 header-title-cell text-center" style={{ width: "5%" }}>{teklifDili === "Yabancı" ? "Piece" : "Adet"}</div>
                     <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                    <div className="p-2 px-2 header-title-cell text-end" style={{ width: "11%" }}>Birim Fiyat</div>
+                    <div className="p-2 px-2 header-title-cell text-end" style={{ width: "11%" }}>{teklifDili === "Yabancı" ? "Unit Price" : "Birim Fiyat"}</div>
                     <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                    <div className="p-2 px-2 header-title-cell text-end" style={{ width: "11%" }}>Toplam Fiyat</div>
+                    <div className="p-2 px-2 header-title-cell text-end" style={{ width: "11%" }}>{teklifDili === "Yabancı" ? "Total Price" : "Toplam Fiyat"}</div>
                     <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                    <div className="p-2 px-2 header-title-cell text-center" style={{ width: "7%" }}>İndirim Oranı</div>
+                    <div className="p-2 px-2 header-title-cell text-center" style={{ width: "7%" }}>{teklifDili === "Yabancı" ? "Discount rate" : "İndirim Oranı"}</div>
                     <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                    <div className="p-2 px-2 header-title-cell text-end" style={{ width: "12%" }}>İndirim Sonrası</div>
+                    <div className="p-2 px-2 header-title-cell text-end" style={{ width: "12%" }}>{teklifDili === "Yabancı" ? "Total Price after Discount" : "İndirim Sonrası Toplam Fiyat"}</div>
                     <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
                     <div className="p-2 header-title-cell text-center" style={{ width: "4%" }}>X</div>
                 </div>
@@ -200,16 +209,17 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
                         const rawTotal = row.rawTotal ?? 0;
                         const netTotal = row.netTotal ?? 0;
 
-                        let totalStr = `${rawTotal.toLocaleString()} €`;
-                        let netStr = `${netTotal.toLocaleString()} €`;
+                        // Dinamik formatlama fonksiyonunu burada kullanıyoruz
+                        let totalStr = `${formatPrice(rawTotal)} €`;
+                        let netStr = `${formatPrice(netTotal)} €`;
 
-                        if (row.isUrgent) { totalStr = "MÜŞTERİYE AİT"; netStr = "MÜŞTERİYE AİT"; }
+                        if (row.isUrgent) { totalStr = (teklifDili === "Yerli" ? "MÜŞTERİYE AİT" : "BELONG TO CUSTOMER"); netStr = "-"; }
                         else if (row.isOptionalStyle) { totalStr = "Seçime bağlı"; netStr = "Seçime bağlı"; }
                         else if (row.isShippingStyle) { totalStr = "-"; netStr = "Bilgi Amaçlı"; }
                         else if (row.unitPrice === 0 && row.type === 3) { totalStr = "-"; netStr = "-"; }
 
                         if (row.type === 3 && row.isOptional) {
-                            netStr = "Opsiyonel";
+                            netStr = (teklifDili === "Yerli" ? "Opsiyonel" : "Optional");
                         }
 
                         return (
@@ -247,7 +257,15 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
                                 <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
                                 <div className="p-1 px-2 d-flex align-items-center justify-content-end" style={{ width: "11%" }}>
                                     {row.type < 3 || row.isUrgent ? null : (
-                                        <input type="number" className="form-control form-control-sm text-end text-white bg-transparent border-0 p-0 capex-input fw-bold" style={{ fontSize: "12px", boxShadow: "none" }} value={row.unitPrice} onChange={(e) => handleCellChange(row.id, "unitPrice", e.target.value)} />
+                                        <input
+                                            type={activeMenuId === `edit-${row.id}` ? "number" : "text"}
+                                            className="form-control form-control-sm text-end text-white bg-transparent border-0 p-0 capex-input fw-bold"
+                                            style={{ fontSize: "12px", boxShadow: "none" }}
+                                            value={activeMenuId === `edit-${row.id}` ? row.unitPrice : formatPrice(row.unitPrice)}
+                                            onFocus={() => setActiveMenuId(`edit-${row.id}`)}
+                                            onBlur={() => setActiveMenuId(null)}
+                                            onChange={(e) => handleCellChange(row.id, "unitPrice", e.target.value)}
+                                        />
                                     )}
                                     {(row.type === 3 && !row.isUrgent) && <span className="text-white-50 ms-1" style={{ fontSize: "11px" }}>€</span>}
                                 </div>
@@ -333,7 +351,7 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
                     <div className="d-flex align-items-center gap-3">
                         <span className="fw-bold text-uppercase" style={{ fontSize: "12px", color: "#94a3b8", letterSpacing: "1px" }}>İndirim Sonrası Genel Toplam:</span>
                         <span className="fw-extrabold text-white px-3 py-1 rounded bg-success bg-opacity-20" style={{ fontSize: "16px", border: "1px solid #22c55e", boxShadow: "0 0 10px rgba(34, 197, 94, 0.15)" }}>
-                            {totalNetPrice.toLocaleString()} €
+                            {formatPrice(totalNetPrice)} €
                         </span>
                     </div>
                 </div>

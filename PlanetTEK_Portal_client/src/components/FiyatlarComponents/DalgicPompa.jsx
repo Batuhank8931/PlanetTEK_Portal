@@ -19,7 +19,7 @@ function DalgicPompa() {
     const [curveModalOpen, setCurveModalOpen] = useState(false);
     const [selectedPumpId, setSelectedPumpId] = useState(null);
     const [selectedPumpName, setSelectedPumpName] = useState("");
-    // 🌟 AlertModal kontrolü için state
+    
     const [alertConfig, setAlertConfig] = useState({
         show: false,
         title: "",
@@ -29,19 +29,16 @@ function DalgicPompa() {
         action: null,
     });
 
-    const headers = ["@", "Pompa Modeli", "Pompa Tipi", "kW", "Alış Fiyatı (€)", "Yurt İçi Satış Yİ (€)", "Yurt Dışı Satış YD (€)"];
+    const headers = ["@", "Pompa Modeli", "Pompa Tipi", "kW", "Alış Fiyatı (€)", "Yurt İçiş Satış Yİ (€)", "Yurt Dışı Satış YD (€)"];
     const fields = ["curve_action", "pompa_adi", "pompa_tipi", "kw", "alis_fiyati", "yi_satis", "yd_satis"];
-
     const duzenlenebilirFields = ["alis_fiyati", "pompa_adi", "pompa_tipi", "kw"];
-
-    const oranHeaders = ["Yurt İçi Satış Oranı (Yİ)", "Yurt Dışı Satış Oranı (YD)"];
+    const oranHeaders = ["Yurt İçiş Satış Oranı (Yİ)", "Yurt Dışı Satış Oranı (YD)"];
     const oranFields = ["yi_katsayi", "yd_katsayi"];
 
     const fetchPumpsData = async () => {
         try {
             setLoading(true);
             const response = await API.getSubmersibleCosts();
-
             const formatted = response.data.map(item => ({
                 ...item,
                 name: item.pompa_adi
@@ -62,7 +59,6 @@ function DalgicPompa() {
 
             setSabitOranlar(JSON.parse(JSON.stringify(ilkOranlar)));
             setOriginalOranData(JSON.parse(JSON.stringify(ilkOranlar)));
-
         } catch (error) {
             console.error("Dalgıç pompa verileri yüklenirken hata oluştu:", error);
         } finally {
@@ -77,7 +73,6 @@ function DalgicPompa() {
     const handleOpenCurveModal = (pumpId, pumpName) => {
         const isNewPump = String(pumpId).startsWith("new_");
         if (isNewPump) {
-            // Oski alert satırını sil, yerine bunu ekle:
             setAlertConfig({
                 show: true,
                 title: "İnfo",
@@ -99,7 +94,7 @@ function DalgicPompa() {
             pompa_adi: "Yeni Pompa Modeli",
             name: "Yeni Pompa Modeli",
             pompa_tipi: "submersible",
-            kw: 0, // 🚀 1. DÜZELTME: kW -> kw yapıldı ve güvenli sayısal başlangıç değeri (0) verildi.
+            kw: 0, 
             alis_fiyati: 0,
             yi_satis: 0,
             yd_satis: 0,
@@ -113,10 +108,8 @@ function DalgicPompa() {
         if (!resolvedData || !Array.isArray(resolvedData)) return;
 
         const currentOran = sabitOranlar[0] || { yi_katsayi: 1.30, yd_katsayi: 1.45 };
-
         const recalculated = resolvedData.map(item => {
             if (item.isDeleted) return item;
-
             const alis = Number(item.alis_fiyati) || 0;
             const guncelAd = item.pompa_adi !== undefined ? String(item.pompa_adi).trim() : item.name;
 
@@ -131,7 +124,6 @@ function DalgicPompa() {
                 yd_satis: (alis * Number(currentOran.yd_katsayi)).toFixed(2)
             };
         });
-
         setPumpsData([...recalculated]);
     };
 
@@ -143,7 +135,6 @@ function DalgicPompa() {
         pumpsData.forEach((item) => {
             if (item.isDeleted) {
                 if (String(item.id).startsWith("new_")) return;
-
                 changes.push({
                     type: "DELETE",
                     tableName: "submersible_pumps",
@@ -156,7 +147,6 @@ function DalgicPompa() {
                 return;
             }
 
-            // Yeni Kayıt Mantığı
             if (String(item.id).startsWith("new_")) {
                 changes.push({
                     type: "INSERT",
@@ -169,14 +159,13 @@ function DalgicPompa() {
                     additionalData: {
                         alis_fiyati: Number(item.alis_fiyati) || 0,
                         pompa_tipi: item.pompa_tipi,
-                        kw: Number(item.kw) || 0 // 🚀 2. DÜZELTME: Yeni satır kaydında kw parametresi additionalData'ya eklendi.
+                        kw: Number(item.kw) || 0 
                     }
                 });
                 return;
             }
 
             const originalItem = originalData.find((o) => String(o.id) === String(item.id));
-
             if (originalItem) {
                 if (originalItem.pompa_adi !== item.pompa_adi) {
                     changes.push({
@@ -209,7 +198,6 @@ function DalgicPompa() {
                             });
                         }
                     } else if (field === "kw") {
-                        // 🚀 3. DÜZELTME: kw sayısal bir değer olduğundan float hassasiyetiyle karşılaştırıldı
                         const eskiKw = parseFloat(eskiDeger || 0).toFixed(2);
                         const yeniKw = parseFloat(yeniDeger || 0).toFixed(2);
                         if (eskiKw !== yeniKw) {
@@ -304,6 +292,7 @@ function DalgicPompa() {
         });
     };
 
+    // 💾 VERİTABANINA KAYDETME (ONAY SONRASI)
     const handleConfirmSave = async () => {
         setShowModal(false);
         setLoading(true);
@@ -315,7 +304,6 @@ function DalgicPompa() {
             }
 
             const targetTableName = pendingChanges[0].tableName;
-
             const updatesPayload = pendingChanges.map((change) => ({
                 id: change.id,
                 columnName: change.columnName,
@@ -350,6 +338,16 @@ function DalgicPompa() {
             setSabitOranlar(JSON.parse(JSON.stringify(yeniOranlar)));
             setOriginalOranData(JSON.parse(JSON.stringify(yeniOranlar)));
             setPendingChanges([]);
+
+            // 🌟 İSTEK ÜZERİNE EKLENDİ: Başarı bildirim modalı tetikleniyor
+            setAlertConfig({
+                show: true,
+                title: "İşlem Başarılı",
+                message: "Pompa Listesi Güncellendi",
+                type: "success",
+                showCancel: false,
+                action: null
+            });
 
         } catch (error) {
             console.error("Dalgıç pompa fiyatları güncellenirken teknik hata:", error);
@@ -440,12 +438,17 @@ function DalgicPompa() {
                 pumpId={selectedPumpId}
                 pumpName={selectedPumpName}
             />
+
+            {/* 🌟 GÜNCELLEME: Temizlenen ve action sarmalayıcısına kavuşan AlertModal */}
             <AlertModal
                 show={alertConfig.show}
                 title={alertConfig.title}
                 message={alertConfig.message}
                 type={alertConfig.type}
-                onClose={() => setAlertConfig(prev => ({ ...prev, show: false }))}
+                onClose={() => {
+                    setAlertConfig(prev => ({ ...prev, show: false }));
+                    if (alertConfig.action) alertConfig.action();
+                }}
             />
         </div>
     );

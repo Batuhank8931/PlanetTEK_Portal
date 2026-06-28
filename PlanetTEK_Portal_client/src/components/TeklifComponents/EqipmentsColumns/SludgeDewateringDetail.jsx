@@ -58,7 +58,6 @@ function SludgeDewateringDetail() {
   useEffect(() => {
     if (dbLoading || dbData.length === 0) return;
 
-    // Eğer store'da eski veri varsa veya yeni yapıda polimerUnitesi ayrılmışsa state senkronizasyonu
     if ((storeDewatering.opsiyonlar && Object.keys(storeDewatering.opsiyonlar).length > 0) || storeDewatering.polimerUnitesi) {
       const restoreOpsiyonlar = { ...storeDewatering.opsiyonlar };
       if (storeDewatering.polimerUnitesi) {
@@ -191,7 +190,6 @@ function SludgeDewateringDetail() {
       };
     };
 
-    // 🚀 Polimer Ünitesini opsiyonlar içinden ayırıyoruz
     const { polimer_unitesi, ...gercekOpsiyonlar } = opsiyonlar;
 
     updateSection("equipments", {
@@ -205,8 +203,8 @@ function SludgeDewateringDetail() {
         anaOffset,
         beslemeOffset,
         suzuntuOffset,
-        polimerUnitesi: polimer_unitesi || null, // 🚀 Doğrudan kök obje seviyesinde
-        opsiyonlar: gercekOpsiyonlar,          // 🚀 İçinde polimer_unitesi barındırmayan saf opsiyonlar
+        polimerUnitesi: polimer_unitesi || null,
+        opsiyonlar: gercekOpsiyonlar,
         gerekliIhtiyac: otomatikKonfigurasyon.hamIhtiyac,
       },
     });
@@ -245,6 +243,36 @@ function SludgeDewateringDetail() {
     setSuzuntuOffset(targetIdx - otomatikKonfigurasyon.idealSuzuntuIndex);
   };
 
+  // 🔄 YENİLEME (RESET) TETİKLEYİCİSİ
+  const handleResetClick = () => {
+    if (dbData.length === 0) return;
+
+    // Girdileri ideal default değerlerine çekiyoruz
+    const defaultParams = {
+      dekantorCalismaSaati: 20.0,
+      filtrepresKatiMaddeYuzdesi: 30.0,
+      sarjAdedi: 3.0
+    };
+    setHesapParametreleri(defaultParams);
+
+    // Tüm manuel dropdown kaydırmalarını (offsetleri) sıfırlıyoruz
+    setAnaOffset(0);
+    setBeslemeOffset(0);
+    setSuzuntuOffset(0);
+
+    // Opsiyonel ekipmanları fabrika ayarlarına (sadece polimer ünitesi açık olacak şekilde) döndürüyoruz
+    const defaultOpsiyonlar = {};
+    opsiyonelTipler.forEach((tip) => {
+      const ilkModel = ekipmanGruplari[tip]?.[0];
+      defaultOpsiyonlar[tip] = { 
+        secili: tip === "polimer_unitesi", 
+        id: ilkModel ? ilkModel.id : "",
+        adet: 1 
+      };
+    });
+    setOpsiyonlar(defaultOpsiyonlar);
+  };
+
   if (dbLoading || Object.keys(opsiyonlar).length === 0) {
     return (
       <div className="d-flex flex-column gap-2 p-3 justify-content-center align-items-center" style={{ minHeight: "150px" }}>
@@ -258,12 +286,24 @@ function SludgeDewateringDetail() {
 
   return (
     <div className="d-flex flex-column gap-3 text-white">
-      {/* 1. BAŞLIK PANELİ */}
-      <div className="d-flex align-items-center">
+      
+      {/* 1. BAŞLIK PANELİ VE YENİLEME BUTONU */}
+      <div className="d-flex align-items-center justify-content-between">
         <span className="fw-bold text-uppercase pe-2" style={{ fontSize: "11px", letterSpacing: "0.7px", color: "#00874e" }}>
           1. Çamur Tasarım Parametreleri Özet & Giriş Paneli
         </span>
-        <div className="flex-grow-1 border-bottom" style={{ borderColor: "rgba(255,255,255,0.1)" }}></div>
+        <div className="d-flex align-items-center flex-grow-1 gap-2">
+          <div className="flex-grow-1 border-bottom" style={{ borderColor: "rgba(255,255,255,0.1)" }}></div>
+          <button
+            onClick={handleResetClick}
+            disabled={dbData.length === 0}
+            className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
+            style={{ backgroundColor: "#d97706", fontSize: "11px", borderRadius: "6px" }}
+            title="Tabloyu İlk Ayarlarına Döndür"
+          >
+            🔄 Yenile
+          </button>
+        </div>
       </div>
 
       {/* INPUT GRUPLARI PANELİ */}

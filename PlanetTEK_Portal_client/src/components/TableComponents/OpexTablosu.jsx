@@ -5,6 +5,9 @@ function OpexTablosu() {
     const formData = useTeklifStore((state) => state.formData);
     const updateSection = useTeklifStore((state) => state.updateSection);
 
+    const teklifDili = formData?.customerInfo?.teklifDili;
+    const isForeign = teklifDili === "Yabancı";
+
     // Diğer tablolardan doğrudan gelen net toplamlar
     const enerjiGideri = parseFloat(formData?.tables?.enerjiisletmettablosu?.yearlyCostEuro) || 0;
     const sarfMalzemeGideri = parseFloat(formData?.tables?.sarfmalzemettablosu?.grandTotal) || 0;
@@ -17,23 +20,37 @@ function OpexTablosu() {
             return storeTabloVerisi;
         }
         return [
-            { id: "enerji_gideri", label: "Enerji Giderleri", value: enerjiGideri, unit: "€/yıl", isDynamic: true },
-            { id: "sarf_gideri", label: "Sarf Malzemesi ve Bakım Giderleri", value: sarfMalzemeGideri, unit: "€/yıl", isDynamic: true }
+            { id: "enerji_gideri", label: isForeign ? "Energy Operation Cost" : "Enerji Giderleri", value: enerjiGideri, unit: isForeign ? "€ /year" : "€/yıl", isDynamic: true },
+            { id: "sarf_gideri", label: isForeign ? "Consumables and Maintenance Cost" : "Sarf Malzemesi ve Bakım Giderleri", value: sarfMalzemeGideri, unit: isForeign ? "€ /year" : "€/yıl", isDynamic: true }
         ];
     });
 
     const [history, setHistory] = useState([]);
 
-    // Diğer tablolardaki toplamlar anlık değiştikçe buradaki değerleri de senkron tutuyoruz
+    // Dil değiştiğinde statik satır etiketlerini ve birimlerini de otomatik güncelle
     useEffect(() => {
         setRows((prevRows) =>
             prevRows.map((row) => {
-                if (row.id === "enerji_gideri") return { ...row, value: enerjiGideri };
-                if (row.id === "sarf_gideri") return { ...row, value: sarfMalzemeGideri };
+                if (row.id === "enerji_gideri") {
+                    return { 
+                        ...row, 
+                        label: isForeign ? "Energy Operation Cost" : "Enerji Giderleri", 
+                        unit: isForeign ? "€ /year" : "€/yıl",
+                        value: enerjiGideri 
+                    };
+                }
+                if (row.id === "sarf_gideri") {
+                    return { 
+                        ...row, 
+                        label: isForeign ? "Consumables and Maintenance Cost" : "Sarf Malzemesi ve Bakım Giderleri", 
+                        unit: isForeign ? "€ /year" : "€/yıl",
+                        value: sarfMalzemeGideri 
+                    };
+                }
                 return row;
             })
         );
-    }, [enerjiGideri, sarfMalzemeGideri]);
+    }, [enerjiGideri, sarfMalzemeGideri, teklifDili]);
 
     // Dinamik Genel Toplam Hesaplama
     const totalOpex = rows.reduce((sum, row) => sum + (parseFloat(row.value) || 0), 0);
@@ -57,8 +74,8 @@ function OpexTablosu() {
     const handleRefresh = () => {
         setHistory([]);
         const resetRows = [
-            { id: "enerji_gideri", label: "Enerji Giderleri", value: enerjiGideri, unit: "€/yıl", isDynamic: true },
-            { id: "sarf_gideri", label: "Sarf Malzemesi ve Bakım Giderleri", value: sarfMalzemeGideri, unit: "€/yıl", isDynamic: true }
+            { id: "enerji_gideri", label: isForeign ? "Energy Operation Cost" : "Enerji Giderleri", value: enerjiGideri, unit: isForeign ? "€ /year" : "€/yıl", isDynamic: true },
+            { id: "sarf_gideri", label: isForeign ? "Consumables and Maintenance Cost" : "Sarf Malzemesi ve Bakım Giderleri", value: sarfMalzemeGideri, unit: isForeign ? "€ /year" : "€/yıl", isDynamic: true }
         ];
         updateStoreWithNewRows(resetRows);
     };
@@ -82,7 +99,13 @@ function OpexTablosu() {
 
     const insertAfterRow = (index) => {
         saveToHistory(rows);
-        const newRow = { id: `manual_${Date.now()}`, label: "Yeni İşletme Gideri Tanımı", value: 0, unit: "€/yıl", isDynamic: false };
+        const newRow = { 
+            id: `manual_${Date.now()}`, 
+            label: isForeign ? "New Operational Expense Description" : "Yeni İşletme Gideri Tanımı", 
+            value: 0, 
+            unit: isForeign ? "€ /year" : "€/yıl", 
+            isDynamic: false 
+        };
 
         const updatedRows = [...rows];
         updatedRows.splice(index + 1, 0, newRow);
@@ -108,11 +131,11 @@ function OpexTablosu() {
 
             <div className="w-90" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
                 <div className="d-flex flex-column rounded-3" style={{ border: "1px solid #334155", height: "auto", minWidth: "250px" }}>
-                    
+
                     {/* ÜST BUTONLAR PANELİ */}
                     <div className="d-flex justify-content-between align-items-center p-3" style={{ backgroundColor: "#151f32", borderBottom: "1px solid #334155" }}>
-                        <div className="fw-semibold text-white" style={{ fontSize: "14px" }}>
-                            OPEX (İşletme Giderleri) Özet Tablosu
+                        <div className="fw-semibold text-white" style={{ fontSize: "14px", textTransform: isForeign ? "uppercase" : "none", letterSpacing: isForeign ? "0.5px" : "normal" }}>
+                            {isForeign ? "OPERATION EXPENDITURE - OPEX" : "OPEX (İşletme Giderleri) Özet Tablosu"}
                         </div>
 
                         <div className="d-flex align-items-center gap-2">
@@ -120,9 +143,9 @@ function OpexTablosu() {
                                 onClick={handleRefresh}
                                 className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
                                 style={{ backgroundColor: "#d97706", fontSize: "11px", borderRadius: "6px" }}
-                                title="Tabloyu İlk Ayarlarına Döndür"
+                                title={isForeign ? "Reset Table to Initial Settings" : "Tabloyu İlk Ayarlarına Döndür"}
                             >
-                                🔄 Yenile
+                                🔄 {isForeign ? "Refresh" : "Yenile"}
                             </button>
 
                             <button
@@ -144,17 +167,23 @@ function OpexTablosu() {
 
                     {/* TABLO BAŞLIĞI */}
                     <div className="d-flex align-items-stretch border-bottom" style={{ borderColor: "#334155" }}>
-                        <div className="p-2 px-3 header-cell-opex" style={{ width: "50%" }}>Giderlerin Tanımları</div>
+                        <div className="p-2 px-3 header-cell-opex" style={{ width: "50%" }}>
+                            {isForeign ? "Description" : "Giderlerin Tanımları"}
+                        </div>
                         <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                        <div className="p-2 px-3 header-cell-opex text-end justify-content-end" style={{ width: "50%" }}>Toplam Fiyat</div>
+                        <div className="p-2 px-3 header-cell-opex text-end justify-content-end" style={{ width: "50%" }}>
+                            {isForeign ? "Total Price" : "Toplam Fiyat"}
+                        </div>
                         <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                        <div className="p-2 header-cell-opex text-center justify-content-center" style={{ width: "10%" }}>Aksiyon</div>
+                        <div className="p-2 header-cell-opex text-center justify-content-center" style={{ width: "10%" }}>
+                            {isForeign ? "Action" : "Aksiyon"}
+                        </div>
                     </div>
 
                     {/* TABLO SATIRLARI */}
                     {rows.map((row, index) => (
                         <div key={row.id} className="d-flex align-items-stretch table-row-opex">
-                            
+
                             {/* 1. KOLON: Gider Tanımı */}
                             <div className="p-2.5 px-3 d-flex align-items-center" style={{ width: "50%" }}>
                                 <input
@@ -193,7 +222,7 @@ function OpexTablosu() {
                                     onClick={() => insertAfterRow(index)}
                                     className="btn btn-sm p-0 border-0 text-success opacity-50 opacity-hover fw-bold"
                                     style={{ fontSize: "15px", lineHeight: "1" }}
-                                    title="Altına Yeni Gider Ekle"
+                                    title={isForeign ? "Insert New Expense Below" : "Altına Yeni Gider Ekle"}
                                 >
                                     +
                                 </button>
@@ -202,7 +231,7 @@ function OpexTablosu() {
                                     disabled={row.isDynamic}
                                     className="btn btn-sm p-0 border-0 text-danger opacity-50 opacity-hover"
                                     style={{ fontSize: "16px", lineHeight: "1", visibility: row.isDynamic ? "hidden" : "visible" }}
-                                    title="Satırı Sil"
+                                    title={isForeign ? "Delete Row" : "Satırı Sil"}
                                 >
                                     &times;
                                 </button>
@@ -213,15 +242,16 @@ function OpexTablosu() {
                     {/* GENEL TOPLAM SATIRI */}
                     <div className="d-flex align-items-stretch total-row-opex p-2.5 px-3">
                         <div className="fw-bold text-uppercase text-white-50 d-flex align-items-center" style={{ width: "60%", fontSize: "12px", letterSpacing: "0.5px" }}>
-                            Genel Toplam
+                            {isForeign ? "GRAND TOTAL" : "Genel Toplam"}
                         </div>
                         <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
                         <div className="d-flex align-items-center justify-content-end gap-2 text-success fw-bold" style={{ width: "35%", fontSize: "13px" }}>
-                            {/* Virgülden sonra kesinlikle 2 hane gösteren lokalizasyon formatı */}
                             <span>{totalOpex.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                            <span style={{ fontSize: "11px", minWidth: "50px" }}>€/yıl</span>
+                            <span style={{ fontSize: "11px", minWidth: "50px" }}>
+                                {isForeign ? "€ /year" : "€/yıl"}
+                            </span>
                         </div>
-                        <div style={{ width: "1px", backgroundColor: "transparent" }}></div>
+                        <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
                         <div style={{ width: "5%" }}></div>
                     </div>
 

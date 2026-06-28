@@ -1,36 +1,59 @@
 import React, { useState, useEffect } from "react";
 import { useTeklifStore } from "../../utils/teklifStore";
 
-const PARAMETER_TEMPLATES = [
-  { key: "hidrolikYuk", label: "Toplam Atıksu Miktarı (max) – Hidrolik Yük", unit: "m³/gün", girişFn: (p) => p?.debi ? String(p.debi) : "0", çıkış: "-" },
-  { key: "organikYuk", label: "Toplam Kirlilik (max) – Organik Yük", unit: "kg/gün", girişFn: (p) => (p?.debi && p?.girisBoi) ? String(((p.debi * p.girisBoi) / 1000).toFixed(2)) : "0", çıkış: "-" },
-  { key: "dizaynDebisi", label: "Tesis Dizayn Debisi", unit: "m³/saat", girişFn: (p) => p?.debi ? String((p.debi / 24).toFixed(2)) : "0", çıkış: "-" },
-  { key: "boi", label: "Biyolojik Oksijen İhtiyacı (BOİ₅)", unit: "mg/L", girişFn: (p) => p?.girisBoi ? String(p.girisBoi) : "0", çıkışFn: (p) => p?.cikisBoi ? String(p.cikisBoi) : "0" },
-  { key: "koi", label: "Kimyasal Oksijen İhtiyacı (KOİ)", unit: "mg/L", girişFn: (p) => p?.girisBoi ? String((p.girisBoi * 1.8).toFixed(0)) : "0", çıkışFn: (p) => p?.cikisBoi ? String((p.cikisBoi * 1.8).toFixed(0)) : "0" },
-  { key: "akm", label: "Askıda Katı Madde (AKM)", unit: "mg/L", girişFn: (p) => p?.girisBoi ? String(p.girisBoi) : "0", çıkışFn: (p) => p?.cikisBoi ? `<${p.cikisBoi}` : "0" },
-  { key: "tn", label: "Toplam Azot (TN)", unit: "mg/L", requiresIleriAritma: true, girişFn: (p, ia) => ia?.girisToplamAzot ? String(ia.girisToplamAzot) : "0", çıkışFn: (p, ia) => ia?.cikisToplamAzot ? String(ia.cikisToplamAzot) : "0" },
-  { key: "nh4", label: "Amonyum Azotu (NH4-N)", unit: "mg/L", requiresNitrifikasyon: true, girişFn: (p) => p?.girisAmonyum ? String(p.girisAmonyum) : "0", çıkışFn: (p) => p?.cikisAmonyum ? String(p.cikisAmonyum) : "0" },
-  { key: "tp", label: "Toplam Fosfor (TP)", unit: "mg/L", requiresIleriAritma: true, girişFn: (p, ia) => ia?.girisToplamFosfor ? String(ia.girisToplamFosfor) : "0", çıkışFn: (p, ia) => ia?.cikisToplamFosfor ? String(ia.cikisToplamFosfor) : "0" },
-  { key: "yagGres", label: "Yağ ve Gres", unit: "mg/L", giriş: "≤25", çıkış: "<20" },
-  { key: "ph", label: "pH", unit: "-", giriş: "6 – 9", çıkış: "6 – 9" },
-  { key: "sicaklikAralik", label: "Atıksu Sıcaklığı", unit: "°C", giriş: "15-32", çıkış: "15-32" },
-  { key: "kabulEdilenSicaklik", label: "Kabul Edilen Sıcaklık", unit: "°C", girişFn: (p) => p?.sicaklik ? String(p.sicaklik) : "19", çıkış: "-" }
-];
+// Dil bazlı parametre şablonları
+const PARAMETER_TEMPLATES = {
+  TR: [
+    { key: "hidrolikYuk", label: "Toplam Atıksu Miktarı (max) – Hidrolik Yük", unit: "m³/gün", girişFn: (p) => p?.debi ? String(p.debi) : "0", çıkış: "-" },
+    { key: "organikYuk", label: "Toplam Kirlilik (max) – Organik Yük", unit: "kg/gün", girişFn: (p) => (p?.debi && p?.girisBoi) ? String(((p.debi * p.girisBoi) / 1000).toFixed(2)) : "0", çıkış: "-" },
+    { key: "dizaynDebisi", label: "Tesis Dizayn Debisi", unit: "m³/saat", girişFn: (p) => p?.debi ? String((p.debi / 24).toFixed(2)) : "0", çıkış: "-" },
+    { key: "boi", label: "Biyolojik Oksijen İhtiyacı (BOİ₅)", unit: "mg/L", girişFn: (p) => p?.girisBoi ? String(p.girisBoi) : "0", çıkışFn: (p) => p?.cikisBoi ? String(p.cikisBoi) : "0" },
+    { key: "koi", label: "Kimyasal Oksijen İhtiyacı (KOİ)", unit: "mg/L", girişFn: (p) => p?.girisBoi ? String((p.girisBoi * 1.8).toFixed(0)) : "0", çıkışFn: (p) => p?.cikisBoi ? String((p.cikisBoi * 1.8).toFixed(0)) : "0" },
+    { key: "akm", label: "Askıda Katı Madde (AKM)", unit: "mg/L", girişFn: (p) => p?.girisBoi ? String(p.girisBoi) : "0", çıkışFn: (p) => p?.cikisBoi ? `<${p.cikisBoi}` : "0" },
+    { key: "tn", label: "Toplam Azot (TN)", unit: "mg/L", requiresIleriAritma: true, girişFn: (p, ia) => ia?.girisToplamAzot ? String(ia.girisToplamAzot) : "0", çıkışFn: (p, ia) => ia?.cikisToplamAzot ? String(ia.cikisToplamAzot) : "0" },
+    { key: "nh4", label: "Amonyum Azotu (NH4-N)", unit: "mg/L", requiresNitrifikasyon: true, girişFn: (p) => p?.girisAmonyum ? String(p.girisAmonyum) : "0", çıkışFn: (p) => p?.cikisAmonyum ? String(p.cikisAmonyum) : "0" },
+    { key: "tp", label: "Toplam Fosfor (TP)", unit: "mg/L", requiresIleriAritma: true, girişFn: (p, ia) => ia?.girisToplamFosfor ? String(ia.girisToplamFosfor) : "0", çıkışFn: (p, ia) => ia?.cikisToplamFosfor ? String(ia.cikisToplamFosfor) : "0" },
+    { key: "yagGres", label: "Yağ ve Gres", unit: "mg/L", giriş: "≤25", çıkış: "<20" },
+    { key: "ph", label: "pH", unit: "-", giriş: "6 – 9", çıkış: "6 – 9" },
+    { key: "sicaklikAralik", label: "Atıksu Sıcaklığı", unit: "°C", giriş: "15-32", çıkış: "15-32" },
+    { key: "kabulEdilenSicaklik", label: "Kabul Edilen Sıcaklık", unit: "°C", girişFn: (p) => p?.sicaklik ? String(p.sicaklik) : "19", çıkış: "-" }
+  ],
+  EN: [
+    { key: "hidrolikYuk", label: "Design Flow Rate (Q)", unit: "m³/d", girişFn: (p) => p?.debi ? String(p.debi) : "0", çıkış: "-" },
+    { key: "organikYuk", label: "Daily BOD₅ Load", unit: "kg/d", girişFn: (p) => (p?.debi && p?.girisBoi) ? String(((p.debi * p.girisBoi) / 1000).toFixed(2)) : "0", çıkış: "-" },
+    { key: "dizaynDebisi", label: "Plant Design Flow Rate", unit: "m³/h", girişFn: (p) => p?.debi ? String((p.debi / 24).toFixed(2)) : "0", çıkış: "-" },
+    { key: "boi", label: "Biochemical Oxygen Demand (BOD₅)", unit: "mg/L", girişFn: (p) => p?.girisBoi ? String(p.girisBoi) : "0", çıkışFn: (p) => p?.cikisBoi ? String(p.cikisBoi) : "0" },
+    { key: "koi", label: "Chemical Oxygen Demand (COD)", unit: "mg/L", girişFn: (p) => p?.girisBoi ? String((p.girisBoi * 1.8).toFixed(0)) : "0", çıkışFn: (p) => p?.cikisBoi ? String((p.cikisBoi * 1.8).toFixed(0)) : "0" },
+    { key: "akm", label: "Total Suspended Solids (TSS)", unit: "mg/L", girişFn: (p) => p?.girisBoi ? String(p.girisBoi) : "0", çıkışFn: (p) => p?.cikisBoi ? `<${p.cikisBoi}` : "0" },
+    { key: "tn", label: "Total Nitrogen (TN)", unit: "mg/L", requiresIleriAritma: true, girişFn: (p, ia) => ia?.girisToplamAzot ? String(ia.girisToplamAzot) : "0", çıkışFn: (p, ia) => ia?.cikisToplamAzot ? String(ia.cikisToplamAzot) : "0" },
+    { key: "nh4", label: "Ammonium Nitrogen (NH4-N)", unit: "mg/L", requiresNitrifikasyon: true, girişFn: (p) => p?.girisAmonyum ? String(p.girisAmonyum) : "0", çıkışFn: (p) => p?.cikisAmonyum ? String(p.cikisAmonyum) : "0" },
+    { key: "tp", label: "Total Phosphorus (TP)", unit: "mg/L", requiresIleriAritma: true, girişFn: (p, ia) => ia?.girisToplamFosfor ? String(ia.girisToplamFosfor) : "0", çıkışFn: (p, ia) => ia?.cikisToplamFosfor ? String(ia.cikisToplamFosfor) : "0" },
+    { key: "yagGres", label: "Oil and Grease", unit: "mg/L", giriş: "≤25", çıkış: "<20" },
+    { key: "ph", label: "pH", unit: "-", giriş: "6 – 9", çıkış: "6 – 9" },
+    { key: "sicaklikAralik", label: "Wastewater Temperature", unit: "°C", giriş: "15-32", çıkış: "15-32" },
+    { key: "kabulEdilenSicaklik", label: "Accepted Temperature", unit: "°C", girişFn: (p) => p?.sicaklik ? String(p.sicaklik) : "19", çıkış: "-" }
+  ]
+};
 
 function ParametreTablosu() {
   const formData = useTeklifStore((state) => state.formData);
   const updateSection = useTeklifStore((state) => state.updateSection);
+
+  // Dil yönetimi
+  const teklifDili = formData?.customerInfo?.teklifDili;
+  const isForeign = teklifDili === "Yabancı";
+  const activeTemplates = isForeign ? PARAMETER_TEMPLATES.EN : PARAMETER_TEMPLATES.TR;
 
   const storeParametre = formData?.tables?.parametretablosu;
 
   const generateRowsFromDesign = () => {
     const pDetails = formData?.planetDiskDetails?.tasarim?.aritmaParametreleri || {};
     const ileriAritmaData = formData?.equipments?.ileriAritma?.IleriAritmaInputSelections;
-    
+
     const hasIleriAritma = formData?.equipments?.modulesState?.ileriAritma?.checked === true;
     const hasNitrifikasyon = pDetails.nitrifikasyon === "nitrifikasyonVar";
 
-    return PARAMETER_TEMPLATES
+    return activeTemplates
       .filter(param => !param.requiresNitrifikasyon || hasNitrifikasyon)
       .filter(param => !param.requiresIleriAritma || hasIleriAritma)
       .map((param, index) => ({
@@ -64,7 +87,8 @@ function ParametreTablosu() {
   }, [
     formData?.planetDiskDetails?.tasarim?.aritmaParametreleri,
     formData?.equipments?.ileriAritma?.IleriAritmaInputSelections,
-    formData?.equipments?.modulesState?.ileriAritma?.checked
+    formData?.equipments?.modulesState?.ileriAritma?.checked,
+    teklifDili
   ]);
 
   useEffect(() => {
@@ -99,7 +123,14 @@ function ParametreTablosu() {
   const insertAfterRow = (index) => {
     saveToHistory(rows);
     const newId = `new_${Date.now()}`;
-    const newRow = { id: newId, label: "Araya Eklenen Yeni Parametre", unit: "mg/L", giriş: "0", çıkış: "0", isUrgent: false };
+    const newRow = { 
+      id: newId, 
+      label: isForeign ? "Inserted New Parameter" : "Araya Eklenen Yeni Parametre", 
+      unit: "mg/L", 
+      giriş: "0", 
+      çıkış: "0", 
+      isUrgent: false 
+    };
 
     const updatedRows = [...rows];
     updatedRows.splice(index + 1, 0, newRow);
@@ -130,18 +161,15 @@ function ParametreTablosu() {
         .opacity-hover:hover { opacity: 1 !important; }
       `}</style>
 
-      {/* 1. ADIM: overflow-hidden class'ını overflow-x-auto olarak değiştirdik */}
       <div className="d-flex flex-column rounded-3 overflow-x-auto" style={{ border: "1px solid #334155", width: "100%" }}>
-        
-        {/* 2. ADIM: Tüm içeriği saran ve mobilde ezilmeyi önleyen 650px'lik yeni kapsayıcı */}
         <div style={{ minWidth: "650px" }}>
-          
+
           {/* ÜST PANEL */}
           <div className="d-flex justify-content-between align-items-center p-3" style={{ backgroundColor: "#1e293b", borderBottom: "1px solid #334155" }}>
             <div className="fw-semibold text-white" style={{ fontSize: "14px" }}>
-              Tasarım Giriş / Çıkış Parametreleri Tablosu
+              {isForeign ? "Design Influent / Effluent Parameters Table" : "Tasarım Giriş / Çıkış Parametreleri Tablosu"}
             </div>
-            
+
             <div className="d-flex align-items-center gap-2">
               <button
                 onClick={handleRefresh}
@@ -153,9 +181,9 @@ function ParametreTablosu() {
                   transition: "0.2s",
                   cursor: "pointer"
                 }}
-                title="Tabloyu İlk Tasarım Ayarlarına Döndür"
+                title={isForeign ? "Reset Table to Initial Design Settings" : "Tabloyu İlk Tasarım Ayarlarına Döndür"}
               >
-                🔄 Yenile
+                🔄 {isForeign ? "Refresh" : "Yenile"}
               </button>
 
               <button
@@ -171,29 +199,29 @@ function ParametreTablosu() {
                   cursor: history.length === 0 ? "not-allowed" : "pointer"
                 }}
               >
-                ↶ 
+                ↶
               </button>
             </div>
           </div>
 
           {/* TABLO BAŞLIKLARI */}
           <div className="d-flex align-items-stretch border-bottom" style={{ borderColor: "#334155" }}>
-            <div className="p-2 px-3 header-cell" style={{ width: "40%" }}>Parametre</div>
+            <div className="p-2 px-3 header-cell" style={{ width: "40%" }}>{isForeign ? "Parameter" : "Parametre"}</div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-            <div className="p-2 px-3 header-cell text-center" style={{ width: "15%" }}>Birim</div>
+            <div className="p-2 px-3 header-cell text-center" style={{ width: "15%" }}>{isForeign ? "Unit" : "Birim"}</div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-            <div className="p-2 px-3 header-cell text-end" style={{ width: "20%" }}>Atıksu Giriş</div>
+            <div className="p-2 px-3 header-cell text-end" style={{ width: "20%" }}>{isForeign ? "Wastewater Influent" : "Atıksu Giriş"}</div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-            <div className="p-2 px-3 header-cell text-end" style={{ width: "20%" }}>Atıksu Çıkış</div>
+            <div className="p-2 px-3 header-cell text-end" style={{ width: "20%" }}>{isForeign ? "Wastewater Effluent" : "Atıksu Çıkış"}</div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-            <div className="p-2 text-center header-cell" style={{ width: "5%" }}>Aksiyon</div>
+            <div className="p-2 text-center header-cell" style={{ width: "5%" }}>{isForeign ? "Action" : "Aksiyon"}</div>
           </div>
 
           {/* TABLO SATIRLARI */}
           <div style={{ overflowY: "auto" }}>
             {rows.map((row, index) => (
               <div key={row.id} className="d-flex align-items-stretch table-row-param bg-normal-param">
-                
+
                 <div className="p-1 px-3 d-flex align-items-center" style={{ width: "40%" }}>
                   <input
                     type="text"
@@ -247,7 +275,7 @@ function ParametreTablosu() {
                     onClick={() => insertAfterRow(index)}
                     className="btn btn-sm p-0 border-0 text-success opacity-50 opacity-hover fw-bold"
                     style={{ fontSize: "15px", lineHeight: "1" }}
-                    title="Altına Yeni Satır Ekle"
+                    title={isForeign ? "Insert New Row Below" : "Altına Yeni Satır Ekle"}
                     type="button"
                   >
                     +
@@ -256,7 +284,7 @@ function ParametreTablosu() {
                     onClick={() => deleteRow(row.id)}
                     className="btn btn-sm p-0 border-0 text-danger opacity-50 opacity-hover"
                     style={{ fontSize: "16px", lineHeight: "1" }}
-                    title="Satırı Sil"
+                    title={isForeign ? "Delete Row" : "Satırı Sil"}
                     type="button"
                   >
                     &times;
@@ -267,7 +295,7 @@ function ParametreTablosu() {
             ))}
           </div>
 
-        </div> {/* 2. Adımın Kapanışı */}
+        </div>
       </div>
     </div>
   );

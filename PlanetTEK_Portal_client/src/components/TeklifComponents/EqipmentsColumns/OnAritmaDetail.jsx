@@ -37,7 +37,7 @@ function OnAritmaDetail() {
     try {
       setIsLoading(true);
       const response = await API.getScreenData();
-      
+
       // 🌟 OYUNU DEĞİŞTİREN YER: Gelen datayı destrucuring ile yakalıyoruz
       const { greaseTrap = [] } = response.data || {};
 
@@ -80,12 +80,12 @@ function OnAritmaDetail() {
   // İdeal otomatik kapasiteyi ve boyutu bulur
   const { idealKapasite, idealYagTutucuIndex } = useMemo(() => {
     if (!günlükDebi || isLoading) return { idealKapasite: 0, idealYagTutucuIndex: 0 };
-    
+
     const kapasiteler = Object.keys(yagTutucuKapasiteOptions).map(Number).sort((a, b) => a - b);
     const uygunKapasite = kapasiteler.find((k) => günlükDebi <= k) || (kapasiteler[kapasiteler.length - 1] || 0);
     const boyutMetni = yagTutucuKapasiteOptions[uygunKapasite];
     const index = yagTutucuOptions.indexOf(boyutMetni);
-    
+
     return {
       idealKapasite: uygunKapasite,
       idealYagTutucuIndex: index !== -1 ? index : 0
@@ -162,6 +162,11 @@ function OnAritmaDetail() {
     updateOnAritmaStore(izgaraOffset, nextOffset, true);
   };
 
+  // 🔄 Yenileme (Reset) Tetikleyicisi
+  const handleResetClick = () => {
+    updateOnAritmaStore(0, 0, false);
+  };
+
   const gosterilenKapasite = boyutKapasiteMap[currentYagTutucuBoyut] || 0;
 
   if (isLoading) {
@@ -177,8 +182,20 @@ function OnAritmaDetail() {
 
   return (
     <div className="d-flex flex-column gap-3">
-      <div className="text-white-50 border-bottom pb-1 mb-1" style={{ fontSize: "11px", fontWeight: "600" }}>
-        ÖN ARITMA PARAMETRELERİ
+      {/* Yenileme butonunun entegre edildiği başlık alanı */}
+      <div className="d-flex justify-content-between align-items-center border-bottom pb-1 mb-1">
+        <span className="text-white-50" style={{ fontSize: "11px", fontWeight: "600" }}>
+          ÖN ARITMA PARAMETRELERİ
+        </span>
+        <button
+          onClick={handleResetClick}
+          disabled={günlükDebi === 0}
+          className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
+          style={{ backgroundColor: "#d97706", fontSize: "11px", borderRadius: "6px" }}
+          title="Tabloyu İlk Ayarlarına Döndür"
+        >
+          🔄 Yenile
+        </button>
       </div>
 
       <div className="row g-2">

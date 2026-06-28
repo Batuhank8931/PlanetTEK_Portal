@@ -46,6 +46,14 @@ export const calculateGlobalSistemOzet = (finalMetrekare, tekDiskAlani) => {
 
 // utils/yerlesimCalculations.js içindeki ilgili fonksiyonu güncelliyoruz:
 
+// utils/yerlesimCalculations.js
+
+/**
+ * Küresel sistem hesabını ve sıra bazlı disk dağılımlarını hesaplar.
+ * Orijinal (önerilen) disk adetlerini de hafızada tutar.
+ */
+// utils/yerlesimCalculations.js
+
 export const calculateSistemHesabi = ({
     globalSistemOzet,
     maxDiskAdedi,
@@ -53,7 +61,7 @@ export const calculateSistemHesabi = ({
     secilenUnite,
     secilenSira,
     yerlesimDuzeni,
-    manuelSiraDiskleri // Yeni: [115, null] gibi her sıranın özel disk adetlerini tutan array
+    manuelSiraDiskleri
 }) => {
     const { toplamAlan, toplamGerekliDisk } = globalSistemOzet;
     if (toplamGerekliDisk === 0) return null;
@@ -82,17 +90,40 @@ export const calculateSistemHesabi = ({
         }
     }
 
-    // 2. YENİ: SIRA BAZLI DİNAMİK DİSK DAĞILIMI
-    // Önce toplam disk yükünü ve otomatik hesaplanacak sıraları bulalım
+    // =========================================================================
+    // A) DÜZELTİLEN KISIM: %100 SAF ORİJİNAL DİSK ADEDİ HESAPLAMA
+    // Kullanıcının manuel kilitlediği disk adetlerini tamamen görmezden gelir.
+    // Sadece güncel ünite adedine (mevcutUniteSecimi) ve sıra dağılımına bakar.
+    // =========================================================================
+    let kalanOrijinalDisk = toplamGerekliDisk;
+    const orijinalMilDiskleri = Array(secilenSira).fill(null).map((_, sIdx) => {
+        const siraUniteAdedi = dagilim[sIdx] || 1;
+
+        if (kalanOrijinalDisk <= 0) {
+            return Math.ceil(toplamGerekliDisk / mevcutUniteSecimi);
+        }
+
+        // Bu sıra dahil, kalan sıraların toplam ünite adedi
+        const kalanUnitelerinToplami = dagilim.slice(sIdx).reduce((sum, u) => sum + u, 0);
+
+        // Kalan diski, kalan ünite payına göre bölüyoruz
+        const milDisk = Math.ceil(kalanOrijinalDisk / (kalanUnitelerinToplami || 1));
+        const nihaiDisk = Math.min(milDisk, maxDiskAdedi);
+
+        kalanOrijinalDisk -= (nihaiDisk * siraUniteAdedi);
+        return nihaiDisk;
+    });
+
+    // =========================================================================
+    // B) MANUEL DİSK DAĞILIMI (Kullanıcının inputlarına göre şekillenen dinamik kısım)
+    // =========================================================================
     let kalanGerekliDisk = toplamGerekliDisk;
     let otomatikHesaplanacakSiraSayisi = secilenSira;
     const kesinSiraDiskleri = Array(secilenSira).fill(null);
 
-    // Kullanıcının el ile kilitlediği (inputtan değiştirdiği) sıraları yerleştirelim
     if (manuelSiraDiskleri && manuelSiraDiskleri.length === secilenSira) {
         manuelSiraDiskleri.forEach((diskAdedi, sIdx) => {
             if (diskAdedi !== null && diskAdedi > 0) {
-                // Bu sıradaki toplam disk = (ünite sayısı) * (mil başına disk)
                 const siraUniteAdedi = dagilim[sIdx] || 1;
                 const toplamSiraDiski = diskAdedi * siraUniteAdedi;
 
@@ -103,25 +134,24 @@ export const calculateSistemHesabi = ({
         });
     }
 
-    // Kalan diski, el değmemiş diğer sıralara ünite sayılarına oranla bölüştürelim
-    // (Senin senaryonda: 2 sıra var, 1. sıra 115 olunca kalan disk 2. sıranın ünitesine bölünüp otomatik artacak)
     const sonMilDiskleri = kesinSiraDiskleri.map((kesinDisk, sIdx) => {
-        if (kesinDisk !== null) return kesinDisk; // Zaten elle girilmiş
+        if (kesinDisk !== null) return kesinDisk; // Kullanıcı bu sırayı kilitlediyse onu koru
 
         const siraUniteAdedi = dagilim[sIdx] || 1;
+
+        // Eğer kullanıcı el ile çok büyük değerler girdiyse ve kalan disk bittiyse/eksiye düştüyse,
+        // o sıranın yeni güncel orijinal ideal değerini fallback olarak basıyoruz.
         if (otomatikHesaplanacakSiraSayisi <= 0 || kalanGerekliDisk <= 0) {
-            // Eğer disk bittiyse veya bölünecek sıra kalmadıysa default mil değerini bas
-            return Math.ceil(toplamGerekliDisk / mevcutUniteSecimi);
+            return orijinalMilDiskleri[sIdx];
         }
 
-        // Kalan diski bu sıranın ünite payına göre kabaca oranla
-        // Basitçe: Kalan toplam diski, kalan otomatik sıraların toplam ünitesine bölüyoruz
+        // Kalan otomatik sıraların toplam ünitesini bul
         const kalanOtomatikUnitelerinToplami = dagilim.reduce((sum, u, idx) => {
             return sum + (kesinSiraDiskleri[idx] === null ? u : 0);
         }, 0);
 
         const milDisk = Math.ceil(kalanGerekliDisk / (kalanOtomatikUnitelerinToplami || 1));
-        return Math.min(milDisk, maxDiskAdedi); // Üst limiti aşmasın
+        return Math.min(milDisk, maxDiskAdedi);
     });
 
     return {
@@ -131,12 +161,13 @@ export const calculateSistemHesabi = ({
         mevcutUniteSecimi,
         siraSayisi: secilenSira,
         dagilim,
-        sonMilDiskleri // ARTIK HER SIRANIN KENDİ DİSK DEĞERİ VAR (Tek bir milBasinaDisk yerine)
+        sonMilDiskleri,      // Kullanıcının girdilerine göre değişen milBasinaDisk dizisi
+        orijinalMilDiskleri  // Sadece seçilen ünite/sıraya göre değişen OrginalDiskAdedi dizisi
     };
 };
 
 /**
- * Sürüklenebilir sıralar şeması (sonMilDiskleri'ni kullanacak şekilde güncellendi)
+ * Sürüklenebilir sıralar şeması (OrginalDiskAdedi parametresi eklendi)
  */
 export const calculateTumSiralar = ({ sistemHesabi, Q, hacim, lamellaData }) => {
     const siralar = [];
@@ -146,8 +177,9 @@ export const calculateTumSiralar = ({ sistemHesabi, Q, hacim, lamellaData }) => 
 
     sistemHesabi.dagilim.forEach((siraAdet, sIdx) => {
         const HRT = Q > 0 ? (((hacim * siraAdet) / Q) * 24).toFixed(2) : 0;
-        // Ortak değer yerine hesaplanan dinamik sıra diskini alıyoruz
+
         const milBasinaDisk = sistemHesabi.sonMilDiskleri[sIdx];
+        const orginalDiskAdedi = sistemHesabi.orijinalMilDiskleri[sIdx]; // Buradan okuyoruz
 
         siralar.push({
             isLamella: false,
@@ -155,6 +187,7 @@ export const calculateTumSiralar = ({ sistemHesabi, Q, hacim, lamellaData }) => 
             siraTipi: sIdx,
             adet: siraAdet,
             milBasinaDisk: milBasinaDisk,
+            OrginalDiskAdedi: orginalDiskAdedi, // <--- İstediğin parametre buraya eklendi
             beklemeSuresi: Number(HRT),
             color: "#15803d",
             borderColor: "#16a34a",

@@ -6,6 +6,9 @@ function SarfMalzemeTablosu() {
   const formData = useTeklifStore((state) => state.formData);
   const updateSection = useTeklifStore((state) => state.updateSection);
 
+
+  const teklifDili = formData?.customerInfo?.teklifDili;
+
   // storeTabloVerisi'ni güvenli bir şekilde rows yapısından veya direkt diziden okuyoruz
   const storeTabloVerisi = formData?.tables?.sarfmalzemettablosu?.rows || formData?.tables?.sarfmalzemettablosu || [];
 
@@ -164,37 +167,37 @@ function SarfMalzemeTablosu() {
   return (
     <div className="d-flex flex-column w-100" onClick={() => setActiveMenuId(null)}>
       <style>{`
-                .sarf-row { border-bottom: 1px solid #334155; transition: background-color 0.15s ease; position: relative; }
-                .sarf-row:last-child { border-bottom: none; }
-                .sarf-input:focus { outline: none; background-color: rgba(255, 255, 255, 0.05) !important; }
-                .header-title-cell { font-size: 11px; font-weight: 800; color: #94a3b8; background-color: #090d16; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: center; text-align: center; }
-                .opacity-hover:hover { opacity: 1 !important; }
-                
-                .dropdown-menu-custom {
-                    position: absolute;
-                    right: 5%;
-                    top: 80%;
-                    background-color: #0f172a;
-                    border: 1px solid #475569;
-                    border-radius: 6px;
-                    z-index: 100;
-                    box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-                    padding: 4px 0;
-                    min-width: 140px;
-                }
-                .dropdown-item-custom {
-                    color: #cbd5e1;
-                    padding: 6px 12px;
-                    font-size: 11.5px;
-                    cursor: pointer;
-                    text-align: left;
-                    font-weight: 500;
-                }
-                .dropdown-item-custom:hover {
-                    background-color: #1e293b;
-                    color: white;
-                }
-            `}</style>
+              .sarf-row { border-bottom: 1px solid #334155; transition: background-color 0.15s ease; position: relative; }
+              .sarf-row:last-child { border-bottom: none; }
+              .sarf-input:focus { outline: none; background-color: rgba(255, 255, 255, 0.05) !important; }
+              .header-title-cell { font-size: 11px; font-weight: 800; color: #94a3b8; background-color: #090d16; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: center; text-align: center; }
+              .opacity-hover:hover { opacity: 1 !important; }
+              
+              .dropdown-menu-custom {
+                  position: absolute;
+                  right: 5%;
+                  top: 80%;
+                  background-color: #0f172a;
+                  border: 1px solid #475569;
+                  border-radius: 6px;
+                  z-index: 100;
+                  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
+                  padding: 4px 0;
+                  min-width: 140px;
+              }
+              .dropdown-item-custom {
+                  color: #cbd5e1;
+                  padding: 6px 12px;
+                  font-size: 11.5px;
+                  cursor: pointer;
+                  text-align: left;
+                  font-weight: 500;
+              }
+              .dropdown-item-custom:hover {
+                  background-color: #1e293b;
+                  color: white;
+              }
+          `}</style>
 
       <div className="d-flex flex-column rounded-3 overflow-x-auto" style={{ border: "1px solid #334155", width: "100%" }}>
         <div style={{ minWidth: "950px" }}>
@@ -202,7 +205,7 @@ function SarfMalzemeTablosu() {
           {/* ÜST PANEL */}
           <div className="d-flex justify-content-between align-items-center p-3" style={{ backgroundColor: "#151f32", borderBottom: "1px solid #334155" }}>
             <div className="fw-semibold text-white" style={{ fontSize: "14px" }}>
-              Sarf Malzeme ve Bakım Giderleri Tablosu
+              {teklifDili === "Yabancı" ? "Consumables and Maintenance Expenses Table" : "Sarf Malzeme ve Bakım Giderleri Tablosu"}
             </div>
 
             <div className="d-flex align-items-center gap-2">
@@ -210,9 +213,9 @@ function SarfMalzemeTablosu() {
                 onClick={handleRefresh}
                 className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
                 style={{ backgroundColor: "#d97706", fontSize: "11px", borderRadius: "6px" }}
-                title="Tabloyu İlk Ayarlarına Döndür"
+                title={teklifDili === "Yabancı" ? "Reset Table to Initial Settings" : "Tabloyu İlk Ayarlarına Döndür"}
               >
-                🔄 Yenile
+                🔄 {teklifDili === "Yabancı" ? "Refresh" : "Yenile"}
               </button>
 
               <button
@@ -234,17 +237,29 @@ function SarfMalzemeTablosu() {
 
           {/* TABLO BAŞLIKLARI */}
           <div className="d-flex align-items-stretch border-bottom" style={{ borderColor: "#334155" }}>
-            <div className="p-2 px-3 header-title-cell justify-content-start" style={{ width: "30%" }}>Giderlerin Tanımları</div>
+            <div className="p-2 px-3 header-title-cell justify-content-start" style={{ width: "30%" }}>
+              {teklifDili === "Yabancı" ? "Description of Expenses" : "Giderlerin Tanımları"}
+            </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-            <div className="p-2 header-title-cell" style={{ width: "16%" }}>Toplam Miktar</div>
+            <div className="p-2 header-title-cell" style={{ width: "16%" }}>
+              {teklifDili === "Yabancı" ? "Total Quantity" : "Toplam Miktar"}
+            </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-            <div className="p-2 header-title-cell" style={{ width: "18%" }}>Tüketim Oranı</div>
+            <div className="p-2 header-title-cell" style={{ width: "18%" }}>
+              {teklifDili === "Yabancı" ? "Consumption Rate" : "Tüketim Oranı"}
+            </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-            <div className="p-2 header-title-cell" style={{ width: "14%" }}>Birim Fiyat</div>
+            <div className="p-2 header-title-cell" style={{ width: "14%" }}>
+              {teklifDili === "Yabancı" ? "Unit Price" : "Birim Fiyat"}
+            </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-            <div className="p-2 header-title-cell text-end pe-4" style={{ width: "16%" }}>Toplam Fiyat</div>
+            <div className="p-2 header-title-cell text-end pe-4" style={{ width: "16%" }}>
+              {teklifDili === "Yabancı" ? "Total Price" : "Toplam Fiyat"}
+            </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-            <div className="p-2 header-title-cell" style={{ width: "6%" }}>Aksiyon</div>
+            <div className="p-2 header-title-cell" style={{ width: "6%" }}>
+              {teklifDili === "Yabancı" ? "Action" : "Aksiyon"}
+            </div>
           </div>
 
           {/* TABLO SATIRLARI */}
@@ -345,7 +360,9 @@ function SarfMalzemeTablosu() {
                     {!isHeading && (
                       <>
                         <span>{rowTotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 1 })}</span>
-                        <span className="text-white-50 ms-1" style={{ fontSize: "11px" }}>€/yıl</span>
+                        <span className="text-white-50 ms-1" style={{ fontSize: "11px" }}>
+                          {teklifDili === "Yabancı" ? "€/year" : "€/yıl"}
+                        </span>
                       </>
                     )}
                   </div>
@@ -356,19 +373,35 @@ function SarfMalzemeTablosu() {
                       onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === row.id ? null : row.id); }}
                       className="btn btn-sm p-0 border-0 text-success opacity-50 opacity-hover fw-bold"
                       style={{ fontSize: "16px", lineHeight: "1" }}
-                      title="Satır Ekle"
+                      title={teklifDili === "Yabancı" ? "Add Row" : "Satır Ekle"}
                       type="button"
                     >
                       +
                     </button>
-                    <button onClick={() => deleteRow(row.id)} className="btn btn-sm p-0 border-0 text-danger opacity-50 opacity-hover" style={{ fontSize: "16px", lineHeight: "1" }} title="Satırı Sil" type="button">&times;</button>
+                    <button
+                      onClick={() => deleteRow(row.id)}
+                      className="btn btn-sm p-0 border-0 text-danger opacity-50 opacity-hover"
+                      style={{ fontSize: "16px", lineHeight: "1" }}
+                      title={teklifDili === "Yabancı" ? "Delete Row" : "Satırı Sil"}
+                      type="button"
+                    >
+                      &times;
+                    </button>
 
                     {activeMenuId === row.id && (
                       <div className="dropdown-menu-custom" onClick={(e) => e.stopPropagation()}>
-                        <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 0); setActiveMenuId(null); }}>+ Ana Başlık</div>
-                        <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 1); setActiveMenuId(null); }}>+ Alt Başlık</div>
-                        <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 2); setActiveMenuId(null); }}>+ Alt Başlık (Açık)</div>
-                        <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 3); setActiveMenuId(null); }}>+ Normal Satır</div>
+                        <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 0); setActiveMenuId(null); }}>
+                          {teklifDili === "Yabancı" ? "+ Main Header" : "+ Ana Başlık"}
+                        </div>
+                        <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 1); setActiveMenuId(null); }}>
+                          {teklifDili === "Yabancı" ? "+ Sub Header" : "+ Alt Başlık"}
+                        </div>
+                        <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 2); setActiveMenuId(null); }}>
+                          {teklifDili === "Yabancı" ? "+ Sub Header (Open)" : "+ Alt Başlık (Açık)"}
+                        </div>
+                        <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 3); setActiveMenuId(null); }}>
+                          {teklifDili === "Yabancı" ? "+ Normal Row" : "+ Normal Satır"}
+                        </div>
                       </div>
                     )}
                   </div>
@@ -380,12 +413,14 @@ function SarfMalzemeTablosu() {
             {/* GENEL TOPLAM SATIRI */}
             <div className="d-flex align-items-stretch p-2.5 px-3 border-top" style={{ borderColor: "#475569", backgroundColor: "#0f172a", borderTopWidth: "2px" }}>
               <div className="fw-bold text-uppercase text-white-50 text-end pe-3" style={{ width: "78%", fontSize: "12px", letterSpacing: "0.5px" }}>
-                Genel Toplam Giderler
+                {teklifDili === "Yabancı" ? "GRAND TOTAL EXPENSES" : "Genel Toplam Giderler"}
               </div>
               <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
               <div className="d-flex align-items-center justify-content-end text-success fw-bold pe-2" style={{ width: "16%", fontSize: "14px" }}>
                 <span>{grandTotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-                <span style={{ fontSize: "11px", minWidth: "40px" }} className="ms-1 text-white-50">€/yıl</span>
+                <span style={{ fontSize: "11px", minWidth: "40px" }} className="ms-1 text-white-50">
+                  {teklifDili === "Yabancı" ? "€/year" : "€/yıl"}
+                </span>
               </div>
               <div style={{ width: "1px", backgroundColor: "transparent" }}></div>
               <div style={{ width: "6%" }}></div>

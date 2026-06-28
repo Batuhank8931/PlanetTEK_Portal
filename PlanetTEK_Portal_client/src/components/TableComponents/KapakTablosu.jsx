@@ -1,18 +1,34 @@
 import React, { useState, useEffect } from "react";
 import { useTeklifStore } from "../../utils/teklifStore";
 
-const PARAMETER_TEMPLATES = [
-  { key: "debi", label: "Debi", unit: "m³/gün" },
-  { key: "girisBoi", label: "Giriş BOİ₅", unit: "mg/l" },
-  { key: "cikisBoi", label: "Çıkış BOİ₅", unit: "mg/l" },
-  { key: "sicaklik", label: "Atıksu Sıcaklığı", unit: "°C" },
-  { key: "girisAmonyum", label: "Giriş Amonyumu (NH₄-N)", unit: "mg/l", requiresNitrifikasyon: true },
-  { key: "cikisAmonyum", label: "Çıkış Amonyumu (NH₄-N)", unit: "mg/l", requiresNitrifikasyon: true }
-];
+// Dil bazlı parametre şablonları
+const PARAMETER_TEMPLATES = {
+  TR: [
+    { key: "debi", label: "Debi", unit: "m³/gün" },
+    { key: "girisBoi", label: "Giriş BOİ₅", unit: "mg/l" },
+    { key: "cikisBoi", label: "Çıkış BOİ₅", unit: "mg/l" },
+    { key: "sicaklik", label: "Atıksu Sıcaklığı", unit: "°C" },
+    { key: "girisAmonyum", label: "Giriş Amonyumu (NH₄-N)", unit: "mg/l", requiresNitrifikasyon: true },
+    { key: "cikisAmonyum", label: "Çıkış Amonyumu (NH₄-N)", unit: "mg/l", requiresNitrifikasyon: true }
+  ],
+  EN: [
+    { key: "debi", label: "Flow Rate", unit: "m³/day" },
+    { key: "girisBoi", label: "Influent BOD₅", unit: "mg/l" },
+    { key: "cikisBoi", label: "Effluent BOD₅", unit: "mg/l" },
+    { key: "sicaklik", label: "Wastewater Temperature", unit: "°C" },
+    { key: "girisAmonyum", label: "Influent Ammonium (NH₄-N)", unit: "mg/l", requiresNitrifikasyon: true },
+    { key: "cikisAmonyum", label: "Effluent Ammonium (NH₄-N)", unit: "mg/l", requiresNitrifikasyon: true }
+  ]
+};
 
 function KapakTablosu() {
   const formData = useTeklifStore((state) => state.formData);
   const updateSection = useTeklifStore((state) => state.updateSection);
+
+  // Dil kontrolü
+  const teklifDili = formData?.customerInfo?.teklifDili;
+  const isForeign = teklifDili === "Yabancı";
+  const activeTemplates = isForeign ? PARAMETER_TEMPLATES.EN : PARAMETER_TEMPLATES.TR;
 
   const storeKapak = formData?.tables?.kapaktablosu;
 
@@ -20,7 +36,7 @@ function KapakTablosu() {
     const pDetails = formData?.planetDiskDetails?.tasarim?.aritmaParametreleri || {};
     const hasNitrifikasyon = pDetails.nitrifikasyon === "nitrifikasyonVar";
 
-    return PARAMETER_TEMPLATES
+    return activeTemplates
       .filter(param => !param.requiresNitrifikasyon || hasNitrifikasyon)
       .map((param, index) => ({
         id: `design_${param.key}_${index}`,
@@ -41,16 +57,18 @@ function KapakTablosu() {
 
   const [history, setHistory] = useState([]);
 
+  // Dil değiştiğinde veya tasarım parametreleri güncellendiğinde satırları senkronize et
   useEffect(() => {
     const freshRows = generateRowsFromDesign();
     setRows(prevRows => {
       if (prevRows.length === 0) return freshRows;
       return freshRows.map(fRow => {
         const existing = prevRows.find(p => p.id === fRow.id);
+        // Eğer kullanıcı elle değer/label/birim değiştirmediyse güncel şablondan dili/değeri koru
         return existing ? { ...fRow, value: existing.value, label: existing.label, unit: existing.unit } : fRow;
       }).concat(prevRows.filter(p => !p.id.toString().startsWith("design_")));
     });
-  }, [formData?.planetDiskDetails?.tasarim?.aritmaParametreleri]);
+  }, [formData?.planetDiskDetails?.tasarim?.aritmaParametreleri, teklifDili]);
 
   useEffect(() => {
     updateSection("tables", {
@@ -84,7 +102,14 @@ function KapakTablosu() {
   const insertAfterRow = (index) => {
     saveToHistory(rows);
     const newId = `new_${Date.now()}`;
-    const newRow = { id: newId, label: "Yeni Parametre Adı", value: "0", isNumeric: true, unit: "-", isUrgent: false };
+    const newRow = { 
+      id: newId, 
+      label: isForeign ? "New Parameter Name" : "Yeni Parametre Adı", 
+      value: "0", 
+      isNumeric: true, 
+      unit: "-", 
+      isUrgent: false 
+    };
 
     const updatedRows = [...rows];
     updatedRows.splice(index + 1, 0, newRow);
@@ -107,16 +132,14 @@ function KapakTablosu() {
         .opacity-hover:hover { opacity: 1 !important; }
       `}</style>
 
-      {/* overflow-x-auto eklenerek tablonun taşması durumunda sağa/sola kayması sağlandı */}
       <div className="d-flex flex-column rounded-3 overflow-x-auto" style={{ border: "1px solid #334155", width: "100%" }}>
         
-        {/* minWidth verilerek üst panelin ve satırların mobilde aşırı sıkışması önlendi */}
         <div style={{ minWidth: "500px" }}>
           
           {/* ÜST PANEL */}
           <div className="d-flex justify-content-between align-items-center p-3" style={{ backgroundColor: "#1e293b", borderBottom: "1px solid #334155" }}>
             <div className="fw-semibold text-white" style={{ fontSize: "14px" }}>
-              Kapak Tablosu Parametreleri
+              {isForeign ? "Cover Table Parameters" : "Kapak Tablosu Parametreleri"}
             </div>
 
             <div className="d-flex align-items-center gap-2">
@@ -130,9 +153,9 @@ function KapakTablosu() {
                   transition: "0.2s",
                   cursor: "pointer"
                 }}
-                title="Tabloyu İlk Tasarım Ayarlarına Döndür"
+                title={isForeign ? "Reset Table to Initial Design Settings" : "Tabloyu İlk Tasarım Ayarlarına Döndür"}
               >
-                🔄 Yenile
+                🔄 {isForeign ? "Refresh" : "Yenile"}
               </button>
 
               <button
@@ -183,7 +206,7 @@ function KapakTablosu() {
                     className="form-control form-control-sm text-start text-white-50 bg-transparent border-0 p-0 custom-input rounded ps-1"
                     style={{ fontSize: "11px", minWidth: "45px", width: "45px", boxShadow: "none" }}
                     value={row.unit}
-                    placeholder="birim"
+                    placeholder={isForeign ? "unit" : "birim"}
                     onChange={(e) => handleCellChange(row.id, "unit", e.target.value)}
                   />
 
@@ -194,7 +217,7 @@ function KapakTablosu() {
                       onClick={() => insertAfterRow(index)}
                       className="btn btn-sm p-0 border-0 text-success opacity-50 opacity-hover fw-bold"
                       style={{ fontSize: "16px", lineHeight: "1", width: "15px" }}
-                      title="Altına Yeni Satır Ekle"
+                      title={isForeign ? "Insert New Row Below" : "Altına Yeni Satır Ekle"}
                     >
                       +
                     </button>
@@ -202,7 +225,7 @@ function KapakTablosu() {
                       onClick={() => deleteRow(row.id)}
                       className="btn btn-sm p-0 border-0 text-danger opacity-50 opacity-hover"
                       style={{ fontSize: "16px", lineHeight: "1", width: "15px" }}
-                      title="Satırı Sil"
+                      title={isForeign ? "Delete Row" : "Satırı Sil"}
                     >
                       &times;
                     </button>

@@ -48,7 +48,7 @@ function YerlesimDetail() {
     const [isModalOpen, setIsModalOpen] = useState(false);
     const [selectedKademeData, setSelectedKademeData] = useState(null);
     const [hrtInputStr, setHrtInputStr] = useState(minimumBeklemeSuresi.toString());
-    
+
     // Manuel disk adetlerini store'dan veya başlangıçta boş arrayden besliyoruz
     const [manuelSiraDiskleri, setManuelSiraDiskleri] = useState(() => {
         if (kaydedilmisTasarim.yerlesimSiralanisi && kaydedilmisTasarim.yerlesimSiralanisi.length > 0) {
@@ -176,16 +176,50 @@ function YerlesimDetail() {
         });
     }, []);
 
+    // YENİLEME / RESET FONKSİYONU
+    const handleResetYerlesim = useCallback(() => {
+        if (globalSistemOzet.toplamGerekliDisk === 0) return;
+
+        // İdeal ünite sayısını inputlara ve default değerlere göre tekrar hesapla
+        const idealUniteSayisi = hesaplaIdealUniteAdedi({
+            toplamGerekliDisk: globalSistemOzet.toplamGerekliDisk,
+            maxDiskAdedi,
+            minDiskAdedi,
+            Q,
+            hacim,
+            minimumBeklemeSuresi,
+            varsayilanSira: 1
+        });
+
+        // State'leri default hale getirerek yeniden hesaplamayı tetikliyoruz
+        setSecilenUnite(idealUniteSayisi);
+        setSecilenSira(1);
+        setYerlesimDuzeni([]);
+        setManuelSiraDiskleri(Array(1).fill(null));
+
+        // Store'daki eski yerleşimi de anında temizlemek için:
+        const temizTasarimState = {
+            ...useTeklifStore.getState().formData?.planetDiskDetails?.tasarim,
+            secilenUnite: idealUniteSayisi,
+            secilenSira: 1,
+            yerlesimDuzeni: [],
+            yerlesimSiralanisi: [], // geçici sıfırlama, alttaki useEffect ile hemen günceli dolacaktır
+            lastCalculatedFinalMetrekare: null // useEffect'in koruma mekanizmasını bypass etmek için null yapıyoruz
+        };
+        updateSection("planetDiskDetails", { tasarim: temizTasarimState });
+
+    }, [globalSistemOzet.toplamGerekliDisk, maxDiskAdedi, minDiskAdedi, Q, hacim, minimumBeklemeSuresi, updateSection]);
+
     // STORE SENKRONİZASYONU
     useEffect(() => {
         if (loading || !tumSiralar || tumSiralar.length === 0) return;
 
         const guncelTasarimState = {
             ...useTeklifStore.getState().formData?.planetDiskDetails?.tasarim,
-            secilenUnite, 
-            secilenSira, 
-            yerlesimDuzeni, 
-            yerlesimSiralanisi: tumSiralar, 
+            secilenUnite,
+            secilenSira,
+            yerlesimDuzeni,
+            yerlesimSiralanisi: tumSiralar,
             minimumBeklemeSuresi,
             lastCalculatedFinalMetrekare: finalMetrekare // Bir sonraki renderda karşılaştırmak için buraya kaydediyoruz!
         };
@@ -265,6 +299,7 @@ function YerlesimDetail() {
 
     return (
         <div className="p-1 rounded" style={{ backgroundColor: "#1e293b", display: "flex", flexDirection: "column" }}>
+
             <KademeKartlari
                 kademeKartlariVerisi={kademeKartlariVerisi}
                 openDetailModal={openDetailModal}
@@ -276,6 +311,7 @@ function YerlesimDetail() {
                 handleUniteChange={handleUniteChange}
                 handleSiraChange={handleSiraChange}
                 handleBeklemeSuresiChange={handleBeklemeSuresiChange}
+                onReset={handleResetYerlesim} // <--- Bu satırı eklemiş olduk
             />
 
             <SistemSemasi

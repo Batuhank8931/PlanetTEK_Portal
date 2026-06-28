@@ -5,6 +5,9 @@ function AmortismanTablosu() {
   const formData = useTeklifStore((state) => state.formData);
   const updateSection = useTeklifStore((state) => state.updateSection);
 
+  const teklifDili = formData?.customerInfo?.teklifDili;
+  const isForeign = teklifDili === "Yabancı";
+
   // Store'dan gerekli parametrelerin güvenli bir şekilde okunması
   const storeDebi = parseFloat(formData?.planetDiskDetails?.tasarim?.aritmaParametreleri?.debi) || 0;
   const planetCapex = parseFloat(formData?.tables?.capextablosu?.totalNetPrice) || 0;
@@ -131,7 +134,7 @@ function AmortismanTablosu() {
           justify-content: center;
           text-align: center;
           padding: 0.6rem 0.5rem;
-          font-size: 12px; /* Tüm font boyutları eşitlendi */
+          font-size: 12px;
         }
         .amort-cell-main:last-child {
           border-right: none;
@@ -160,8 +163,8 @@ function AmortismanTablosu() {
 
           {/* ÜST PANEL */}
           <div className="d-flex justify-content-between align-items-center p-3 amort-divider-bottom" style={{ backgroundColor: "#151f32" }}>
-            <div className="fw-semibold text-white" style={{ fontSize: "13px" }}>
-              Yatırımın Geri Dönüş Süresi (Amortisman) Tablosu
+            <div className="fw-semibold text-white" style={{ fontSize: "13px", textTransform: isForeign ? "uppercase" : "none", letterSpacing: isForeign ? "0.5px" : "normal" }}>
+              {isForeign ? "AMORTIZATION TABLE" : "Yatırımın Geri Dönüş Süresi (Amortisman) Tablosu"}
             </div>
 
             <div className="d-flex align-items-center gap-2">
@@ -169,9 +172,9 @@ function AmortismanTablosu() {
                 onClick={handleRefresh}
                 className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
                 style={{ backgroundColor: "#d97706", fontSize: "11px", borderRadius: "6px" }}
-                title="Tabloyu İlk Ayarlarına Döndür"
+                title={isForeign ? "Reset Table to Initial Settings" : "Tabloyu İlk Ayarlarına Döndür"}
               >
-                🔄 Yenile
+                🔄 {isForeign ? "Refresh" : "Yenile"}
               </button>
 
               <button
@@ -193,30 +196,32 @@ function AmortismanTablosu() {
 
           {/* BÖLÜM 1: SULAMA AMAÇLI ŞEBEKE SUYUNUN ANALİZİ */}
           <div className="d-flex align-items-stretch amort-divider-bottom">
-            {/* Büyük Yan Başlık (%30 Genişlik) */}
-            <div className="amort-cell-main bg-title-dark text-uppercase" style={{ flex: "0 0 30%" }}>
-              Sulama Amaçlı Şebeke Suyu Kullanılırsa
+            {/* Büyük Yan Başlık */}
+            <div className="amort-cell-main bg-title-dark text-uppercase fw-bold" style={{ flex: "0 0 30%", fontSize: "11px", letterSpacing: "0.3px" }}>
+              {isForeign ? "IF THE IRRIGATION WATER IS SUPPLIED FROM MUNICIPAL WATER" : "Sulama Amaçlı Şebeke Suyu Kullanılırsa"}
             </div>
 
-            {/* Sağdaki Blok (%70 Genişlik) */}
+            {/* Sağdaki Blok */}
             <div className="d-flex flex-column" style={{ flex: "0 0 70%" }}>
-              {/* 1. Satır: Başlıklar (Her biri tam %20) */}
+              {/* 1. Satır: Başlıklar */}
               <div className="amort-row-layout amort-divider-bottom bg-title-dark" style={{ minHeight: "42px" }}>
-                <div className="amort-cell-main" style={{ flex: "0 0 20%" }}>Günlük su kullanımı</div>
-                <div className="amort-cell-main" style={{ flex: "0 0 20%" }}>Aylık su kullanımı</div>
-                <div className="amort-cell-main" style={{ flex: "0 0 20%" }}>Yılda <input type="number" className="bg-transparent border-0 text-center text-info fw-bold mx-1 p-0" style={{ width: "20px", outline: "none", fontSize: "12px" }} value={data.activeMonths} onChange={(e) => handleChange("activeMonths", e.target.value)} /> ay su kullanımı</div>
-                <div className="amort-cell-main" style={{ flex: "0 0 20%" }}>Şebeke suyu birim fiyatı</div>
-                <div className="amort-cell-main text-warning" style={{ flex: "0 0 20%" }}>Toplam yıllık su bedeli</div>
+                <div className="amort-cell-main" style={{ flex: "0 0 20%" }}>{isForeign ? "Daily water required" : "Günlük su kullanımı"}</div>
+                <div className="amort-cell-main" style={{ flex: "0 0 20%" }}>{isForeign ? "Monthly water required" : "Aylık su kullanımı"}</div>
+                <div className="amort-cell-main" style={{ flex: "0 0 20%" }}>
+                  {isForeign ? "Yearly water required" : <>Yılda <input type="number" className="bg-transparent border-0 text-center text-info fw-bold mx-1 p-0" style={{ width: "20px", outline: "none", fontSize: "12px" }} value={data.activeMonths} onChange={(e) => handleChange("activeMonths", e.target.value)} /> ay su kullanımı</>}
+                </div>
+                <div className="amort-cell-main" style={{ flex: "0 0 20%" }}>{isForeign ? "Unit Price of Municipal Water" : "Şebeke suyu birim fiyatı"}</div>
+                <div className="amort-cell-main text-warning" style={{ flex: "0 0 20%" }}>{isForeign ? "Yearly Total Water Use Cost" : "Toplam yıllık su bedeli"}</div>
               </div>
-              {/* 2. Satır: Birimler (Her biri tam %20 - Sütunlar tam kenetlendi) */}
+              {/* 2. Satır: Birimler */}
               <div className="amort-row-layout amort-divider-bottom bg-unit-gray" style={{ height: "32px" }}>
-                <div className="amort-cell-main" style={{ flex: "0 0 20%" }}>m³/gün</div>
-                <div className="amort-cell-main" style={{ flex: "0 0 20%" }}>m³/ay</div>
-                <div className="amort-cell-main" style={{ flex: "0 0 20%" }}>m³/yıl</div>
+                <div className="amort-cell-main" style={{ flex: "0 0 20%" }}>m³/day</div>
+                <div className="amort-cell-main" style={{ flex: "0 0 20%" }}>m³/month</div>
+                <div className="amort-cell-main" style={{ flex: "0 0 20%" }}>m³/year</div>
                 <div className="amort-cell-main" style={{ flex: "0 0 20%" }}>€</div>
-                <div className="amort-cell-main" style={{ flex: "0 0 20%" }}>€/yıl</div>
+                <div className="amort-cell-main" style={{ flex: "0 0 20%" }}>{isForeign ? "€ /year" : "€/yıl"}</div>
               </div>
-              {/* 3. Satır: Değerler (Her biri tam %20) */}
+              {/* 3. Satır: Değerler */}
               <div className="amort-row-layout bg-value-blue" style={{ minHeight: "48px" }}>
                 <div className="amort-cell-main" style={{ flex: "0 0 20%" }}>
                   <input type="number" className="form-control form-control-sm bg-transparent border-0 amort-input-field" value={data.dailyUsage} onChange={(e) => handleChange("dailyUsage", e.target.value)} />
@@ -233,26 +238,28 @@ function AmortismanTablosu() {
 
           {/* BÖLÜM 2: SULAMA AMAÇLI ARITMA TESİSİ ANALİZİ */}
           <div className="d-flex align-items-stretch">
-            {/* Sol Büyük Yan Başlık (%30 Genişlik - Üst tarafla milimetrik hizalı) */}
-            <div className="amort-cell-main bg-title-dark text-uppercase" style={{ flex: "0 0 30%" }}>
-              Sulama Amaçlı Evsel Atıksu Arıtma Tesisinden Çıkan Su Kullanılırsa
+            {/* Sol Büyük Yan Başlık */}
+            <div className="amort-cell-main bg-title-dark text-uppercase fw-bold" style={{ flex: "0 0 30%", fontSize: "11px", letterSpacing: "0.3px" }}>
+              {isForeign ? "IF THE IRRIGATION WATER IS SUPPLIED FROM WWTP" : "Sulama Amaçlı Evsel Atıksu Arıtma Tesisinden Çıkan Su Kullanılırsa"}
             </div>
 
-            {/* Sağdaki Blok (%70 Genişlik) */}
+            {/* Sağdaki Blok */}
             <div className="d-flex flex-column" style={{ flex: "0 0 70%" }}>
               {/* Satır 1: Başlıklar */}
               <div className="amort-row-layout amort-divider-bottom" style={{ minHeight: "42px" }}>
-                <div className="amort-cell-main bg-title-dark" style={{ flex: "0 0 30%" }}>Atıksu Arıtma Tesisinin Yaklaşık Maliyeti</div>
-                <div className="amort-cell-main fw-bold" style={{ flex: "0 0 70%", backgroundColor: "#cbd5e1", color: "#0f172a" }}>
-                  ATIKSU ARITMA TESİSİNİN AMORTİ ETME SÜRESİ
+                <div className="amort-cell-main bg-title-dark" style={{ flex: "0 0 30%" }}>
+                  {isForeign ? "WWTP CAPEX" : "Atıksu Arıtma Tesisinin Yaklaşık Maliyeti"}
+                </div>
+                <div className="amort-cell-main fw-bold" style={{ flex: "0 0 70%", backgroundColor: "#cbd5e1", color: "#0f172a", fontSize: "13px", letterSpacing: "0.5px" }}>
+                  {isForeign ? "Amortization Time" : "ATIKSU ARITMA TESİSİNİN AMORTİ ETME SÜRESİ"}
                 </div>
               </div>
 
               {/* Satır 2: Birimler */}
               <div className="amort-row-layout amort-divider-bottom bg-unit-gray" style={{ height: "32px" }}>
                 <div className="amort-cell-main" style={{ flex: "0 0 30%" }}>€</div>
-                <div className="amort-cell-main" style={{ flex: "0 0 35%" }}>Yıl</div>
-                <div className="amort-cell-main" style={{ flex: "0 0 35%" }}>Ay</div>
+                <div className="amort-cell-main" style={{ flex: "0 0 35%" }}>{isForeign ? "Year" : "Yıl"}</div>
+                <div className="amort-cell-main" style={{ flex: "0 0 35%" }}>{isForeign ? "Month" : "Ay"}</div>
               </div>
 
               {/* Satır 3: Değerler */}
@@ -260,32 +267,47 @@ function AmortismanTablosu() {
                 <div className="amort-cell-main" style={{ flex: "0 0 30%" }}>
                   <input type="number" className="form-control form-control-sm bg-transparent border-0 amort-input-field text-info" value={data.plantCost} onChange={(e) => handleChange("plantCost", e.target.value)} />
                 </div>
-                <div className="amort-cell-main text-white fw-bold" style={{ flex: "0 0 35%" }}>
+                <div className="amort-cell-main text-white fw-bold font-monospace" style={{ flex: "0 0 35%", fontSize: "14px" }}>
                   {roiYears > 0 ? roiYears.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0"}
                 </div>
-                <div className="amort-cell-main text-white fw-bold" style={{ flex: "0 0 35%" }}>
+                <div className="amort-cell-main text-white fw-bold font-monospace" style={{ flex: "0 0 35%", fontSize: "20px" }}>
                   {roiMonths > 0 ? Math.round(roiMonths).toLocaleString() : "0"}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* BÖLÜM 3: ÖZET VE OPERASYONEL NOTLAR PANELİ */}
+          {/* BÖLÜM 3: ÖZET PANELİ */}
           <div className="d-flex flex-column value-bg">
             <div className="p-3 text-center border-top" style={{ borderColor: "#334155", backgroundColor: "#111827" }}>
-              <span className="text-white-50" style={{ fontSize: "12px" }}>Mevcut şebeke maliyetleri ve işletme giderleri analiz edildiğinde;</span>
-              <div className="mt-1 d-flex align-items-center justify-content-center gap-1 flex-wrap" style={{ fontSize: "13px" }}>
-                <span className="text-white">Sistem kendisini ancak tam</span>
-                <span className="fw-bold px-2 py-0.5 rounded border border-danger text-danger bg-danger-subtle mx-1">
-                  {exactYearRound >= 0 ? exactYearRound : 0}
-                </span>
-                <span className="text-white fw-bold">YILDA</span>
-                <span className="text-white">geri döndürebilmektedir.</span>
+              <div className="mt-1 d-flex align-items-center justify-content-center gap-1 flex-wrap" style={{ fontSize: "14px" }}>
+                {isForeign ? (
+                  <>
+                    <span className="text-white">In</span>
+                    <span className="fw-extrabold px-3 py-0.5 rounded border border-danger text-danger bg-danger-subtle mx-1 font-monospace" style={{ fontSize: "18px" }}>
+                      {roiMonths > 0 ? Math.round(roiMonths).toLocaleString() : "0"}
+                    </span>
+                    <span className="text-danger fw-bold">Months</span>
+                    <span className="text-white">, the WWTP is amortizing itself.</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-white">Sistem kendisini ancak tam</span>
+                    <span className="fw-bold px-2 py-0.5 rounded border border-danger text-danger bg-danger-subtle mx-1">
+                      {exactYearRound >= 0 ? exactYearRound : 0}
+                    </span>
+                    <span className="text-white fw-bold">YILDA</span>
+                    <span className="text-white">geri döndürebilmektedir.</span>
+                  </>
+                )}
               </div>
             </div>
             <div className="p-2 text-center border-top" style={{ backgroundColor: "#0f172a", borderColor: "#1e293b" }}>
               <i className="fw-semibold" style={{ fontSize: "11px", color: "#94a3b8" }}>
-                ⚠️ Not: Bu süreye her yıl güncellenen amortisman tablosundaki işletme giderleri ({data.annualOpex.toLocaleString()} €/yıl) dahil edilerek hesaplama yapılmıştır.
+                {isForeign 
+                  ? `*** "Unit Price of Municipal Water = ${data.waterPrice} € cent" is the rate in TURKEY & given for comparison purposes.`
+                  : `⚠️ Not: Bu süreye her yıl güncellenen amortisman tablosundaki işletme giderleri (${data.annualOpex.toLocaleString()} €/yıl) dahil edilerek hesaplama yapılmıştır.`
+                }
               </i>
             </div>
           </div>

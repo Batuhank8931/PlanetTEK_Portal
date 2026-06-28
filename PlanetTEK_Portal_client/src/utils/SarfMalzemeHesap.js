@@ -9,6 +9,8 @@ export default async function sarfMalsemeHesapFonksiyonu(formData) {
         return [];
     }
 
+    const teklifDili = formData?.customerInfo?.teklifDili;
+
     // Ekipman Nesnesi Yapılandırması
     const equipmentsObject = formData.equipments || {};
     const { modulesState = {} } = equipmentsObject;
@@ -60,26 +62,100 @@ export default async function sarfMalsemeHesapFonksiyonu(formData) {
     const CamurEkipman = CamurObj.ekipmanTipi || "Filtrepres";
 
     const initialRows = [
-        // Ana Başlık Her Zaman Render Edilir
-        { id: "h1", label: "SARF MALZEME VE BAKIM GİDERLERİ", isHeader: true },
+        // Ana Başlık
+        {
+            id: "h1",
+            label: teklifDili === "Yabancı" ? "CONSUMABLES AND MAINTENANCE EXPENSES" : "SARF MALZEME VE BAKIM GİDERLERİ",
+            isHeader: true
+        },
 
-        { id: "s1", label: "Biyolojik Arıtma Üniteleri (İkincil Arıtma)", isSubHeader: true },
-        { id: "s1_sub", label: "PlanetDISK® MX 1 DBD Ünitesi", isSubHeader: true, isLight: true },
-        { id: "r1", label: "Rulman Gres Yağı", qty: toplamRbcAdedi * 2, qtyUnit: "rulman", consumption: 0.5, consumptionUnit: "kg/yıl.rulman", unitPrice: 6, priceUnit: "€/kg" },
-        { id: "r2", label: "Redüktör Yağı", qty: toplamRbcAdedi, qtyUnit: "redüktör", consumption: 7.4, consumptionUnit: "lt/yıl.redüktör", unitPrice: 4, priceUnit: "€/lt" },
+        // Biyolojik Arıtma Başlıkları
+        {
+            id: "s1",
+            label: teklifDili === "Yabancı" ? "Biological Treatment Units (Secondary Treatment)" : "Biyolojik Arıtma Üniteleri (İkincil Arıtma)",
+            isSubHeader: true
+        },
+        {
+            id: "s1_sub",
+            label: teklifDili === "Yabancı" ? `PlanetDISK® ${RBCUnite} DBD Unit` : `PlanetDISK® ${RBCUnite} DBD Ünitesi`,
+            isSubHeader: true,
+            isLight: true
+        },
+        {
+            id: "r1",
+            label: teklifDili === "Yabancı" ? "Bearing Grease" : "Rulman Gres Yağı",
+            qty: toplamRbcAdedi * 2,
+            qtyUnit: teklifDili === "Yabancı" ? "bearing" : "rulman",
+            consumption: 0.5,
+            consumptionUnit: teklifDili === "Yabancı" ? "kg/year.bearing" : "kg/yıl.rulman",
+            unitPrice: 6,
+            priceUnit: "€/kg"
+        },
+        {
+            id: "r2",
+            label: teklifDili === "Yabancı" ? "Gearbox Oil" : "Redüktör Yağı",
+            qty: toplamRbcAdedi,
+            qtyUnit: teklifDili === "Yabancı" ? "gearbox" : "redüktör",
+            consumption: 7.4,
+            consumptionUnit: teklifDili === "Yabancı" ? "lt/year.gearbox" : "lt/yıl.redüktör",
+            unitPrice: 4,
+            priceUnit: "€/lt"
+        },
         ...(isIleriAritmaChecked ? [
-            { id: "r3", label: "Demir Üç Klorür (FeCl3)", qty: 1, qtyUnit: "Dozaj Ün.", consumption: ((gerekliFeCl3 * 365) / 1000).toFixed(2), consumptionUnit: "ton/yıl", unitPrice: 200, priceUnit: "€/ton" },
+            {
+                id: "r3",
+                label: teklifDili === "Yabancı" ? "Ferric Chloride (FeCl3)" : "Demir Üç Klorür (FeCl3)",
+                qty: 1,
+                qtyUnit: teklifDili === "Yabancı" ? "Dosing Unit" : "Dozaj Ün.",
+                consumption: ((gerekliFeCl3 * 365) / 1000).toFixed(2),
+                consumptionUnit: teklifDili === "Yabancı" ? "ton/year" : "ton/yıl",
+                unitPrice: 200,
+                priceUnit: "€/ton"
+            },
         ] : []),
 
+        // Filtrasyon ve Dezenfeksiyon Başlıkları
         ...(isFiltrasyonChecked ? [
-            { id: "s2", label: "Filtrasyon ve Dezenfeksiyon Üniteleri (İleri Arıtma)", isSubHeader: true },
-            { id: "s2_sub", label: "Ön Klorlama Dozaj Pompası", isSubHeader: true, isLight: true },
-            { id: "r4", label: "Sıvı Klor", qty: 1, qtyUnit: "Dozaj Ün.", consumption: 1.34, consumptionUnit: "ton/yıl", unitPrice: 0.38, priceUnit: "€/kg" },
+            {
+                id: "s2",
+                label: teklifDili === "Yabancı" ? "Filtration and Disinfection Units (Advanced Treatment)" : "Filtrasyon ve Dezenfeksiyon Üniteleri (İleri Arıtma)",
+                isSubHeader: true
+            },
+            {
+                id: "s2_sub",
+                label: teklifDili === "Yabancı" ? "Pre-Chlorination Dosing Pump" : "Ön Klorlama Dozaj Pompası",
+                isSubHeader: true,
+                isLight: true
+            },
+            {
+                id: "r4",
+                label: teklifDili === "Yabancı" ? "Liquid Chlorine" : "Sıvı Klor",
+                qty: 1,
+                qtyUnit: teklifDili === "Yabancı" ? "Dosing Unit" : "Dozaj Ün.",
+                consumption: 1.34,
+                consumptionUnit: teklifDili === "Yabancı" ? "ton/year" : "ton/yıl",
+                unitPrice: 0.38,
+                priceUnit: "€/kg"
+            },
         ] : []),
 
+        // Çamur Susuzlaştırma Başlıkları
         ...(isCamurAktif ? [
-            { id: "s3", label: "Çamur Susuzlaştırma Ünitesi", isSubHeader: true },
-            { id: "r5", label: "Katyonik Polielektrolit", qty: 1, qtyUnit: "Dozaj Ün.", consumption: 91, consumptionUnit: "kg/yıl", unitPrice: 26, priceUnit: "€/kg" }
+            {
+                id: "s3",
+                label: teklifDili === "Yabancı" ? "Sludge Dewatering Unit" : "Çamur Susuzlaştırma Ünitesi",
+                isSubHeader: true
+            },
+            {
+                id: "r5",
+                label: teklifDili === "Yabancı" ? "Cationic Polyelectrolyte" : "Katyonik Polielektrolit",
+                qty: 1,
+                qtyUnit: teklifDili === "Yabancı" ? "Dosing Unit" : "Dozaj Ün.",
+                consumption: 91,
+                consumptionUnit: teklifDili === "Yabancı" ? "kg/year" : "kg/yıl",
+                unitPrice: 26,
+                priceUnit: "€/kg"
+            }
         ] : []),
     ];
 

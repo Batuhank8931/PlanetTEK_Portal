@@ -5,7 +5,8 @@ function SistemKontrolPaneli({
   hrtInputStr,
   handleUniteChange,
   handleSiraChange,
-  handleBeklemeSuresiChange
+  handleBeklemeSuresiChange,
+  onReset // Ana bileşenden gelen reset fonksiyonunu prop olarak aldık
 }) {
   return (
     <div className="row g-1 justify-content-center mb-1">
@@ -15,9 +16,30 @@ function SistemKontrolPaneli({
             <span className="fw-bold text-white" style={{ fontSize: "12px" }}>
               Genel Sistem Yerleşimi (Toplam)
             </span>
-            <span className="badge" style={{ backgroundColor: "#1e293b", color: "#94a3b8", fontSize: "11px", border: "1px solid #334155" }}>
-              Toplam: {sistemHesabi.toplamAlan.toFixed(2)} m² — {sistemHesabi.toplamGerekliDisk} Disk
-            </span>
+            
+            {/* Badge ve Yenileme Butonunu bir arada tutan d-flex alan */}
+            <div className="d-flex align-items-center gap-2">
+              <span className="badge" style={{ backgroundColor: "#1e293b", color: "#94a3b8", fontSize: "11px", border: "1px solid #334155" }}>
+                Toplam: {sistemHesabi.toplamAlan.toFixed(2)} m² — {sistemHesabi.toplamGerekliDisk} Disk
+              </span>
+              
+              <button
+                onClick={onReset}
+                className="btn btn-sm p-0 d-flex align-items-center justify-content-center border-0"
+                style={{ 
+                  backgroundColor: "#f97316", // Arayüzdeki turuncu renk
+                  color: "#white",
+                  fontSize: "12px", 
+                  borderRadius: "6px",
+                  width: "24px",
+                  height: "24px",
+                  cursor: "pointer"
+                }}
+                title="Yerleşimi Varsayılana Döndür ve Yeniden Hesapla"
+              >
+                🔄
+              </button>
+            </div>
           </div>
 
           <div className="row g-1 align-items-end">

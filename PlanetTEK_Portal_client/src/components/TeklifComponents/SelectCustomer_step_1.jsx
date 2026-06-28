@@ -31,22 +31,34 @@ const MOCK_CUSTOMERS_DB = [
     }
 ];
 
+const FIRSTNUMBER = 345; // 🌟 Test için 345 yaptık, otomatik 0346 basacak.
+
 function SelectCustomer() {
-    // 1. Store'dan veriyi çekerken default boş obje atıyoruz ki undefined hatası patlamasın
     const customerInfo = useTeklifStore((state) => state.formData.customerInfo) || {};
     const updateSection = useTeklifStore((state) => state.updateSection);
 
-    // 2. Lokal UI State'leri
     const [searchTerm, setSearchTerm] = useState(customerInfo.ticariUnvan || "");
     const [searchResults, setSearchResults] = useState([]);
     const [isSelecting, setIsSelecting] = useState(false);
 
-    // Geçmiş indirim listesi için seçili objeyi lokalde eşleştiriyoruz
     const [selectedCustomer, setSelectedCustomer] = useState(
         MOCK_CUSTOMERS_DB.find(c => c.ticariUnvan === customerInfo.ticariUnvan) || null
     );
 
-    // Arama mekanizmasını yöneten useEffect
+    // 🌟 YENİ: İlk yüklemede FIRSTNUMBER + 1'i her zaman 4 haneli string yapar (Örn: "0346")
+    useEffect(() => {
+        if (customerInfo.teklifNo === undefined || customerInfo.teklifNo === "") {
+            const nextNumber = FIRSTNUMBER + 1;
+            const paddedNumber = String(nextNumber).padStart(4, "0"); // Soluna 0 doldurma sihri
+
+            updateSection("customerInfo", {
+                ...customerInfo,
+                teklifNo: paddedNumber,
+                revizyonNo: customerInfo.revizyonNo || "R0"
+            });
+        }
+    }, []);
+
     useEffect(() => {
         if (isSelecting) {
             setIsSelecting(false);
@@ -70,15 +82,12 @@ function SelectCustomer() {
         setSearchTerm(customer.ticariUnvan);
         setSearchResults([]);
 
-        // Eğer indirim varsa en güncel olanı bulalım
         const siraliIndirimler = customer.indirimler
             ? [...customer.indirimler].sort((a, b) => new Date(b.indirimTarihi) - new Date(a.indirimTarihi))
             : [];
 
         const enGuncelIndirim = siraliIndirimler[0] || {};
 
-        // "customerInfo" key'ini ilk kez burada komple doldurarak store'a pushluyoruz
-        // revizyonNo: "R0" arka planda formData'ya eklendi
         updateSection("customerInfo", {
             ...customerInfo,
             ticariUnvan: customer.ticariUnvan,
@@ -86,34 +95,34 @@ function SelectCustomer() {
             planetTekIndirim: enGuncelIndirim.planetTekIndirim || "",
             ekipmanIndirim: enGuncelIndirim.ekipmanIndirim || "",
             ilgiliKisi: customer.ilgiliKisiler[0] || "",
-            revizyonNo: "R0" 
+            revizyonNo: customerInfo.revizyonNo || "R0"
         });
     };
 
     const handleChange = (e) => {
-        // Obje içindeki tekil key güncellemelerini doğrudan "customerInfo" altına basıyoruz
         updateSection("customerInfo", { [e.target.name]: e.target.value });
     };
 
-    // Teklif numarası için özel tamsayı ve 4 hane kontrolü
+    // 🌟 YENİ: Kullanıcı elle sayı girdikçe veya sildikçe 4 basamak kalıbını korur
     const handleTeklifNoChange = (e) => {
         let val = e.target.value;
-        
+
         if (val === "") {
             updateSection("customerInfo", { teklifNo: "" });
             return;
         }
 
-        // Sadece sayıları al, tamsayıya çevir (fixedTo0 mantığı) ve ilk 4 hanesini kes
-        let numericValue = parseInt(val, 10);
-        if (isNaN(numericValue)) return;
-
-        let fixedVal = Math.floor(numericValue).toString().slice(0, 4);
+        // Sadece sayı karakterlerini tut ve max 4 hane olacak şekilde kes
+        let cleanVal = val.replace(/\D/g, "").slice(0, 4);
         
-        updateSection("customerInfo", { teklifNo: parseInt(fixedVal, 10) });
+        // Eğer input tipi "text" olsaydı doğrudan padStart yapabilirdik ancak "number" tipi 
+        // başındaki "0" değerlerini string dahi olsa UI'da bazen render etmeyebilir veya bozabilir.
+        // Bu yüzden input alanının tipini aşağıda "text" olarak güncelledik.
+        let paddedVal = cleanVal.padStart(4, "0");
+
+        updateSection("customerInfo", { teklifNo: paddedVal });
     };
 
-    // Seçilen müşterinin indirimlerini tarihe göre sıralayalım (En yeni -> En eski)
     const siraliIndirimler = selectedCustomer?.indirimler
         ? [...selectedCustomer.indirimler].sort((a, b) => new Date(b.indirimTarihi) - new Date(a.indirimTarihi))
         : [];
@@ -121,7 +130,6 @@ function SelectCustomer() {
     return (
         <div className="card border-0 text-white h-100 p-4 gap-3" style={{ backgroundColor: "#1a1c1d", borderRadius: "5px", boxShadow: "0 4px 6px -1px rgba(0,0,0,0.1)" }}>
 
-            {/* Adım Başlığı */}
             <div className="d-flex align-items-center">
                 <span className="fw-bold text-uppercase pe-2" style={{ fontSize: "11px", letterSpacing: "0.7px", color: "#00874e" }}>
                     Müşteri Genel Bilgileri
@@ -129,7 +137,6 @@ function SelectCustomer() {
                 <div className="flex-grow-1 border-bottom" style={{ borderColor: "rgba(255,255,255,0.1)" }}></div>
             </div>
 
-            {/* ANA SATIR: Müşteri Arama, Teklif Numarası ve Dil Seçimi */}
             <div className="row g-3 py-3">
                 {/* Ticari Ünvan */}
                 <div className="col-12 col-md-5 position-relative">
@@ -143,7 +150,6 @@ function SelectCustomer() {
                             setSearchTerm(e.target.value);
                             if (e.target.value === "") {
                                 setSelectedCustomer(null);
-                                // Arama silinirse store'daki bu key'in içini temizliyoruz (Teklif no ve revizyonNo korunur)
                                 updateSection("customerInfo", {
                                     teklifNo: customerInfo.teklifNo || "",
                                     revizyonNo: customerInfo.revizyonNo || "R0",
@@ -185,16 +191,17 @@ function SelectCustomer() {
                         Teklif Numarası (4 Haneli) *
                     </label>
                     <input
-                        type="number"
+                        type="text" // 🌟 ÖNEMLİ: Baştaki sıfırların (0346) ekranda kaybolmaması için tipi "text" yaptık
                         name="teklifNo"
                         value={customerInfo.teklifNo ?? ""}
                         onChange={handleTeklifNoChange}
-                        onKeyDown={(e) => ["e", "E", "+", "-", ",", "."].includes(e.key) && e.preventDefault()}
+                        // Sadece rakam girişine izin vermek için filtreleme (Mobil uyumluluk için)
+                        inputMode="numeric"
+                        pattern="[0-9]*"
                         className="form-control form-control-sm text-white fw-bold border-0"
                         style={{ backgroundColor: "#1e293b", borderRadius: "6px", fontSize: "12px" }}
-                        placeholder="Örn: 1024"
-                        min="1000"
-                        max="9999"
+                        placeholder="Örn: 0346"
+                        maxLength={4}
                     />
                 </div>
 

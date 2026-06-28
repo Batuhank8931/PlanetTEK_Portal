@@ -5,6 +5,8 @@ import { ozetTabloHesap } from "../../utils/OzettabloHesap"; // Dışarıdan exp
 function OzetTablosu() {
   const formData = useTeklifStore((state) => state.formData);
   const updateSection = useTeklifStore((state) => state.updateSection);
+  const teklifDili = formData?.customerInfo?.teklifDili;
+
 
   const storeOzetVerisi = formData?.tables?.ozettablosu;
 
@@ -119,61 +121,31 @@ function OzetTablosu() {
   }
 
   return (
-    <div className="d-flex flex-column gap-3 w-100 text-white">
+    <div className="d-flex flex-column gap-3 w-100 text-white" onClick={() => setActiveMenuId?.(null)}>
 
       <style>{`
-        .ozet-row {
-          border-bottom: 1px solid #334155;
-          transition: background-color 0.15s ease;
-        }
-        .ozet-row:last-child { border-bottom: none; }
-        .ozet-row:hover { background-color: rgba(255,255,255,0.02); }
-        
-        .ozet-input {
-          font-size: 12px;
-          box-shadow: none;
-          background: transparent;
-          border: none;
-          color: white;
-          width: 100%;
-        }
-        .ozet-input:focus {
-          outline: none;
-          background-color: rgba(255, 255, 255, 0.05);
-          border-radius: 4px;
-        }
-        .header-main-title {
-          font-size: 12px;
-          font-weight: 800;
-          letter-spacing: 0.5px;
-          background-color: #0b1329;
-          color: #94a3b8;
-        }
-        .check-box-custom {
-          width: 20px;
-          height: 20px;
-          border: 1px solid #475569;
-          border-radius: 4px;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          cursor: pointer;
-          font-weight: bold;
-          font-size: 14px;
-          color: #4ade80;
-          background-color: #1e293b;
-        }
-        .check-box-custom:hover { border-color: #60a5fa; }
-      `}</style>
+              .comp-row { border-bottom: 1px solid #334155; }
+              .comp-row:last-child { border-bottom: none; }
+              .comp-input { font-size: 12px; box-shadow: none; width: 70px; border-bottom: 1px dashed #475569 !important; }
+              .comp-input:focus { outline: none; background-color: rgba(255, 255, 255, 0.08) !important; border-bottom: 1px solid #60a5fa !important; }
+              .header-main-title { font-size: 12px; font-weight: 800; letter-spacing: 0.5px; background-color: #0b1329; color: #94a3b8; }
+              .ozet-row { border-bottom: 1px solid #334155; transition: background-color 0.15s ease; }
+              .ozet-row:last-child { border-bottom: none; }
+              .ozet-row:hover { background-color: rgba(255,255,255,0.02); }
+              .ozet-input { font-size: 12px; box-shadow: none; background: transparent; border: none; color: white; width: 100%; }
+              .ozet-input:focus { outline: none; background-color: rgba(255, 255, 255, 0.05); border-radius: 4px; }
+              .check-box-custom { width: 20px; height: 20px; border: 1px solid #475569; border-radius: 4px; display: flex; align-items: center; justify-content: center; cursor: pointer; font-weight: bold; font-size: 14px; color: #4ade80; background-color: #1e293b; }
+              .check-box-custom:hover { border-color: #60a5fa; }
+          `}</style>
 
       <div className="d-flex justify-content-end align-items-center gap-2 mb-1">
         <button
           onClick={handleRefresh}
           className="btn btn-sm px-3 fw-semibold text-white border-0"
           style={{ backgroundColor: "#d97706", fontSize: "11px", borderRadius: "6px" }}
-          title="Yenile"
+          title={teklifDili === "Yabancı" ? "Reset Table to Initial Settings" : "Tabloyu İlk Ayarlarına Döndür"}
         >
-          🔄 Yenile
+          🔄 {teklifDili === "Yabancı" ? "Refresh" : "Yenile"}
         </button>
         <button
           onClick={handleUndo}
@@ -190,21 +162,27 @@ function OzetTablosu() {
 
           <div className="d-flex flex-column border-bottom" style={{ borderColor: "#334155", backgroundColor: "#0f172a" }}>
             <div className="d-flex align-items-stretch border-bottom ozet-row" style={{ borderColor: "#334155" }}>
-              <div className="p-2 px-3 fw-bold text-white-50" style={{ width: "25%", fontSize: "12px", backgroundColor: "#1e293b" }}>Teklif No</div>
+              <div className="p-2 px-3 fw-bold text-white-50" style={{ width: "25%", fontSize: "12px", backgroundColor: "#1e293b" }}>
+                {teklifDili === "Yabancı" ? "Offer Number" : "Teklif No"}
+              </div>
               <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
               <div className="p-2 px-3 fw-bold" style={{ width: "75%" }}>
                 <input type="text" className="ozet-input fw-bold" value={generalInfo.offerNo} onChange={(e) => handleGeneralChange("offerNo", e.target.value)} />
               </div>
             </div>
             <div className="d-flex align-items-stretch border-bottom ozet-row" style={{ borderColor: "#334155" }}>
-              <div className="p-2 px-3 fw-bold text-white-50" style={{ width: "25%", fontSize: "12px", backgroundColor: "#1e293b" }}>Teklif Referans No</div>
+              <div className="p-2 px-3 fw-bold text-white-50" style={{ width: "25%", fontSize: "12px", backgroundColor: "#1e293b" }}>
+                {teklifDili === "Yabancı" ? "Offer Reference Number" : "Teklif Referans No"}
+              </div>
               <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
               <div className="p-2 px-3 fw-bold" style={{ width: "75%" }}>
                 <input type="text" className="ozet-input fw-bold" value={generalInfo.refNo} onChange={(e) => handleGeneralChange("refNo", e.target.value)} />
               </div>
             </div>
             <div className="d-flex align-items-stretch ozet-row">
-              <div className="p-2 px-3 fw-bold text-white-50" style={{ width: "25%", fontSize: "12px", backgroundColor: "#1e293b" }}>İşveren Adı</div>
+              <div className="p-2 px-3 fw-bold text-white-50" style={{ width: "25%", fontSize: "12px", backgroundColor: "#1e293b" }}>
+                {teklifDili === "Yabancı" ? "Client / Client Title" : "İşveren Adı"}
+              </div>
               <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
               <div className="p-2 px-3 fw-bold" style={{ width: "75%" }}>
                 <input type="text" className="ozet-input fw-bold" value={generalInfo.clientName} onChange={(e) => handleGeneralChange("clientName", e.target.value)} />
@@ -213,12 +191,12 @@ function OzetTablosu() {
           </div>
 
           <div className="p-2 px-3 header-main-title border-bottom" style={{ borderColor: "#334155" }}>
-            TASARIM KABUL PARAMETRELERİ
+            {teklifDili === "Yabancı" ? "DESIGN CRITERIA / INFLUENT PARAMETERS" : "TASARIM KABUL PARAMETRELERİ"}
           </div>
 
           <div className="d-flex flex-column border-bottom" style={{ borderColor: "#334155" }}>
             {params.map((p, index) => (
-              <div key={p.id} className="d-flex align-items-stretch ozet-row">
+              <div key={p.id ? `param-${p.id}-${index}` : `param-idx-${index}`} className="d-flex align-items-stretch ozet-row">
 
                 <div className="p-2 px-3 d-flex align-items-center" style={{ width: "45%" }}>
                   <input type="text" className="ozet-input text-white-50" value={p.label} onChange={(e) => handleParamChange(p.id, "label", e.target.value)} />
@@ -228,9 +206,9 @@ function OzetTablosu() {
                 <div className="p-2 px-3 d-flex align-items-center" style={{ width: "49%" }}>
                   {p.isLongText ? (
                     <textarea
-                      rows={4}
+                      rows={3}
                       className="ozet-input fw-medium"
-                      style={{ resize: "none" }}
+                      style={{ resize: "auto" }}
                       value={p.value}
                       onChange={(e) => handleParamChange(p.id, "value", e.target.value)}
                     />
@@ -244,8 +222,8 @@ function OzetTablosu() {
                 <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
 
                 <div className="p-1 d-flex align-items-center justify-content-center gap-2" style={{ width: "6%" }}>
-                  <button onClick={() => insertParamRow(index)} className="btn btn-sm p-0 border-0 text-success opacity-50 hover-opacity-100 fw-bold" style={{ fontSize: "16px" }}>+</button>
-                  <button onClick={() => deleteParamRow(p.id)} className="btn btn-sm p-0 border-0 text-danger opacity-40 hover-opacity-100" style={{ fontSize: "17px" }}>&times;</button>
+                  <button type="button" onClick={() => insertParamRow(index)} className="btn btn-sm p-0 border-0 text-success opacity-50 hover-opacity-100 fw-bold" style={{ fontSize: "16px" }}>+</button>
+                  <button type="button" onClick={() => deleteParamRow(p.id)} className="btn btn-sm p-0 border-0 text-danger opacity-40 hover-opacity-100" style={{ fontSize: "17px" }}>&times;</button>
                 </div>
 
               </div>
@@ -253,7 +231,7 @@ function OzetTablosu() {
           </div>
 
           <div className="p-2 px-3 header-main-title border-bottom" style={{ borderColor: "#334155" }}>
-            TEKLİF İÇERİĞİ
+            {teklifDili === "Yabancı" ? "SCOPE OF SUPPLY / EQUIPMENT LIST" : "TEKLİF İÇERİĞİ"}
           </div>
 
           <div className="d-flex flex-column">
@@ -261,7 +239,7 @@ function OzetTablosu() {
               const rowBg = c.isHeaderStyle ? "#1e293b" : "transparent";
 
               return (
-                <div key={c.id} className="d-flex align-items-stretch ozet-row" style={{ backgroundColor: rowBg }}>
+                <div key={c.id ? `content-${c.id}-${index}` : `content-idx-${index}`} className="d-flex align-items-stretch ozet-row" style={{ backgroundColor: rowBg }}>
 
                   <div className="p-2 d-flex align-items-center justify-content-center" style={{ width: "5%" }}>
                     <div className="check-box-custom" onClick={() => toggleCheck(c.id)}>
@@ -291,8 +269,8 @@ function OzetTablosu() {
                   <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
 
                   <div className="p-1 d-flex align-items-center justify-content-center gap-2" style={{ width: "6%" }}>
-                    <button onClick={() => insertContentRow(index)} className="btn btn-sm p-0 border-0 text-success opacity-50 hover-opacity-100 fw-bold" style={{ fontSize: "16px" }}>+</button>
-                    <button onClick={() => deleteContentRow(c.id)} className="btn btn-sm p-0 border-0 text-danger opacity-40 hover-opacity-100" style={{ fontSize: "17px" }}>&times;</button>
+                    <button type="button" onClick={() => insertContentRow(index)} className="btn btn-sm p-0 border-0 text-success opacity-50 hover-opacity-100 fw-bold" style={{ fontSize: "16px" }}>+</button>
+                    <button type="button" onClick={() => deleteContentRow(c.id)} className="btn btn-sm p-0 border-0 text-danger opacity-40 hover-opacity-100" style={{ fontSize: "17px" }}>&times;</button>
                   </div>
 
                 </div>

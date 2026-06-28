@@ -6,6 +6,8 @@ function EkipmanTablosu() {
   const formData = useTeklifStore((state) => state.formData);
   const updateSection = useTeklifStore((state) => state.updateSection);
 
+  const teklifDili = formData?.customerInfo?.teklifDili || "Yabancı";
+
   // Store içindeki tablo verisini güvenli oku
   const storeEkipmanTablosuVerisi = formData?.tables?.ekipantablosu;
 
@@ -61,7 +63,68 @@ function EkipmanTablosu() {
 
   const handleChange = (id, field, value) => {
     saveToHistory(rows);
-    setRows(rows.map(row => row.id === id ? { ...row, [field]: value } : row));
+
+    // 1. Önce mevcut satırı güncelleyelim
+    let updatedRows = rows.map((row) =>
+      row.id === id ? { ...row, [field]: value } : row
+    );
+
+    // 2. Özel dinamik inşaat hacmi hesaplama (Sadece s0 ile başlayan ve Retention Time olan satırlar için)
+    if (id.startsWith("s0") && field === "value" && id.endsWith("_4")) {
+      const currentText = value;
+
+      // Metindeki tüm sayıları (ondalıklar dahil) diziye al (Örn: [2, 5.83] veya [5.83, 2])
+      const numbers = (currentText.match(/\d+([.,]\d+)?/g) || []).map((num) =>
+        parseFloat(num.replace(",", "."))
+      );
+
+      let newHour = null;
+      let flowRate = null;
+      const isEnglish = teklifDili === "Yabancı";
+
+      // 3. Teklif diline göre sayıların index konumları sabittir, doğrudan eşleştirelim
+      if (isEnglish) {
+        // Format: "[Hour] hours at peak flow rate of [Flow] m³/hour"
+        if (numbers.length >= 2) {
+          newHour = numbers[0];
+          flowRate = numbers[1];
+        }
+      } else {
+        // Format: "[Flow] m³/saat pik debide [Hour] saat" veya "[Flow] m³/saat pik debide [Hour] dakika"
+        if (numbers.length >= 2) {
+          flowRate = numbers[0];
+          newHour = numbers[1];
+        }
+      }
+
+      // 4. Eğer sayılar başarıyla ayıklandıysa yeni kapasiteyi hesapla
+      if (newHour !== null && flowRate !== null && !isNaN(newHour) && !isNaN(flowRate)) {
+
+        // Ekstra Güvenlik: Eğer kullanıcı metni "dakika" veya "minutes" yaparsa saati 60'a bölmeliyiz
+        const isMinute = currentText.toLowerCase().includes("dakika") || currentText.toLowerCase().includes("minute");
+        const hourMultiplier = isMinute ? (newHour / 60) : newHour;
+
+        // Kapasite = Debi * Saat (Yuvarlanmış tam sayı)
+        const calculatedCapacity = (flowRate * hourMultiplier).toFixed(0);
+
+        // Kapasite satırının ID'sini bul (_4 -> _2 yapıyoruz)
+        const capacityRowId = id.replace("_4", "_2");
+
+        // Tablo state'i üzerinde kapasite hücresini dille uyumlu güncelle
+        updatedRows = updatedRows.map((row) => {
+          if (row.id === capacityRowId) {
+            const capacityValue = isEnglish
+              ? `${calculatedCapacity} m³ wet volume`
+              : `${calculatedCapacity} m³ ıslak hacim`;
+            return { ...row, value: capacityValue };
+          }
+          return row;
+        });
+      }
+    }
+
+    // State'i güncelle
+    setRows(updatedRows);
   };
 
   const deleteRow = (id) => {

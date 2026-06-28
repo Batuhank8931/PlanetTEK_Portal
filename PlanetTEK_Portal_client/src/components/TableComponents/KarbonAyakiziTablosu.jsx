@@ -5,6 +5,9 @@ function KarbonAyakiziTablosu() {
   const formData = useTeklifStore((state) => state.formData);
   const updateSection = useTeklifStore((state) => state.updateSection);
 
+  const teklifDili = formData?.customerInfo?.teklifDili;
+  const isForeign = teklifDili === "Yabancı";
+
   // Enerji karşılaştırma tablosunun store'a yazdığı güncel durumları çekiyoruz
   const enerjiKarsilastirma = formData?.tables?.enerjikarsilastirmatablosu;
   const selectedSystem = enerjiKarsilastirma?.selectedSystem || "aktif_camur";
@@ -89,7 +92,10 @@ function KarbonAyakiziTablosu() {
     setData({ ...data, [field]: parseFloat(value) || 0 });
   };
 
-  const altSystemName = selectedSystem === "aktif_camur" ? "Klasik Aktif Çamur Sistemi" : "MBBR Sistemi";
+  const altSystemName = selectedSystem === "aktif_camur" 
+    ? (isForeign ? "Activated Sludge System" : "Klasik Aktif Çamur Sistemi") 
+    : (isForeign ? "MBBR System" : "MBBR Sistemi");
+
   const headerThemeClass = selectedSystem === "aktif_camur" ? "text-success" : "text-info";
   const headerBgStyle = selectedSystem === "aktif_camur" ? "rgba(22, 163, 74, 0.1)" : "rgba(6, 182, 212, 0.1)";
 
@@ -111,8 +117,8 @@ function KarbonAyakiziTablosu() {
 
           {/* ÜST PANEL: BAŞLIK VE REFRESH / UNDO PANELİ */}
           <div className="d-flex justify-content-between align-items-center p-3" style={{ backgroundColor: "#0f172a", borderBottom: "1px solid #334155" }}>
-            <div className="fw-semibold text-white" style={{ fontSize: "14px" }}>
-              Karbon Ayak İzi ve Çevresel Etki Analizi
+            <div className="fw-semibold text-white" style={{ fontSize: "14px", textTransform: isForeign ? "uppercase" : "none", letterSpacing: isForeign ? "0.5px" : "normal" }}>
+              {isForeign ? "CARBON FOOTPRINT and Environmental Impact Analysis" : "Karbon Ayak İzi ve Çevresel Etki Analizi"}
             </div>
 
             <div className="d-flex align-items-center gap-2">
@@ -120,9 +126,9 @@ function KarbonAyakiziTablosu() {
                 onClick={handleRefresh}
                 className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
                 style={{ backgroundColor: "#d97706", fontSize: "11px", borderRadius: "6px" }}
-                title="Tabloyu İlk Ayarlarına Döndür"
+                title={isForeign ? "Reset Table to Initial Settings" : "Tabloyu İlk Ayarlarına Döndür"}
               >
-                🔄 Yenile
+                🔄 {isForeign ? "Refresh" : "Yenile"}
               </button>
 
               <button
@@ -144,9 +150,13 @@ function KarbonAyakiziTablosu() {
 
           {/* SUTUN BAŞLIKLARI */}
           <div className="d-flex text-center border-bottom align-items-stretch" style={{ borderColor: "#334155" }}>
-            <div className="p-2 header-main-title text-start ps-3 d-flex align-items-center" style={{ width: "34%" }}>KARBON AYAK İZİ PARAMETRELERİ</div>
+            <div className="p-2 header-main-title text-start ps-3 d-flex align-items-center" style={{ width: "34%" }}>
+              {isForeign ? "ELECTRICITY CONSUMPTION DEFINITIONS" : "KARBON AYAK İZİ PARAMETRELERİ"}
+            </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-            <div className="p-2 header-main-title text-warning d-flex align-items-center justify-content-center" style={{ width: "33%", backgroundColor: "rgba(217, 119, 6, 0.15)" }}>PlanetDISK® Ünitesi</div>
+            <div className="p-2 header-main-title text-warning d-flex align-items-center justify-content-center" style={{ width: "33%", backgroundColor: "rgba(217, 119, 6, 0.15)" }}>
+              {isForeign ? "PlanetDISK® Unit" : "PlanetDISK® Ünitesi"}
+            </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className={`p-2 header-main-title d-flex align-items-center justify-content-center ${headerThemeClass}`} style={{ width: "33%", backgroundColor: headerBgStyle }}>
               {altSystemName}
@@ -155,49 +165,54 @@ function KarbonAyakiziTablosu() {
 
           {/* GÜNLÜK TÜKETİM ROW */}
           <div className="d-flex align-items-stretch comp-row">
-            <div className="p-2.5 ps-3 fw-medium text-white-50 d-flex align-items-center" style={{ width: "34%", fontSize: "12px" }}>Günlük Enerji Tüketimi (Dinamik)</div>
+            <div className="p-2.5 ps-3 fw-medium text-white-50 d-flex align-items-center" style={{ width: "34%", fontSize: "12px" }}>
+              {isForeign ? "Daily Energy Consumption (Dynamic)" : "Günlük Enerji Tüketimi (Dinamik)"}
+            </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2 text-center bg-planet-column fw-bold d-flex align-items-center justify-content-center text-white font-monospace" style={{ width: "33%", fontSize: "12.5px" }}>
-              {currentPlanetDailyKwh.toFixed(1)} <span className="text-white-50 font-sans-serif fw-normal ms-1" style={{ fontSize: "11px" }}>kWh/gün</span>
+              {currentPlanetDailyKwh.toFixed(1)} <span className="text-white-50 font-sans-serif fw-normal ms-1" style={{ fontSize: "11px" }}>{isForeign ? "kw/day" : "kWh/gün"}</span>
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2 text-center bg-alt-column fw-bold d-flex align-items-center justify-content-center text-white font-monospace" style={{ width: "33%", fontSize: "12.5px" }}>
-              {currentAltDailyKwh.toFixed(1)} <span className="text-white-50 font-sans-serif fw-normal ms-1" style={{ fontSize: "11px" }}>kWh/gün</span>
+              {currentAltDailyKwh.toFixed(1)} <span className="text-white-50 font-sans-serif fw-normal ms-1" style={{ fontSize: "11px" }}>{isForeign ? "kw/day" : "kWh/gün"}</span>
             </div>
           </div>
 
           {/* YILLIK TÜKETİM ROW */}
           <div className="d-flex align-items-stretch comp-row font-monospace text-white" style={{ fontSize: "12.5px" }}>
-            <div className="p-2.5 ps-3 fw-medium text-white-50 font-sans-serif d-flex align-items-center" style={{ width: "34%" }}>Yıllık Toplam Enerji Tüketimi</div>
+            <div className="p-2.5 ps-3 fw-medium text-white-50 font-sans-serif d-flex align-items-center" style={{ width: "34%" }}>
+              {isForeign ? "Annual Energy Consumption" : "Yıllık Toplam Enerji Tüketimi"}
+            </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-            <div className="p-2.5 text-center bg-planet-column fw-bold" style={{ width: "33%" }}>{Math.round(planetYearlyKwh).toLocaleString()} kWh/yıl</div>
+            <div className="p-2.5 text-center bg-planet-column fw-bold" style={{ width: "33%" }}>{Math.round(planetYearlyKwh).toLocaleString()} {isForeign ? "kW/year" : "kWh/yıl"}</div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-            <div className="p-2.5 text-center bg-alt-column fw-bold" style={{ width: "33%" }}>{Math.round(altYearlyKwh).toLocaleString()} kWh/yıl</div>
+            <div className="p-2.5 text-center bg-alt-column fw-bold" style={{ width: "33%" }}>{Math.round(altYearlyKwh).toLocaleString()} {isForeign ? "kW/year" : "kWh/yıl"}</div>
           </div>
 
           {/* EMİSYON FAKTÖRÜ ROW */}
           <div className="d-flex align-items-stretch comp-row" style={{ backgroundColor: "#1e293b" }}>
             <div className="p-2.5 ps-3 fw-medium text-white-50 d-flex align-items-center" style={{ width: "34%", fontSize: "12px" }}>
-              Şebeke Emisyon Faktörü<br />
-              <span style={{ fontSize: "10px", color: "#64748b" }}>(Elektrik Üretimi Karbon Yoğunluğu)</span>
+              {isForeign ? <>CO2 Emission Coefficient<br /><span style={{ fontSize: "10px", color: "#64748b" }}>(Grid Electricity Carbon Intensity)</span></> : <>Grid Emisyon Faktörü<br /><span style={{ fontSize: "10px", color: "#64748b" }}>(Elektrik Üretimi Karbon Yoğunluğu)</span></>}
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2 d-flex justify-content-center align-items-center gap-1" style={{ width: "66%" }}>
               <input type="number" step="0.01" className="form-control form-control-sm bg-transparent border-0 text-center text-warning fw-bold p-0 comp-input" style={{ width: "60px" }} value={data.co2Factor} onChange={(e) => handleParamChange("co2Factor", e.target.value)} />
-              <span className="text-white-50" style={{ fontSize: "11px" }}>ji kg CO₂ / kWh</span>
+              <span className="text-white-50" style={{ fontSize: "11px" }}>{isForeign ? "kg/eMWh" : "kg CO₂ / kWh"}</span>
             </div>
           </div>
 
           {/* TOPLAM SALINIM ROW */}
           <div className="d-flex align-items-stretch" style={{ backgroundColor: "#0b1524", borderTop: "2px dashed #475569" }}>
-            <div className="p-3 ps-3 fw-bold text-white-50 text-uppercase d-flex align-items-center" style={{ width: "34%", fontSize: "11.5px" }}>Yıllık Karbon Ayak İzi (Salınım)</div>
+            <div className="p-3 ps-3 fw-bold text-white-50 text-uppercase d-flex align-items-center" style={{ width: "34%", fontSize: "11.5px" }}>
+              {isForeign ? "Annual Carbon Footprint" : "Yıllık Karbon Ayak İzi (Salınım)"}
+            </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-3 text-center bg-planet-column fw-bold text-success font-monospace" style={{ width: "33%", fontSize: "15px" }}>
-              {planetCo2.toFixed(1)} <span style={{ fontSize: "11px" }} className="text-white-50 font-sans-serif fw-normal">ton CO₂/yıl</span>
+              {planetCo2.toFixed(1)} <span style={{ fontSize: "11px" }} className="text-white-50 font-sans-serif fw-normal">{isForeign ? "ton/year" : "ton CO₂/yıl"}</span>
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-3 text-center bg-alt-column fw-bold text-danger font-monospace" style={{ width: "33%", fontSize: "15px" }}>
-              {altCo2.toFixed(1)} <span style={{ fontSize: "11px" }} className="text-white-50 font-sans-serif fw-normal">ton CO₂/yıl</span>
+              {altCo2.toFixed(1)} <span style={{ fontSize: "11px" }} className="text-white-50 font-sans-serif fw-normal">{isForeign ? "ton/year" : "ton CO₂/yıl"}</span>
             </div>
           </div>
 
@@ -209,8 +224,12 @@ function KarbonAyakiziTablosu() {
 
         <div className="d-flex justify-content-between align-items-center border-bottom pb-3" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
           <div className="d-flex flex-column">
-            <span className="text-white" style={{ fontSize: "13px", fontWeight: "600" }}>{altSystemName}'ne Kıyasla Önlenen Karbon Salınımı:</span>
-            <span className="text-white-50" style={{ fontSize: "11px" }}>Doğaya salınması engellenen sera gazı miktarı.</span>
+            <span className="text-white" style={{ fontSize: "13px", fontWeight: "600" }}>
+              {isForeign ? `Prevented Carbon Footprint compared to ${selectedSystem === "aktif_camur" ? "Activated Sludge" : "MBBR"}:` : `${altSystemName}'ne Kıyasla Önlenen Karbon Salınımı:`}
+            </span>
+            <span className="text-white-50" style={{ fontSize: "11px" }}>
+              {isForeign ? "The amount of greenhouse gas emissions prevented from entering nature." : "Doğaya salınması engellenen sera gazı miktarı."}
+            </span>
           </div>
           <span className="fw-extrabold text-success font-monospace" style={{ fontSize: "22px" }}>
             {savedCo2 > 0 ? `+${savedCo2.toFixed(1)}` : savedCo2.toFixed(1)} ton CO₂
@@ -219,14 +238,17 @@ function KarbonAyakiziTablosu() {
 
         <div className="d-flex justify-content-between align-items-center">
           <div className="d-flex flex-column">
-            <span className="text-white" style={{ fontSize: "13px", fontWeight: "600" }}>Doğal Denge Karşılığı (Ağaç Eşdeğeri):</span>
-            <span className="text-white-50" style={{ fontSize: "11px" }}>Bu tasarruf, her yıl kaç yetişkin ağacın yaptığı karbon temizliğine eşdeğerdir?</span>
+            <span className="text-white" style={{ fontSize: "13px", fontWeight: "600" }}>
+              {isForeign ? "Ecological Credit in Nature (Tree Equivalent):" : "Doğal Denge Karşılığı (Ağaç Eşdeğeri):"}
+            </span>
+            <span className="text-white-50" style={{ fontSize: "11px" }}>
+              {isForeign ? "Due to electricity consumption selection, there is an annual contribution equivalent to:" : "Bu tasarruf, her yıl kaç yetişkin ağacın yaptığı karbon temizliğine eşdeğerdir?"}
+            </span>
           </div>
           <div className="d-flex align-items-center gap-2">
             <span style={{ fontSize: "24px" }}>🌳</span>
             <span className="fw-extrabold text-info font-monospace" style={{ fontSize: "22px" }}>
-              {/* Pazarlama odaklı temiz yuvarlanmış rakam */}
-              ~ {equivalentTrees.toLocaleString()} Ağaç / yıl
+              {isForeign ? `~ ${equivalentTrees.toLocaleString()} trees to nature / year` : `~ ${equivalentTrees.toLocaleString()} Ağaç / yıl`}
             </span>
           </div>
         </div>

@@ -9,6 +9,9 @@ export default async function enerjiIsletmeHesapFonksiyonu(formData) {
         return [];
     }
 
+    const teklifDili = formData?.customerInfo?.teklifDili;
+
+
     // Ekipman Nesnesi Yapılandırması
     const equipmentsObject = formData.equipments || {};
     const { modulesState = {} } = equipmentsObject;
@@ -61,59 +64,141 @@ export default async function enerjiIsletmeHesapFonksiyonu(formData) {
 
     const initialRows = [
         // Ana Başlık Her Zaman Render Edilir
-        { id: "h1", label: "MEKANİK EKİPMANLAR", isHeader: true },
+        { 
+            id: "h1", 
+            label: teklifDili === "Yabancı" ? "MECHANICAL EQUIPMENTS" : "MEKANİK EKİPMANLAR", 
+            isHeader: true 
+        },
 
         // 1. ÖN ARITMA MODÜLÜ (isOnAritmaChecked)
         ...(isOnAritmaChecked ? [
-            { id: "s1", label: "Fiziksel Arıtma Üniteleri (Birincil Arıtma)", isSubHeader: true },
+            { 
+                id: "s1", 
+                label: teklifDili === "Yabancı" ? "Physical Treatment Units (Primary Treatment)" : "Fiziksel Arıtma Üniteleri (Birincil Arıtma)", 
+                isSubHeader: true 
+            },
             ...(otomatikIsgaraGoster ? [
-                { id: "r1", label: "Otomatik Temizlemeli Kaba Izgara", qty: 1, power: 0.55, consumed: 90, hours: 4 },
-                { id: "r2", label: "Otomatik Temizlemeli İnce Izgara", qty: 1, power: 0.55, consumed: 90, hours: 4 }
+                { 
+                    id: "r1", 
+                    label: teklifDili === "Yabancı" ? "Automatically Cleaned Coarse Screen" : "Otomatik Temizlemeli Kaba Izgara", 
+                    qty: 1, power: 0.55, consumed: 90, hours: 4 
+                },
+                { 
+                    id: "r2", 
+                    label: teklifDili === "Yabancı" ? "Automatically Cleaned Fine Screen" : "Otomatik Temizlemeli İnce Izgara", 
+                    qty: 1, power: 0.55, consumed: 90, hours: 4 
+                }
             ] : [])
         ] : []),
 
         // 2. TERFİ POMPASI MODÜLÜ (isFeedPumpChecked)
         ...(isFeedPumpChecked ? [
             {
-                id: "r3", // Sabit tek bir ID
-                label: "Dengeleme Tankı Terfi Pompası",
-                qty: FeedPumpamount,  // Pompa adedi buraya çarpan (Adet) olarak geliyor
-                power: FeedPumpkw,    // Güç değeri
+                id: "r3", 
+                label: teklifDili === "Yabancı" ? "Equalization Tank Feed Pump" : "Dengeleme Tankı Terfi Pompası",
+                qty: FeedPumpamount,  
+                power: FeedPumpkw,    
                 consumed: 90,
                 hours: 24
             }
         ] : []),
 
         // 3. BİYOLOJİK ARITMA (RBC üniteleri her zaman listelenir)
-        { id: "s2", label: "Biyolojik Arıtma Üniteleri (İkincil Arıtma)", isSubHeader: true },
-        { id: "r4", label: `PlanetDISK® ${RBCUnite} RBC Ünitesi`, qty: toplamRbcAdedi, power: RBCUnite === "MX" ? 0.37 : 0.25, consumed: 90, hours: 24 },
+        { 
+            id: "s2", 
+            label: teklifDili === "Yabancı" ? "Biological Treatment Units (Secondary Treatment)" : "Biyolojik Arıtma Üniteleri (İkincil Arıtma)", 
+            isSubHeader: true 
+        },
+        { 
+            id: "r4", 
+            label: teklifDili === "Yabancı" ? `PlanetDISK® ${RBCUnite} RBC Unit` : `PlanetDISK® ${RBCUnite} RBC Ünitesi`, 
+            qty: toplamRbcAdedi, power: RBCUnite === "MX" ? 0.37 : 0.25, consumed: 90, hours: 24 
+        },
         ...(atiksuType === "endustriyel" ? [
-            { id: "r5", label: "Blower", qty: toplamRbcAdedi, power: 1.6, consumed: 90, hours: 24 },
+            { 
+                id: "r5", 
+                label: teklifDili === "Yabancı" ? "Blower" : "Blower", 
+                qty: toplamRbcAdedi, power: 1.6, consumed: 90, hours: 24 
+            },
         ] : []),
-        { id: "r6", label: "Son Çöktürme Tankı Çamur Pompası", qty: camurPompasiAdet, power: camurPompasikW, consumed: 90, hours: 1 },
+        { 
+            id: "r6", 
+            label: teklifDili === "Yabancı" ? "Secondary Clarifier Sludge Pump" : "Son Çöktürme Tankı Çamur Pompası", 
+            qty: camurPompasiAdet, power: camurPompasikW, consumed: 90, hours: 1 
+        },
 
         // 4. İLERİ ARITMA - AZOT/FOSFOR GİDERİMİ MODÜLÜ (isIleriAritmaChecked)
         ...(isIleriAritmaChecked ? [
-            { id: "r7", label: "Resürkilasyon Pompaları", qty: ileriAritmaPompaAdet, power: ileriAritmaPompakw, consumed: 90, hours: 24 },
-            { id: "r8", label: "Anoksik Tank Mikseri", qty: 1, power: ileriAritmaMikserkw, consumed: 90, hours: 24 },
-            { id: "r9", label: "FeCl3 Dozaj Pompası", qty: ileriAritmaDozajAdedi, power: 0.09, consumed: 90, hours: 24 }
+            { 
+                id: "r7", 
+                label: teklifDili === "Yabancı" ? "Recirculation Pumps" : "Resürkilasyon Pompaları", 
+                qty: ileriAritmaPompaAdet, power: ileriAritmaPompakw, consumed: 90, hours: 24 
+            },
+            { 
+                id: "r8", 
+                label: teklifDili === "Yabancı" ? "Anoxic Tank Mixer" : "Anoksik Tank Mikseri", 
+                qty: 1, power: ileriAritmaMikserkw, consumed: 90, hours: 24 
+            },
+            { 
+                id: "r9", 
+                label: teklifDili === "Yabancı" ? "FeCl3 Dosing Pump" : "FeCl3 Dozaj Pompası", 
+                qty: ileriAritmaDozajAdedi, power: 0.09, consumed: 90, hours: 24 
+            }
         ] : []),
 
         // 5. FİLTRASYON VE DEZENFEKSİYON MODÜLÜ (isFiltrasyonChecked)
         ...(isFiltrasyonChecked ? [
-            { id: "s3", label: "Filtrasyon ve Dezenfeksiyon Üniteleri (İleri Arıtma)", isSubHeader: true },
-            { id: "r10", label: "Ön Klorlama Ünitesi", qty: filtrsayonAdedi, power: 0.09, consumed: 90, hours: 22 },
-            { id: "r11", label: "Filtrasyon Sistemi Besleme Pompası", qty: filtrsayonAdedi, power: FiltrasyonBeslemekw, consumed: 90, hours: 22 },
-            { id: "r12", label: "Filtrasyon Sistemi Geri Yıkama Pompası", qty: filtrsayonAdedi, power: FiltrasyonYikamakw, consumed: 90, hours: 2 }
+            { 
+                id: "s3", 
+                label: teklifDili === "Yabancı" ? "Filtration and Disinfection Units (Advanced Treatment)" : "Filtrasyon ve Dezenfeksiyon Üniteleri (İleri Arıtma)", 
+                isSubHeader: true 
+            },
+            { 
+                id: "r10", 
+                label: teklifDili === "Yabancı" ? "Pre-Chlorination Unit" : "Ön Klorlama Ünitesi", 
+                qty: filtrsayonAdedi, power: 0.09, consumed: 90, hours: 22 
+            },
+            { 
+                id: "r11", 
+                label: teklifDili === "Yabancı" ? "Filtration System Feed Pump" : "Filtrasyon Sistemi Besleme Pompası", 
+                qty: filtrsayonAdedi, power: FiltrasyonBeslemekw, consumed: 90, hours: 22 
+            },
+            { 
+                id: "r12", 
+                label: teklifDili === "Yabancı" ? "Filtration System Backwash Pump" : "Filtrasyon Sistemi Geri Yıkama Pompası", 
+                qty: filtrsayonAdedi, power: FiltrasyonYikamakw, consumed: 90, hours: 2 
+            }
         ] : []),
 
         // 7. ÇAMUR SUSUZLAŞTIRMA MODÜLÜ (isCamurAktif)
         ...(isCamurAktif ? [
-            { id: "s5", label: "Çamur Susuzlaştırma Ünitesi", isSubHeader: true },
-            { id: "r13", label: "Çamur Besleme Pompası", qty: 1, power: 1.5, consumed: 90, hours: 8 },
-            { id: "r14", label: `${CamurEkipman}`, qty: 1, power: CamurEkipman === "Dekantör" ? 11.5 : 2.2, consumed: 90, hours: 8 },
-            { id: "r15", label: "Süzüntü Suyu Pompası", qty: 1, power: 0.75, consumed: 90, hours: 8 },
-            { id: "r16", label: "Polimer Dozaj Ünitesi", qty: 1, power: 1.10, consumed: 90, hours: 8 }
+            { 
+                id: "s5", 
+                label: teklifDili === "Yabancı" ? "Sludge Dewatering Unit" : "Çamur Susuzlaştırma Ünitesi", 
+                isSubHeader: true 
+            },
+            { 
+                id: "r13", 
+                label: teklifDili === "Yabancı" ? "Sludge Feed Pump" : "Çamur Besleme Pompası", 
+                qty: 1, power: 1.5, consumed: 90, hours: 8 
+            },
+            { 
+                id: "r14", 
+                label: teklifDili === "Yabancı" 
+                    ? (CamurEkipman === "Dekantör" ? "Decanter" : "Filter Press") 
+                    : CamurEkipman, 
+                qty: 1, power: CamurEkipman === "Dekantör" ? 11.5 : 2.2, consumed: 90, hours: 8 
+            },
+            { 
+                id: "r15", 
+                label: teklifDili === "Yabancı" ? "Filtrate Water Pump" : "Süzüntü Suyu Pompası", 
+                qty: 1, power: 0.75, consumed: 90, hours: 8 
+            },
+            { 
+                id: "r16", 
+                label: teklifDili === "Yabancı" ? "Polymer Dosing Unit" : "Polimer Dozaj Ünitesi", 
+                qty: 1, power: 1.10, consumed: 90, hours: 8 
+            }
         ] : []),
     ];
 

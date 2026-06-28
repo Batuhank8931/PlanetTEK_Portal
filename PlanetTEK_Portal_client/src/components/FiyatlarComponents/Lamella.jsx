@@ -13,6 +13,16 @@ function Lamella() {
   const [showModal, setShowModal] = useState(false);
   const [pendingChanges, setPendingChanges] = useState([]);
 
+  const [alertConfig, setAlertConfig] = useState({
+    show: false,
+    title: "",
+    message: "",
+    type: "success",
+    showCancel: false, // İptal butonu olsun mu?
+    action: null       // "Evet" denirse ne çalışsın?
+  });
+
+
   // 📊 Kolon Yapısı: Yeni veritabanı şemamıza göre Alan ve Hacim bilgileri eklendi
   const headers = [
     "Lamella Tipi Seçeneği",

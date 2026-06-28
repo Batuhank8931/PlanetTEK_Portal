@@ -33,6 +33,8 @@ function CapexTablosu() {
     const formData = useTeklifStore((state) => state.formData);
     const updateSection = useTeklifStore((state) => state.updateSection);
 
+    const teklifDili = formData?.customerInfo?.teklifDili;
+
     const customerInfo = formData?.customerInfo;
     const teklifNo = formData.customerInfo.teklifNo;
     const refNO = formData.customerInfo.offer_number;
@@ -50,8 +52,6 @@ function CapexTablosu() {
         clientName: customerInfo?.ticariUnvan || "-",
     };
 
-
-    const teklifDili = formData?.customerInfo?.teklifDili || "Yerli";
 
     // Güvenli okuma yapısı: store'daki nesneden rows dizisini veya eski yapıyı desteklemesi için yedekli okuma
     const storeCapexObj = formData?.tables?.capextablosu;

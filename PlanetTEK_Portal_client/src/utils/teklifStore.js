@@ -4,10 +4,9 @@ import { persist } from "zustand/middleware";
 export const useTeklifStore = create(
   persist(
     (set) => ({
-      formData: {}, // Tamamen boş başlıyor
-      currentStep: 1, // Yeni eklenen: Aktif adımı hafızada tutmak için
+      formData: {},
+      currentStep: 1,
 
-      // Dinamik update: Seksiyon verilerini günceller
       updateSection: (section, data) => set((state) => ({
         formData: {
           ...state.formData,
@@ -15,38 +14,53 @@ export const useTeklifStore = create(
         }
       })),
 
-      // Yeni eklenen: Adım bilgisini store'da güncellemek için
       setCurrentStepStore: (step) => set({ currentStep: step }),
 
-      // Hafızayı tamamen sıfırlamak için (Adımı da 1 yapar)
       resetForm: () => set({ formData: {}, currentStep: 1 }),
 
       resetTables: () => set((state) => ({
         formData: {
           ...state.formData,
-          tables: {} // tables objesini sıfırladık, diğer veriler korundu
+          tables: {}
         }
       })),
 
+      // 🔄 YENİ AKSİYON: İleri arıtmayı komple uçuran fonksiyon
+      // ... diğer store kodların
+
+      resetIleriAritma: () => set((state) => {
+        // 1. Mevcut equipments nesnesini güvenle alıyoruz
+        const currentEquipments = state.formData?.equipments || {};
+
+        // 2. Destructuring kullanarak ileriAritma'yı dışarı çıkartıyoruz, 
+        // geri kalan her şeyi (onAritma, feedPump vb.) restEquipments içinde topluyoruz.
+        const { ileriAritma, ...restEquipments } = currentEquipments;
+
+        // 3. Store'u güncelliyoruz; artık equipments altında ileriAritma diye bir key HİÇ KALMADI.
+        return {
+          formData: {
+            ...state.formData,
+            equipments: restEquipments
+          }
+        };
+      }),
+
+      // ... diğer store kodların
+
       resetEquipments: () => set((state) => {
         const currentModulesState = state.formData?.equipments?.modulesState;
-
         return {
           formData: {
             ...state.formData,
             equipments: {
-              // Sadece modüllerin checkbox durumlarını koruyoruz
               modulesState: currentModulesState || {},
-              // Geri kalan tüm hesaplanmış detayları (onAritma, feedPump vb.) sıfırlıyoruz
             }
           }
         };
       })
-
-
     }),
     {
-      name: "teklif-form-storage", // Tarayıcı hafızasındaki benzersiz isim
+      name: "teklif-form-storage",
     }
   )
 );

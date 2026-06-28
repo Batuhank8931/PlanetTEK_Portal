@@ -26,11 +26,10 @@ function PumpCurveUpdateModal({ show, onClose, pumpId, pumpName }) {
         title: "",
         message: "",
         type: "success",
-        showCancel: false, // İptal butonu olsun mu?
-        action: null       // "Evet" denirse ne çalışsın?
+        showCancel: false,
+        action: null       
     });
 
-    // ExcelGrid için gerekli header ve field eşleşmeleri
     const headers = ["Debi (Q - m³/h)", "Basma Yüksekliği (H - mSS)"];
     const fields = ["flow_rate", "head_mss"];
 
@@ -44,16 +43,14 @@ function PumpCurveUpdateModal({ show, onClose, pumpId, pumpName }) {
         try {
             setLoading(true);
             const response = await API.getPumpCurve(pumpId);
-
-            // Gelen datada silinmiş olanları filtreleyip temiz state atıyoruz
             const activePoints = (response.data || []).filter(p => !p.isDeleted);
             setPoints(activePoints);
         } catch (error) {
             console.error("Eğri verisi yüklenirken hata oluştu:", error);
             setAlertConfig({
                 show: true,
-                title: "Veriler kaydedilirken sistemsel bir hata meydana geldi",
-                message: error,
+                title: "Hata",
+                message: "Eğri verileri yüklenirken sistemsel bir hata meydana geldi.",
                 type: "error",
                 showCancel: false,
                 action: null
@@ -63,18 +60,15 @@ function PumpCurveUpdateModal({ show, onClose, pumpId, pumpName }) {
         }
     };
 
-    // 🛠️ ExcelGrid'den gelen toplu veya tekli veri değişikliklerini yakalayan fonksiyon
     const handleGridDataChange = (newData) => {
         const resolvedData = typeof newData === "function" ? newData(points) : newData;
         if (!resolvedData || !Array.isArray(resolvedData)) return;
-
         setPoints([...resolvedData]);
     };
 
-    // ➕ Yeni Satır Ekleme
     const handleAddPoint = () => {
         const newRow = {
-            id: `new_point_${Date.now()}`, // Benzersiz geçici ID (ExcelGrid key performansı için önemli)
+            id: `new_point_${Date.now()}`, 
             flow_rate: 0,
             head_mss: 0
         };
@@ -83,7 +77,6 @@ function PumpCurveUpdateModal({ show, onClose, pumpId, pumpName }) {
 
     // 💾 VERİTABANINA KAYDETME
     const handleSave = async () => {
-        // Hem boş satırları hem de arayüzde silinmiş (isDeleted: true) olan satırları eliyoruz
         const validPoints = points
             .filter(p => !p.isDeleted && p.flow_rate !== "" && p.head_mss !== "")
             .map(p => ({
@@ -91,31 +84,36 @@ function PumpCurveUpdateModal({ show, onClose, pumpId, pumpName }) {
                 head_mss: Number(p.head_mss)
             }));
 
-        // Grafik akışı bozulmasın diye debiye göre sıralayıp kaydediyoruz
         validPoints.sort((a, b) => a.flow_rate - b.flow_rate);
 
         try {
             setSubmitLoading(true);
             await API.updatePumpCurve(pumpId, { points: validPoints });
-            alert("Pompa eğrisi başarıyla güncellendi!");
+            
+            // 🌟 BURASI DEĞİŞTİ: onClose() buradan kaldırıldı, action'a aktarıldı.
             setAlertConfig({
                 show: true,
                 title: "İşlem Tamamlandı",
                 message: "Pompa eğrisi başarıyla güncellendi!",
                 type: "success",
                 showCancel: false,
-                action: null
+                action: () => { onClose(); } // Alert kapatılınca ana modal da kapansın
             });
-            onClose();
         } catch (error) {
             console.error("Eğri kaydedilirken hata oluştu:", error);
-            alert("Eğri verileri kaydedilirken bir hata oluştu.");
+            setAlertConfig({
+                show: true,
+                title: "Hata",
+                message: "Eğri verileri kaydedilirken bir hata oluştu.",
+                type: "error",
+                showCancel: false,
+                action: null
+            });
         } finally {
             setSubmitLoading(false);
         }
     };
 
-    // 📊 Canlı Grafik Verisi Filtreleme (Silinmişleri grafiğe yansıtma)
     const getSortedChartData = () => {
         return [...points]
             .filter(p => !p.isDeleted && p.flow_rate !== "" && p.head_mss !== "")
@@ -168,7 +166,6 @@ function PumpCurveUpdateModal({ show, onClose, pumpId, pumpName }) {
 
     if (!show) return null;
 
-    // Arayüzde silinmiş olan noktaları ExcelGrid'e göndermiyoruz (Anlık kaybolma hissi için)
     const visiblePoints = points.filter(p => !p.isDeleted);
 
     return (
@@ -195,23 +192,19 @@ function PumpCurveUpdateModal({ show, onClose, pumpId, pumpName }) {
                             </div>
                         ) : (
                             <div className="row g-4">
-
-                                {/* Sol Taraf: ExcelGrid Entegrasyonu */}
                                 <div className="col-12 col-lg-5 d-flex flex-column">
                                     <div className="mb-2 text-secondary small fw-semibold d-flex align-items-center" style={{ fontSize: "11.5px" }}>
                                         <i className="bi bi-table me-2 text-secondary"></i> Veri Noktaları (Excel Modu)
                                     </div>
-
                                     <div className="flex-grow-1">
                                         <ExcelGrid
                                             headers={headers}
                                             data={visiblePoints}
                                             fields={fields}
                                             onDataChange={handleGridDataChange}
-                                            isMainTable={true} // Sağdaki silme butonunu (çöp kutusu) aktif etmek için
+                                            isMainTable={true}
                                         />
                                     </div>
-
                                     <button
                                         type="button"
                                         className="btn btn-sm w-100 mt-3 py-2 d-flex align-items-center justify-content-center shadow-none"
@@ -222,7 +215,6 @@ function PumpCurveUpdateModal({ show, onClose, pumpId, pumpName }) {
                                     </button>
                                 </div>
 
-                                {/* Sağ Taraf: Canlı Grafik Görünümü */}
                                 <div className="col-12 col-lg-7 d-flex flex-column">
                                     <div className="mb-2 text-secondary small fw-semibold d-flex align-items-center" style={{ fontSize: "11.5px" }}>
                                         <i className="bi bi-graph-up-arrow me-2 text-success"></i> Canlı Performans Grafiği
@@ -238,7 +230,6 @@ function PumpCurveUpdateModal({ show, onClose, pumpId, pumpName }) {
                                         )}
                                     </div>
                                 </div>
-
                             </div>
                         )}
                     </div>
@@ -264,12 +255,17 @@ function PumpCurveUpdateModal({ show, onClose, pumpId, pumpName }) {
 
                 </div>
             </div>
+
+            {/* 🌟 GÜNCELLEME: Tetiklenen ara onClose mekanizması */}
             <AlertModal
                 show={alertConfig.show}
                 title={alertConfig.title}
                 message={alertConfig.message}
                 type={alertConfig.type}
-                onClose={() => setAlertConfig(prev => ({ ...prev, show: false }))}
+                onClose={() => {
+                    setAlertConfig(prev => ({ ...prev, show: false }));
+                    if (alertConfig.action) alertConfig.action();
+                }}
             />
         </div>
     );
