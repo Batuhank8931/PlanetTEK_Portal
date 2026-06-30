@@ -61,6 +61,7 @@ export const CAPEX_LABELS = {
         insaat_tank_aritilmis_su: "Arıtılmış Su Tankı",
         insaat_tank_filtrelenmis_su: "Filtrelenmiş Su Tankı",
         insaat_tank_camur: "Çamur Tankı",
+        insaat_isleri: "TÜM İNŞAAT İŞLERİ İŞVEREN TARAFINDAN YAPILACAKTIR.",
 
         montaj_borulama_tesisat: "Bütün borulama ve elektrik tesisatı",
         elektrik_kontrol_panosu: "PlanetDISK® Kontrol Panosu",
@@ -130,6 +131,7 @@ export const CAPEX_LABELS = {
         insaat_tank_aritilmis_su: "Treated Water Tank",
         insaat_tank_filtrelenmis_su: "Filtered Water Tank",
         insaat_tank_camur: "Sludge Tank",
+        insaat_isleri: "ALL CIVIL WORKS WILL BE DONE BY CLIENT",
 
         montaj_borulama_tesisat: "All piping and electrical installation works",
         elektrik_kontrol_panosu: "PlanetDISK® Control Panel",

@@ -101,7 +101,6 @@ function IleriAritmaInputSelections({ onReset }) { // 👈 Parent'tan gelen fonk
           <div className="col">
             <input
               type="number"
-              name="gridToplamAzot" // Not: Orijinal kodunuzda girisToplamAzot yazıyordu, eğer store eşleşmesinde sorun yaşarsanız orijinal ismine sadık kalabilirsiniz.
               name="girisToplamAzot"
               value={currentSelectionData.girisToplamAzot ?? ""}
               onChange={handleChange}

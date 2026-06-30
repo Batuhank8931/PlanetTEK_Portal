@@ -260,7 +260,7 @@ export const ekipmanTabloHesap = (formData) => {
         },
 
         { id: `e7`, type: `equip`, label: teklifDili === "Yabancı" ? "Final Clarifier Tank Sludge Pump" : "Son Çöktürme Tankı Çamur Pompası", isUrgent: false },
-        { id: `s6_1`, type: `spec`, label: teklifDili === "Yabancı" ? "Quantity" : "Miktar", value: teklifDili === "Yabancı" ? `${lamellaAdet} Unit(s)` : ` ${lamellaAdet} Adet` },
+        { id: `s7_1`, type: `spec`, label: teklifDili === "Yabancı" ? "Quantity" : "Miktar", value: teklifDili === "Yabancı" ? `${lamellaAdet} Unit(s)` : ` ${lamellaAdet} Adet` },
         { id: `s7_2`, type: `spec`, label: teklifDili === "Yabancı" ? "Manufacturer" : "İmalatçı", value: teklifDili === "Yabancı" ? "Sumak or Equivalent" : "Sumak veya Muadili" },
         { id: `s7_3`, type: `spec`, label: teklifDili === "Yabancı" ? "Capacity" : "Kapasite", value: teklifDili === "Yabancı" ? "10 m³/hour @ 8.1 mSS" : "10 m3/saat @ 8,1 Mss" },
         { id: `s7_4`, type: `spec`, label: teklifDili === "Yabancı" ? "Motor" : "Motor", value: `${camurPompasikW}  kW` },

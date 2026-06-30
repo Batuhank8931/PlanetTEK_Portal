@@ -7,25 +7,39 @@ import SmallLoading from "../modals/smallLoading";
 
 const generateWBSNumbers = (rowsArray) => {
     let level0 = 0; let level1 = 0; let level2 = 0; let level3 = 0;
+    let level1_sub = 0; // 1.1'in doğrudan altındaki bağımsız elemanlar için (1.1.2, 1.1.3)
 
     return rowsArray.map((row) => {
         let computedNo = "";
+        const isPrice = row.type === 3;
+
         if (row.type === 0) {
-            level0++; level1 = 0; level2 = 0; level3 = 0;
+            level0++; level1 = 0; level2 = 0; level3 = 0; level1_sub = 0;
             computedNo = `${level0}.`;
         } else if (row.type === 1) {
-            level1++; level2 = 0; level3 = 0;
+            level1++; level2 = 0; level3 = 0; level1_sub = 0; // Yeni alt grupta sub sıfırlanır
             computedNo = `${level0}.${level1}.`;
         } else if (row.type === 2) {
             level2++; level3 = 0;
+            level1_sub++; // 1.1.1 gibi bir grup açıldığı için alt kırılım sayacını yer ayırtmak üzere artırıyoruz
             computedNo = `${level0}.${level1}.${level2}.`;
         } else if (row.type === 3) {
-            level3++;
-            computedNo = `${level0}.${level1}.${level2}.${level3}.`
-                .replace(/\.0/g, "")
-                .replace(/^\./, "");
+            const isIzgaraKalemi = String(row.id).includes("izgara_");
+
+            if (isIzgaraKalemi) {
+                if (level2 === 0) {
+                    level2 = 1;
+                    if (level1_sub === 0) level1_sub = 1;
+                }
+                level3++;
+                computedNo = `${level0}.${level1}.${level2}.${level3}.`;
+            } else {
+                // Izgara grubu bitti veya hiç yoksa doğrudan 1.1'in altına bağla (1.1.2, 1.1.3, 1.1.4...)
+                level1_sub++;
+                computedNo = `${level0}.${level1}.${level1_sub}.`;
+            }
         }
-        return { ...row, computedNo };
+        return { ...row, computedNo, isPrice };
     });
 };
 
@@ -43,7 +57,6 @@ function CapexTablosu() {
         return new Intl.DateTimeFormat('tr-TR', {
             year: 'numeric'
         }).format(new Date()).replace(/\./g, ' ');
-        // Intl.DateTimeFormat her zaman sistemin o anki taze yılını (örn: 2026) dinamik olarak alır.
     };
 
     const initialGeneralInfo = {
@@ -52,8 +65,6 @@ function CapexTablosu() {
         clientName: customerInfo?.ticariUnvan || "-",
     };
 
-
-    // Güvenli okuma yapısı: store'daki nesneden rows dizisini veya eski yapıyı desteklemesi için yedekli okuma
     const storeCapexObj = formData?.tables?.capextablosu;
     const storeCapexRows = storeCapexObj?.rows || (Array.isArray(storeCapexObj) ? storeCapexObj : []);
 
@@ -69,17 +80,15 @@ function CapexTablosu() {
         };
     }, [teklifDili]);
 
-    // Net toplamı hesaplayan yardımcı fonksiyon
     const calculateTotalNetPrice = (rowsArray) => {
         return rowsArray.reduce((sum, row) => {
-            if (row.type === 3 && !row.isUrgent && !row.isOptional && row.piece > 0) {
+            // isOptional veya isLocalSupply true ise genel toplama dahil etme
+            if (row.isPrice && !row.isUrgent && !row.isOptional && !row.isLocalSupply && row.piece > 0) {
                 return sum + (row.netTotal || 0);
             }
             return sum;
         }, 0);
     };
-
-    // Store ve yerel state'i senkronize eden fonksiyon
     const updateStore = useCallback((updatedRows) => {
         const finalRowsWithNumbers = generateWBSNumbers(updatedRows);
         setLocalRows(finalRowsWithNumbers);
@@ -95,7 +104,6 @@ function CapexTablosu() {
         });
     }, [formData?.tables, updateSection]);
 
-    // ↶ Geri Al fonksiyonu
     const handleUndo = useCallback(() => {
         if (history.length === 0) return;
 
@@ -180,15 +188,36 @@ function CapexTablosu() {
         saveToHistory();
 
         const activeRows = storeCapexRows.length > 0 ? storeCapexRows : localRows;
+
+        const guncelDil = formData?.customerInfo?.teklifDili || "Yabancı";
+        const opsiyonelMetni = guncelDil === "Yerli" ? "Opsiyonel" : "Optional";
+        const yerindeTedarikMetni = guncelDil === "Yerli" ? "Yerinde Tedarik" : "Supply Locally";
+
         const updated = activeRows.map(row => {
             if (row.id === id) {
+                // Yeni değeri ata
                 const updatedRow = { ...row, [field]: val };
-                if (field === "piece" || field === "unitPrice" || field === "discount" || field === "isOptional") {
+
+                // Eğer biri aktif edildiyse diğer boncuğu söndürelim (çakışmasınlar diye)
+                if (field === "isOptional" && val === true) updatedRow.isLocalSupply = false;
+                if (field === "isLocalSupply" && val === true) updatedRow.isOptional = false;
+
+                if (field === "piece" || field === "unitPrice" || field === "discount" || field === "isOptional" || field === "isLocalSupply") {
                     const piece = parseFloat(updatedRow.piece) || 0;
                     const unitPrice = parseFloat(updatedRow.unitPrice) || 0;
                     const discount = parseFloat(updatedRow.discount) || 0;
+
+                    // rawTotal her koşulda sayısal kalıyor
                     updatedRow.rawTotal = parseFloat((piece * unitPrice).toFixed(2));
-                    updatedRow.netTotal = parseFloat((updatedRow.rawTotal * (1 - discount / 100)).toFixed(2));
+
+                    if (updatedRow.isOptional) {
+                        updatedRow.netTotal = opsiyonelMetni;
+                    } else if (updatedRow.isLocalSupply) {
+                        updatedRow.netTotal = yerindeTedarikMetni;
+                    } else {
+                        // İkisi de kapalıysa normal indirimli fiyat hesaplansın
+                        updatedRow.netTotal = parseFloat((updatedRow.rawTotal * (1 - discount / 100)).toFixed(2));
+                    }
                 }
                 return updatedRow;
             }
@@ -204,6 +233,9 @@ function CapexTablosu() {
         const newRow = {
             id: "_" + Math.random().toString(36).substr(2, 9),
             type: selectedType,
+            isPrice: selectedType === 3,
+            isOptional: false,
+            isLocalSupply: false, // Yeni alan default false
             label: selectedType === 3 ? "Yeni Ekipman Kalemi" : `Yeni Başlık Lvl ${selectedType + 1}`,
             piece: selectedType === 3 ? 1 : 1,
             unitPrice: 0,

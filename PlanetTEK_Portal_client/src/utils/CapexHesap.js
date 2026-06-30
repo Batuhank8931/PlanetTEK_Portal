@@ -418,14 +418,14 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
         ...dinamikOpsiyonKalemleri,
 
         { id: "1_ana_insaat", type: 0, label: dict.ana_insaat },
-        { id: "6_insaat_kanal_izgara", type: 3, piece: isOnAritmaChecked ? 1 : 0, label: dict.insaat_kanal_izgara, unitPrice: 0, discount: 0, isUrgent: true },
-        { id: "6_insaat_tank_anoksik", type: 3, piece: isIleriAritmaChecked ? 1 : 0, label: dict.insaat_tank_anoksik, unitPrice: 0, discount: 0, isUrgent: true },
-        { id: "6_insaat_tank_oncokturme_1", type: 3, piece: 1, label: dict.insaat_tank_oncokturme_1, unitPrice: 0, discount: 0, isUrgent: true },
-        { id: "6_insaat_tank_oncokturme_2", type: 3, piece: 1, label: dict.insaat_tank_oncokturme_2, unitPrice: 0, discount: 0, isUrgent: true },
-        { id: "6_insaat_tank_dengeleme", type: 3, piece: 1, label: dict.insaat_tank_dengeleme, unitPrice: 0, discount: 0, isUrgent: true },
-        { id: "6_insaat_tank_aritilmis_su", type: 3, piece: isFiltrasyonChecked ? 1 : 0, label: dict.insaat_tank_aritilmis_su, unitPrice: 0, discount: 0, isUrgent: true },
-        { id: "6_insaat_tank_filtrelenmis_su", type: 3, piece: isFiltrasyonChecked ? 1 : 0, label: dict.insaat_tank_filtrelenmis_su, unitPrice: 0, discount: 0, isUrgent: true },
-        { id: "6_insaat_tank_camur", type: 3, piece: isCamurAktif ? 1 : 0, label: dict.insaat_tank_camur, unitPrice: 0, discount: 0, isUrgent: true },
+        { id: "6_insaat_kanal_izgara", type: 3, piece: isOnAritmaChecked ? 1 : 0, label: dict.insaat_kanal_izgara, unitPrice: 0, unitData: dict.insaat_isleri, discount: 0, isUrgent: true },
+        { id: "6_insaat_tank_anoksik", type: 3, piece: isIleriAritmaChecked ? 1 : 0, label: dict.insaat_tank_anoksik, unitPrice: 0, unitData: dict.insaat_isleri, discount: 0, isUrgent: true },
+        { id: "6_insaat_tank_oncokturme_1", type: 3, piece: 1, label: dict.insaat_tank_oncokturme_1, unitPrice: 0, unitData: dict.insaat_isleri, discount: 0, isUrgent: true },
+        { id: "6_insaat_tank_oncokturme_2", type: 3, piece: 1, label: dict.insaat_tank_oncokturme_2, unitPrice: 0, unitData: dict.insaat_isleri, discount: 0, isUrgent: true },
+        { id: "6_insaat_tank_dengeleme", type: 3, piece: 1, label: dict.insaat_tank_dengeleme, unitPrice: 0, unitData: dict.insaat_isleri, discount: 0, isUrgent: true },
+        { id: "6_insaat_tank_aritilmis_su", type: 3, piece: isFiltrasyonChecked ? 1 : 0, label: dict.insaat_tank_aritilmis_su, unitPrice: 0, unitData: dict.insaat_isleri, discount: 0, isUrgent: true },
+        { id: "6_insaat_tank_filtrelenmis_su", type: 3, piece: isFiltrasyonChecked ? 1 : 0, label: dict.insaat_tank_filtrelenmis_su, unitPrice: 0, unitData: dict.insaat_isleri, discount: 0, isUrgent: true },
+        { id: "6_insaat_tank_camur", type: 3, piece: isCamurAktif ? 1 : 0, label: dict.insaat_tank_camur, unitPrice: 0, unitData: dict.insaat_isleri, discount: 0, isUrgent: true },
 
         { id: "1_ana_montaj", type: 0, label: dict.ana_montaj },
         { id: "7_montaj_borulama_tesisat", type: 3, piece: 1, label: dict.montaj_borulama_tesisat, unitPrice: rbcPrices.tesisat, discount: ekipmanIndirim },
@@ -469,7 +469,9 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
         })
         .filter(row => row.type < 3 || row.piece > 0);
 
+    // ==========================================
     // 7. Yenilenen Kusursuz Temizleme Algoritması
+    // ==========================================
     const filteredRows = [];
     let activeForType2 = false;
     let activeForType1 = false;
@@ -480,11 +482,15 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
 
         if (row.type === 3) {
             filteredRows.unshift(row);
-            activeForType2 = true;
+            // Eğer bu bir ızgara kalemi ise tip 2 başlığını da korumak gerekir
+            if (row.id.includes("izgara_")) {
+                activeForType2 = true;
+            }
             activeForType1 = true;
             activeForType0 = true;
         }
         else if (row.type === 2) {
+            // Izgara kalemi varsa başlığı ekle, sonra sıfırla
             if (activeForType2) filteredRows.unshift(row);
             activeForType2 = false;
         }
@@ -501,27 +507,45 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
         }
     }
 
+    // ==========================================
     // 8. Hiyerarşik Numaralandırma Motoru
+    // ==========================================
     let i0 = 0; let i1 = 0; let i2 = 0; let i3 = 0;
+    let i1_sub = 0; // 1.1'in doğrudan altındaki bağımsız elemanların (1.1.2, 1.1.3) sayacı
+
     return filteredRows.map(row => {
         let noStr = "";
+
         if (row.type === 0) {
-            i0++; i1 = 0; i2 = 0; i3 = 0;
+            i0++; i1 = 0; i2 = 0; i3 = 0; i1_sub = 0;
             noStr = `${i0}.`;
         }
         else if (row.type === 1) {
-            i1++; i2 = 0; i3 = 0;
+            i1++; i2 = 0; i3 = 0; i1_sub = 0; // Yeni ana başlıkta sub sayacı sıfırlanır
             noStr = `${i0}.${i1}.`;
         }
         else if (row.type === 2) {
             i2++; i3 = 0;
+            // Bir alt grup başlığı (Örn: 1.1.1) açıldığı için i1_sub'ı rezerve ediyoruz
+            i1_sub++;
             noStr = `${i0}.${i1}.${i2}.`;
         }
         else if (row.type === 3) {
-            i3++;
-            if (i2 > 0) noStr = `${i0}.${i1}.${i2}.${i3}.`;
-            else if (i1 > 0) noStr = `${i0}.${i1}.${i3}.`;
-            else noStr = `${i0}.${i3}.`;
+            const isIzgaraKalemi = row.id.includes("izgara_");
+
+            if (isIzgaraKalemi) {
+                // Tip 2 başlığı es geçildiyse koruma amaçlı
+                if (i2 === 0) {
+                    i2 = 1;
+                    if (i1_sub === 0) i1_sub = 1;
+                }
+                i3++;
+                noStr = `${i0}.${i1}.${i2}.${i3}.`;
+            } else {
+                // Izgara dışı genel bir fiziksel arıtma ekipmanı (Kum-yağ, pompa vs.)
+                i1_sub++;
+                noStr = `${i0}.${i1}.${i1_sub}.`;
+            }
         }
         return { ...row, no: noStr };
     });

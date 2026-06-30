@@ -1,3 +1,5 @@
+//CapexTableViwe.jsx
+
 import React, { useEffect, useRef, useState } from "react";
 
 const AutoResizeTextarea = ({ value, onChange, disabled, style, className }) => {
@@ -48,16 +50,20 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
         return "#151f32";
     };
 
-    // İndirim sonrası toplam fiyatı hesaplama (Orijinal yapı)
+    // DÜZELTME 1: Genel toplam hesaplanırken sarı boncuklu (isLocalSupply) olanları da düşüyoruz
     const totalNetPrice = numberedRows.reduce((sum, row) => {
-        if (row.type === 3 && !row.isUrgent && !row.isOptional && row.piece > 0) {
-            return sum + (row.netTotal || 0);
+        if (row.type === 3 && !row.isUrgent && !row.isOptional && !row.isLocalSupply && row.piece > 0) {
+            // Eğer string geldiyse (büyük bir güvenlik önlemi olarak) patlamasın diye parseFloat koyduk
+            const netVal = typeof row.netTotal === "number" ? row.netTotal : parseFloat(row.netTotal) || 0;
+            return sum + netVal;
         }
         return sum;
     }, 0);
 
-    // Dil seçimine göre sayı formatlama fonksiyonu (Hesaplamaları etkilemez, sadece görünüm)
     const formatPrice = (value) => {
+        // Eğer değer zaten string ise (Opsiyonel / Yerinde Tedarik) hiç formatlamadan geri döndür
+        if (typeof value === "string") return value;
+
         const locale = teklifDili === "Yerli" ? "de-DE" : "en-US";
         return Number(value).toLocaleString(locale, {
             minimumFractionDigits: 0,
@@ -94,7 +100,6 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
                 .optional-indicator-dot {
                     position: absolute;
                     top: 4px;
-                    right: 4px;
                     width: 7px;
                     height: 7px;
                     border-radius: 50%;
@@ -115,10 +120,23 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
                     box-shadow: 0 0 8px #38bdf8, 0 0 12px rgba(56, 189, 248, 0.4) !important;
                 }
 
+                /* DÜZELTME 2: Sarı boncuk ve sarı hücre stilleri eklendi */
+                .local-supply-dot-active {
+                    background-color: #eab308 !important;
+                    border-color: #eab308 !important;
+                    box-shadow: 0 0 8px #eab308, 0 0 12px rgba(234, 179, 8, 0.4) !important;
+                }
+
                 .optional-cell-selected {
                     background-color: rgba(56, 189, 248, 0.06);
                     border-radius: 4px;
-                    padding-right: 16px !important;
+                    padding-right: 28px !important;
+                }
+
+                .local-supply-cell-selected {
+                    background-color: rgba(234, 179, 8, 0.06);
+                    border-radius: 4px;
+                    padding-right: 28px !important;
                 }
             `}</style>
 
@@ -209,7 +227,6 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
                         const rawTotal = row.rawTotal ?? 0;
                         const netTotal = row.netTotal ?? 0;
 
-                        // Dinamik formatlama fonksiyonunu burada kullanıyoruz
                         let totalStr = `${formatPrice(rawTotal)} €`;
                         let netStr = `${formatPrice(netTotal)} €`;
 
@@ -218,8 +235,11 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
                         else if (row.isShippingStyle) { totalStr = "-"; netStr = "Bilgi Amaçlı"; }
                         else if (row.unitPrice === 0 && row.type === 3) { totalStr = "-"; netStr = "-"; }
 
+                        // DÜZELTME 3: netStr string'ini güvenli bir şekilde eziyoruz (NaN hatasını çözen yer)
                         if (row.type === 3 && row.isOptional) {
                             netStr = (teklifDili === "Yerli" ? "Opsiyonel" : "Optional");
+                        } else if (row.type === 3 && row.isLocalSupply) {
+                            netStr = (teklifDili === "Yerli" ? "Yerinde Tedarik" : "Supply Locally");
                         }
 
                         return (
@@ -285,22 +305,50 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
                                 <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
 
                                 <div
-                                    className={`p-1 px-3 d-flex align-items-center justify-content-end fw-bold position-relative ${row.type === 3 && row.isOptional ? 'optional-cell-selected' : ''}`}
+                                    className={`p-1 px-3 d-flex align-items-center justify-content-end fw-bold position-relative 
+                                            ${row.type === 3 && row.isOptional ? 'optional-cell-selected' : ''} 
+                                            ${row.type === 3 && row.isLocalSupply ? 'local-supply-cell-selected' : ''}`}
                                     style={{
                                         width: "12%",
-                                        fontSize: "12px",
-                                        color: row.isUrgent ? "#94a3b8" : row.piece === 0 ? "#94a3b8" : row.isOptional ? "#38bdf8" : "#4ade80",
-                                        transition: "all 0.2s ease"
+                                        // Metnin kesinlikle tek satırda kalmasını sağlayan ve sığmıyorsa fontu küçülten ayar
+                                        fontSize: (row.isLocalSupply || row.isOptional) ? "10.5px" : "12px",
+                                        whiteSpace: "nowrap",
+                                        color: row.isUrgent ? "#94a3b8" : row.piece === 0 ? "#94a3b8" : row.isOptional ? "#38bdf8" : row.isLocalSupply ? "#eab308" : "#4ade80",
+                                        transition: "all 0.2s ease",
+                                        // Boncuklar üstte olacağı için yazıyı hafifçe aşağı itip ortalıyoruz
+                                        paddingTop: row.type === 3 ? "12px" : "4px"
                                     }}
                                 >
                                     {row.type < 3 ? null : netStr}
 
                                     {row.type === 3 && !row.isUrgent && (
-                                        <div
-                                            className={`optional-indicator-dot ${row.isOptional ? 'optional-dot-active' : ''}`}
-                                            onClick={() => handleCellChange(row.id, "isOptional", !row.isOptional)}
-                                            title={row.isOptional ? "Toplam fiyata geri ekle" : "Opsiyonel yap (Toplamdan çıkar)"}
-                                        />
+                                        <>
+                                            {/* Mavi Boncuk (Sağ Üstte) */}
+                                            <div
+                                                className={`optional-indicator-dot ${row.isOptional ? 'optional-dot-active' : ''}`}
+                                                onClick={() => handleCellChange(row.id, "isOptional", !row.isOptional)}
+                                                title={row.isOptional ? "Toplam fiyata geri ekle" : "Opsiyonel yap (Toplamdan çıkar)"}
+                                                style={{
+                                                    position: "absolute",
+                                                    top: "4px",
+                                                    right: "6px",
+                                                    left: "auto" // Sağ üste sabitlemek için sola yaslamayı kapattık
+                                                }}
+                                            />
+
+                                            {/* Sarı Boncuk (Sol Üstte) */}
+                                            <div
+                                                className={`optional-indicator-dot ${row.isLocalSupply ? 'local-supply-dot-active' : ''}`}
+                                                onClick={() => handleCellChange(row.id, "isLocalSupply", !row.isLocalSupply)}
+                                                title={row.isLocalSupply ? "Toplam fiyata geri ekle" : "Yerinde Tedarik Yap (Toplamdan çıkar)"}
+                                                style={{
+                                                    position: "absolute",
+                                                    top: "4px",
+                                                    left: "6px",
+                                                    right: "auto" // Sol üste sabitlemek için sağa yaslamayı kapattık
+                                                }}
+                                            />
+                                        </>
                                     )}
                                 </div>
                                 <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
@@ -346,7 +394,7 @@ function CapexTableView({ numberedRows, historyLength, handleUndo, handleCellCha
                 {/* EN ALT TOPLAM FİYAT ALANI */}
                 <div className="d-flex align-items-center justify-content-between p-3" style={{ backgroundColor: "#0f172a", borderTop: "2px solid #334155" }}>
                     <div className="text-white-50 fw-medium animate-fade" style={{ fontSize: "11px", letterSpacing: "0.3px" }}>
-                        * <span style={{ color: "#38bdf8" }}>Neon mavi</span> işaretli opsiyonel kalemler genel toplama dahil edilmemiştir.
+                        * <span style={{ color: "#38bdf8" }}>Neon mavi</span> ve <span style={{ color: "#eab308" }}>sarı</span> işaretli özel kalemler genel toplama dahil edilmemiştir.
                     </div>
                     <div className="d-flex align-items-center gap-3">
                         <span className="fw-bold text-uppercase" style={{ fontSize: "12px", color: "#94a3b8", letterSpacing: "1px" }}>İndirim Sonrası Genel Toplam:</span>
