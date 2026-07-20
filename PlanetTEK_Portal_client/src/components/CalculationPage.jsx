@@ -6,6 +6,7 @@ import API from "../utils/utilRequest";
 import AlertModal from "./modals/AlertModal"; // Yeni modalımız import edildi
 
 function CalculationPage() {
+  const [activeTableId, setActiveTableId] = useState(null);
   const [allParameters, setAllParameters] = useState([]);
   const [originalData, setOriginalData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -221,6 +222,9 @@ function CalculationPage() {
             </button>
           </div>
           <ExcelGrid
+            tableId="dinamikdisksinir"
+            activeTableId={activeTableId}
+            setActiveTableId={setActiveTableId}
             headers={["Sistem Anahtarı (Key)", "Parametre Tanımı", "Değer"]}
             fields={["parametre_key", "parametre_adi", "deger"]}
             data={diskData}
@@ -249,6 +253,9 @@ function CalculationPage() {
             </button>
           </div>
           <ExcelGrid
+            tableId="dinamiknitrifikasyon"
+            activeTableId={activeTableId}
+            setActiveTableId={setActiveTableId}
             headers={["Hesaplama Anahtarı (Key)", "Sıcaklık Koşulu", "Katsayı (Fi)"]}
             fields={["parametre_key", "parametre_adi", "deger"]}
             data={nitData}
@@ -274,6 +281,9 @@ function CalculationPage() {
             </button>
           </div>
           <ExcelGrid
+            tableId="giderimkabulleri"
+            activeTableId={activeTableId}
+            setActiveTableId={setActiveTableId}
             headers={["Parametre Anahtarı (Key)", "Parametre Adı", "Değer"]}
             fields={["parametre_key", "parametre_adi", "deger"]}
             data={giderimData}

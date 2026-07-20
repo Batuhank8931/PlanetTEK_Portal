@@ -548,6 +548,49 @@ export async function resolveSusuzlastirmaPrices(sludgeObj, priceData) {
     return results;
 }
 
+export async function resolveMembranePrices(membraneObj, priceData) {
+    const isYurtIci = priceData?.teklifDili === "Yerli" || priceData?.isYurtIci === true;
+
+    // membraneObj doğrudan membraneSystem olabilir veya onu sarmalayan üst nesne olabilir
+    const system = membraneObj?.membraneSystem || membraneObj;
+
+    // Fiyat anahtarını yurt içi/yurt dışı durumuna göre seçiyoruz
+    const priceKey = isYurtIci ? "satis_yi" : "satis_yd";
+
+    // Ekipman listesi (kaset adet çarpanına sahip olduğu için onu ayrı hesaplayacağız)
+    const singleEquipments = [
+        "feedPumps",
+        "recirculationPumps",
+        "naoclDosingPumps",
+        "naoclDosingTanks",
+        "citricDosingPumps",
+        "citricDosingTanks",
+        "blowers"
+    ];
+
+    let toplamFiyat = 0;
+
+    if (system) {
+        // 1. Membran Kasetleri Hesabı (Adet çarpanı ile birlikte)
+        if (system.membraneCassettes?.[priceKey]) {
+            const kasetFiyati = parseFloat(system.membraneCassettes[priceKey]) || 0;
+            const adet = parseInt(system.membraneCassettes.adet) || 1;
+            toplamFiyat += kasetFiyati * adet;
+        }
+
+        // 2. Diğer Sabit Ekipmanların Hesabı
+        for (const eq of singleEquipments) {
+            if (system[eq]?.[priceKey]) {
+                toplamFiyat += parseFloat(system[eq][priceKey]) || 0;
+            }
+        }
+    }
+
+    return {
+        membransistemininTamami: Number(toplamFiyat.toFixed(2)),
+    };
+}
+
 /**
  * 10. Diğer İşler Fiyatları (Montaj, Elektrik, Nakliye, Mühendislik, POD)
  */

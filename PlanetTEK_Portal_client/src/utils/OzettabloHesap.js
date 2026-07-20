@@ -20,7 +20,7 @@ export const ozetTabloHesap = (formData) => {
 
     // 3. Toplam RBC adet hesabı
     const rbcModeli = planetDiskDetails?.tasarim?.aritmaParametreleri?.RBCUnite || "MX";
-    const UniteTipi = planetDiskDetails.tasarim?.aritmaParametreleri?.kasaTipi || "Kapaklı";
+    const UniteTipi = planetDiskDetails.tasarim?.aritmaParametreleri?.kapakSecimi || "Kapaklı";
     const yerlesimListesi = planetDiskDetails?.tasarim?.yerlesimSiralanisi || [];
     const toplamRbcAdeti = yerlesimListesi
         .filter(y => y.isLamella === false)
@@ -80,6 +80,7 @@ export const ozetTabloHesap = (formData) => {
     const isIleriAritmaChecked = modulesState.ileriAritma?.checked || false;
     const isFiltrasyonChecked = modulesState.filtrasyon?.checked || false;
     const isCamurAktif = modulesState.sludgeDewatering?.checked || false;
+    const isMembraneAktif = modulesState.membrane?.checked || false;
 
     // 5.2. Alt Ekipman Alt Nesneleri
     const onAritmaObj = equipmentsObject.onAritma || {};
@@ -127,175 +128,175 @@ export const ozetTabloHesap = (formData) => {
     };
 
     const initialParams = [
-        { 
-            id: 1, 
-            label: isForeign ? "- Wastewater Source" : "- Atıksu Kaynağı", 
-            value: isForeign 
+        {
+            id: 1,
+            label: isForeign ? "- Wastewater Source" : "- Atıksu Kaynağı",
+            value: isForeign
                 ? "Only domestic wastewater from toilets, sinks, shower, dishwash and laundry."
-                : "Yalnızca kişisel kullanımdan kaynaklanan evsel atıksulara göre tasarım yapılmış olup, hayvanlardan kaynaklanan atıksular, klorlu havuz suları ve yağmur suları hesaba dahil edilmemiştir.", 
-            unit: "", 
-            isLongText: true 
+                : "Yalnızca kişisel kullanımdan kaynaklanan evsel atıksulara göre tasarım yapılmış olup, hayvanlardan kaynaklanan atıksular, klorlu havuz suları ve yağmur suları hesaba dahil edilmemiştir.",
+            unit: "",
+            isLongText: true
         },
-        { 
-            id: 2, 
-            label: isForeign ? "- Final Destination of Treated Water" : "- Nihai Kullanım Amacı", 
-            value: isFiltrasyonChecked 
-                ? (isForeign ? "Irrigation / Reuse" : "Sulama/Geri Kazanım") 
-                : (isForeign ? "Discharge to Nature" : "Deşarj"), 
-            unit: "" 
+        {
+            id: 2,
+            label: isForeign ? "- Final Destination of Treated Water" : "- Nihai Kullanım Amacı",
+            value: isFiltrasyonChecked
+                ? (isForeign ? "Irrigation / Reuse" : "Sulama/Geri Kazanım")
+                : (isForeign ? "Discharge to Nature" : "Deşarj"),
+            unit: ""
         },
-        { 
-            id: 3, 
-            label: isForeign ? "- Hydraulic Load" : "- Hidrolik Yük", 
-            value: debiM3.toFixed(2), 
-            unit: isForeign ? "m³/day" : "m³/gün" 
+        {
+            id: 3,
+            label: isForeign ? "- Hydraulic Load" : "- Hidrolik Yük",
+            value: debiM3.toFixed(2),
+            unit: isForeign ? "m³/day" : "m³/gün"
         },
-        { 
-            id: 4, 
-            label: isForeign ? "- Hourly Flow Rate" : "- Saatlik Debi", 
-            value: (debiM3 / 24).toFixed(2), 
-            unit: isForeign ? "m³/hour" : "m³/saat" 
+        {
+            id: 4,
+            label: isForeign ? "- Hourly Flow Rate" : "- Saatlik Debi",
+            value: (debiM3 / 24).toFixed(2),
+            unit: isForeign ? "m³/hour" : "m³/saat"
         },
-        { 
-            id: 5, 
-            label: isForeign ? "- Peak Flow Rate" : "- Pik Debi", 
-            value: ((debiM3 / 24) * 2).toFixed(2), 
-            unit: isForeign ? "m³/hour" : "m³/saat" 
+        {
+            id: 5,
+            label: isForeign ? "- Peak Flow Rate" : "- Pik Debi",
+            value: ((debiM3 / 24) * 2).toFixed(2),
+            unit: isForeign ? "m³/hour" : "m³/saat"
         },
-        { 
-            id: 6, 
-            label: isForeign ? "- Organic Load (BOD)" : "- Organik Yük", 
-            value: organikYukKg, 
-            unit: isForeign ? "kg/day" : "kg/gün" 
+        {
+            id: 6,
+            label: isForeign ? "- Organic Load (BOD)" : "- Organik Yük",
+            value: organikYukKg,
+            unit: isForeign ? "kg/day" : "kg/gün"
         },
-        { 
-            id: 7, 
-            label: isForeign ? "- Wastewater Temperature" : "- Atıksu Sıcaklığı", 
-            value: String(sicaklik || "19"), 
-            unit: "°C" 
+        {
+            id: 7,
+            label: isForeign ? "- Wastewater Temperature" : "- Atıksu Sıcaklığı",
+            value: String(sicaklik || "19"),
+            unit: "°C"
         },
-        { 
-            id: 8, 
-            label: isForeign ? "- Wastewater Retention Time in PlanetDISK® RBC Unit" : "- PlanetDISK® Ünitesi Alıkonma Süresi", 
-            value: beklemeSuresi.toFixed(2), 
-            unit: isForeign ? "hours" : "saat" 
+        {
+            id: 8,
+            label: isForeign ? "- Wastewater Retention Time in PlanetDISK® RBC Unit" : "- PlanetDISK® Ünitesi Alıkonma Süresi",
+            value: beklemeSuresi.toFixed(2),
+            unit: isForeign ? "hours" : "saat"
         },
-        { 
-            id: 9, 
-            label: isForeign ? `- Number of PlanetDISK® ${rbcModeli || 'MX'} 1 RBC Units` : `- PlanetDISK® ${rbcModeli || 'MX'} 1 DBD Ünitesi Sayısı`, 
-            value: String(toplamMilAdet), 
-            unit: isForeign ? "units" : "adet" 
+        {
+            id: 9,
+            label: isForeign ? `- Number of PlanetDISK® ${rbcModeli || 'MX'} 1 RBC Units` : `- PlanetDISK® ${rbcModeli || 'MX'} 1 DBD Ünitesi Sayısı`,
+            value: String(toplamMilAdet),
+            unit: isForeign ? "units" : "adet"
         },
-        { 
-            id: 10, 
-            label: isForeign ? "- Number of Disks" : "- Disk Adedi", 
-            value: uniteBasinaDiskSayisi, 
-            unit: isForeign ? "disks/unit" : "adet/ünite" 
+        {
+            id: 10,
+            label: isForeign ? "- Number of Disks" : "- Disk Adedi",
+            value: uniteBasinaDiskSayisi,
+            unit: isForeign ? "disks/unit" : "adet/ünite"
         },
-        { 
-            id: 11, 
-            label: isForeign ? "- Disk Diameter" : "- Disk Çapı", 
-            value: rbcModeli === "MINI" ? "1.30" : "2.05", 
-            unit: "m" 
+        {
+            id: 11,
+            label: isForeign ? "- Disk Diameter" : "- Disk Çapı",
+            value: rbcModeli === "MINI" ? "1.30" : "2.05",
+            unit: "m"
         },
-        { 
-            id: 12, 
-            label: isForeign ? "- Surface Area of 1 Disk" : "- 1 Diskin Yüzey Alanı", 
-            value: rbcModeli === "MINI" ? "2.60" : "6.60", 
-            unit: isForeign ? "m²/disk" : "m²/disk" 
+        {
+            id: 12,
+            label: isForeign ? "- Surface Area of 1 Disk" : "- 1 Diskin Yüzey Alanı",
+            value: rbcModeli === "MINI" ? "2.60" : "6.60",
+            unit: isForeign ? "m²/disk" : "m²/disk"
         },
-        { 
-            id: 13, 
-            label: isForeign ? `- Surface Area of PlanetDISK® ${rbcModeli || 'MX'} 1 RBC Unit` : `- PlanetDISK® ${rbcModeli || 'MX'} 1 DBD Ünitesi Yüzey Alanı`, 
-            value: uniteBasinaDiskAlani, 
-            unit: isForeign ? "m²/unit" : "m²/ünite" 
+        {
+            id: 13,
+            label: isForeign ? `- Surface Area of PlanetDISK® ${rbcModeli || 'MX'} 1 RBC Unit` : `- PlanetDISK® ${rbcModeli || 'MX'} 1 DBD Ünitesi Yüzey Alanı`,
+            value: uniteBasinaDiskAlani,
+            unit: isForeign ? "m²/unit" : "m²/ünite"
         },
-        { 
-            id: 14, 
-            label: isForeign ? "- Total Disk Surface Area in this Project" : "- Bu Projedeki Toplam Disk Yüzey Alanı", 
-            value: (projeToplamDisk * interstateDiskAlaniDegeri).toFixed(2), 
-            unit: "m²" 
+        {
+            id: 14,
+            label: isForeign ? "- Total Disk Surface Area in this Project" : "- Bu Projedeki Toplam Disk Yüzey Alanı",
+            value: (projeToplamDisk * interstateDiskAlaniDegeri).toFixed(2),
+            unit: "m²"
         },
-        { 
-            id: 15, 
-            label: isForeign ? `- Final Sedimentation Tank with Lamella Separator ${lamellaModeli}` : `- Lamella Seperatör ${lamellaModeli} Son Çöktürme Tankı`, 
-            value: String(lamellaAdet), 
-            unit: isForeign ? "units" : "adet" 
+        {
+            id: 15,
+            label: isForeign ? `- Final Sedimentation Tank with Lamella Separator ${lamellaModeli}` : `- Lamella Seperatör ${lamellaModeli} Son Çöktürme Tankı`,
+            value: String(lamellaAdet),
+            unit: isForeign ? "units" : "adet"
         },
-        { 
-            id: 16, 
-            label: isForeign ? `- 1 Unit Lamella Separator Final Sedimentation Tank ${lamellaModeli}` : `- 1 Adet Lamella Seperatör ${lamellaModeli} Son Çöktürme Tankı`, 
-            value: lamellaAlani.toFixed(0), 
-            unit: isForeign ? "m²/unit" : "m²/ünite" 
+        {
+            id: 16,
+            label: isForeign ? `- 1 Unit Lamella Separator Final Sedimentation Tank ${lamellaModeli}` : `- 1 Adet Lamella Seperatör ${lamellaModeli} Son Çöktürme Tankı`,
+            value: lamellaAlani.toFixed(0),
+            unit: isForeign ? "m²/unit" : "m²/ünite"
         },
-        { 
-            id: 17, 
-            label: isForeign ? `- Total Lamella Surface Area in Final Sedimentation Tank ${lamellaModeli}` : `- Lamella Seperatör ${lamellaModeli} Son Çöktürme Tankı Toplam Yüzey Alanı`, 
-            value: (lamellaAlani * lamellaAdet).toFixed(0), 
-            unit: "m²" 
+        {
+            id: 17,
+            label: isForeign ? `- Total Lamella Surface Area in Final Sedimentation Tank ${lamellaModeli}` : `- Lamella Seperatör ${lamellaModeli} Son Çöktürme Tankı Toplam Yüzey Alanı`,
+            value: (lamellaAlani * lamellaAdet).toFixed(0),
+            unit: "m²"
         }
     ];
 
     const initialContent = [
-        { 
-            id: 1, 
-            isChecked: isOnAritmaChecked, 
-            qty: "1", 
-            unit: isForeign ? "set" : "set", 
-            desc: izgaraTipi === "Manuel Izgara" 
-                ? (isForeign ? "Manually Cleaned Coarse Screen" : "Elle Temizlemeli Kaba Izgara") 
-                : (isForeign ? "Automatically Cleaned Coarse Screen" : "Otomatik Temizlemeli Kaba Izgara") 
+        {
+            id: 1,
+            isChecked: isOnAritmaChecked,
+            qty: "1",
+            unit: isForeign ? "set" : "set",
+            desc: izgaraTipi === "Manuel Izgara"
+                ? (isForeign ? "Manually Cleaned Coarse Screen" : "Elle Temizlemeli Kaba Izgara")
+                : (isForeign ? "Automatically Cleaned Coarse Screen" : "Otomatik Temizlemeli Kaba Izgara")
         },
-        { 
-            id: 2, 
-            isChecked: isOnAritmaChecked, 
-            qty: "1", 
-            unit: isForeign ? "set" : "set", 
-            desc: izgaraTipi === "Manuel Izgara" 
-                ? (isForeign ? "Manually Cleaned Fine Screen" : "Elle Temizlemeli İnce Izgara") 
-                : (isForeign ? "Automatically Cleaned Fine Screen" : "Otomatik Temizlemeli İnce Izgara") 
+        {
+            id: 2,
+            isChecked: isOnAritmaChecked,
+            qty: "1",
+            unit: isForeign ? "set" : "set",
+            desc: izgaraTipi === "Manuel Izgara"
+                ? (isForeign ? "Manually Cleaned Fine Screen" : "Elle Temizlemeli İnce Izgara")
+                : (isForeign ? "Automatically Cleaned Fine Screen" : "Otomatik Temizlemeli İnce Izgara")
         },
-        { 
-            id: 3, 
-            isChecked: isOnAritmaChecked, 
-            qty: "4", 
-            unit: isForeign ? "units" : "adet", 
-            desc: isForeign ? "Sand-Oil Trap Plates" : "Kum-Yağ Tutucu Plakaları" 
+        {
+            id: 3,
+            isChecked: isOnAritmaChecked,
+            qty: "4",
+            unit: isForeign ? "units" : "adet",
+            desc: isForeign ? "Sand-Oil Trap Plates" : "Kum-Yağ Tutucu Plakaları"
         },
-        { 
-            id: 4, 
-            isChecked: isFeedPumpChecked, 
-            qty: ToplamFeedpompaAdeti, 
-            unit: isForeign ? "units" : "adet", 
-            desc: isForeign ? "Equalization Tank Feed Pumps" : "Dengeleme Tankı Terfi Pompaları" 
+        {
+            id: 4,
+            isChecked: isFeedPumpChecked,
+            qty: ToplamFeedpompaAdeti,
+            unit: isForeign ? "units" : "adet",
+            desc: isForeign ? "Equalization Tank Feed Pumps" : "Dengeleme Tankı Terfi Pompaları"
         },
-        { 
-            id: 5, 
-            isChecked: true, 
-            qty: String(toplamMilAdet), 
-            unit: isForeign ? "units" : "adet", 
-            desc: isForeign ? `PlanetDISK® ${rbcModeli || 'MX'} 1 RBC Unit` : `PlanetDISK® ${rbcModeli || 'MX'} 1 DBD Ünitesi` 
+        {
+            id: 5,
+            isChecked: true,
+            qty: String(toplamMilAdet),
+            unit: isForeign ? "units" : "adet",
+            desc: isForeign ? `PlanetDISK® ${rbcModeli || 'MX'} 1 RBC Unit` : `PlanetDISK® ${rbcModeli || 'MX'} 1 DBD Ünitesi`
         },
-        { 
-            id: 6, 
-            isChecked: true, 
-            qty: String(toplamMilAdet), 
-            unit: isForeign ? "units" : "adet", 
-            desc: isForeign ? `PlanetDISK® ${rbcModeli || 'MX'} 1 RBC Unit Cover (Fiberglass)` : `PlanetDISK® ${rbcModeli || 'MX'} 1 DBD Ünitesi Kapağı` 
+        {
+            id: 6,
+            isChecked: true,
+            qty: String(toplamMilAdet),
+            unit: isForeign ? "units" : "adet",
+            desc: isForeign ? `PlanetDISK® ${rbcModeli || 'MX'} 1 RBC Unit Cover (Fiberglass)` : `PlanetDISK® ${rbcModeli || 'MX'} 1 DBD Ünitesi Kapağı`
         },
-        { 
-            id: 7, 
-            isChecked: lamellaAdet > 0, 
-            qty: String(lamellaAdet), 
-            unit: isForeign ? "units" : "adet", 
-            desc: isForeign ? `${lamellaModeli} Lamella Separator Final Sedimentation Tank` : `${lamellaModeli} Lamella Seperatör Son Çöktürme Tankı` 
+        {
+            id: 7,
+            isChecked: lamellaAdet > 0,
+            qty: String(lamellaAdet),
+            unit: isForeign ? "units" : "adet",
+            desc: isForeign ? `${lamellaModeli} Lamella Separator Final Sedimentation Tank` : `${lamellaModeli} Lamella Seperatör Son Çöktürme Tankı`
         },
-        { 
-            id: 8, 
-            isChecked: lamellaAdet > 0, 
-            qty: String(lamellaAdet), 
-            unit: isForeign ? "units" : "adet", 
-            desc: isForeign ? `${lamellaModeli} Lamella Separator Final Sedimentation Tank Sludge Pump` : `${lamellaModeli} Lamella Seperatör Son Çöktürme Tankı Çamur Pompası` 
+        {
+            id: 8,
+            isChecked: lamellaAdet > 0,
+            qty: String(lamellaAdet),
+            unit: isForeign ? "units" : "adet",
+            desc: isForeign ? `${lamellaModeli} Lamella Separator Final Sedimentation Tank Sludge Pump` : `${lamellaModeli} Lamella Seperatör Son Çöktürme Tankı Çamur Pompası`
         },
         ...(isIleriAritmaChecked ? [
             { id: 9, isChecked: true, qty: dozajPompaAdeti, unit: isForeign ? "set" : "set", desc: isForeign ? "FeCl3 Coagulant Dosing System" : "FeCl3 Koagülant Dozaj Sistemi" },
@@ -326,14 +327,16 @@ export const ozetTabloHesap = (formData) => {
                     desc: key
                 }))
         ] : []),
-
-        { id: 21, isChecked: false, qty: "", unit: "", desc: isForeign ? "Civil & Construction Works – by Client" : "İnşaat İşleri – idare tarafından yapılacaktır", isHeaderStyle: true },
-        { id: 22, isChecked: true, qty: "1", unit: isForeign ? "set" : "set", desc: isForeign ? "Piping & Electrical Works" : "Borulama & Elektrik İşleri" },
-        { id: 23, isChecked: true, qty: "1", unit: isForeign ? "unit" : "adet", desc: isForeign ? "PlanetDISK® Control Panel" : "PlanetDISK® Kontrol Panosu" },
-        ...(!isForeign ? [
-            { id: 24, isChecked: true, qty: "1", unit: "set", desc: "Proje Onay Dosyasının Hazırlanması ve Onayının Alınması (Harçlar Hariç)" },
+        ...(isMembraneAktif ? [
+            { id: 21, isChecked: true, qty: 1, unit: isForeign ? "set" : "set", desc: isForeign ? "Planet Membran System" : "Planet Membran Sistemi" },
         ] : []),
-        { id: 25, isChecked: true, qty: "", unit: "-", desc: isForeign ? "Supervision, Engineering, Commissioning & Training" : "Proje ve Mühendislik, Devreye Alma ve Eğitim Verilmesi" }
+        { id: 22, isChecked: false, qty: "", unit: "", desc: isForeign ? "Civil & Construction Works – by Client" : "İnşaat İşleri – idare tarafından yapılacaktır", isHeaderStyle: true },
+        { id: 23, isChecked: true, qty: "1", unit: isForeign ? "set" : "set", desc: isForeign ? "Piping & Electrical Works" : "Borulama & Elektrik İşleri" },
+        { id: 24, isChecked: true, qty: "1", unit: isForeign ? "unit" : "adet", desc: isForeign ? "PlanetDISK® Control Panel" : "PlanetDISK® Kontrol Panosu" },
+        ...(!isForeign ? [
+            { id: 25, isChecked: true, qty: "1", unit: "set", desc: "Proje Onay Dosyasının Hazırlanması ve Onayının Alınması (Harçlar Hariç)" },
+        ] : []),
+        { id: 26, isChecked: true, qty: "", unit: "-", desc: isForeign ? "Supervision, Engineering, Commissioning & Training" : "Proje ve Mühendislik, Devreye Alma ve Eğitim Verilmesi" }
     ];
 
     return { generalInfo: initialGeneralInfo, params: initialParams, content: initialContent };

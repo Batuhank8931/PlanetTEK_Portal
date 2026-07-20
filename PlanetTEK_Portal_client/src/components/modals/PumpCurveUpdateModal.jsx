@@ -17,6 +17,7 @@ import AlertModal from "./AlertModal";
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, Title, Tooltip, Legend);
 
 function PumpCurveUpdateModal({ show, onClose, pumpId, pumpName }) {
+    const [activeTableId, setActiveTableId] = useState(null);
     const [points, setPoints] = useState([]);
     const [loading, setLoading] = useState(false);
     const [submitLoading, setSubmitLoading] = useState(false);
@@ -27,7 +28,7 @@ function PumpCurveUpdateModal({ show, onClose, pumpId, pumpName }) {
         message: "",
         type: "success",
         showCancel: false,
-        action: null       
+        action: null
     });
 
     const headers = ["Debi (Q - m³/h)", "Basma Yüksekliği (H - mSS)"];
@@ -68,7 +69,7 @@ function PumpCurveUpdateModal({ show, onClose, pumpId, pumpName }) {
 
     const handleAddPoint = () => {
         const newRow = {
-            id: `new_point_${Date.now()}`, 
+            id: `new_point_${Date.now()}`,
             flow_rate: 0,
             head_mss: 0
         };
@@ -89,7 +90,7 @@ function PumpCurveUpdateModal({ show, onClose, pumpId, pumpName }) {
         try {
             setSubmitLoading(true);
             await API.updatePumpCurve(pumpId, { points: validPoints });
-            
+
             // 🌟 BURASI DEĞİŞTİ: onClose() buradan kaldırıldı, action'a aktarıldı.
             setAlertConfig({
                 show: true,
@@ -198,6 +199,9 @@ function PumpCurveUpdateModal({ show, onClose, pumpId, pumpName }) {
                                     </div>
                                     <div className="flex-grow-1">
                                         <ExcelGrid
+                                            tableId="verinoktalari"
+                                            activeTableId={activeTableId}
+                                            setActiveTableId={setActiveTableId}
                                             headers={headers}
                                             data={visiblePoints}
                                             fields={fields}

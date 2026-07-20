@@ -7,6 +7,10 @@ function OpexTablosu() {
 
     const teklifDili = formData?.customerInfo?.teklifDili;
     const isForeign = teklifDili === "Yabancı";
+    
+    // 🌟 Canlı Döviz ve Kur Bilgilerini Çekiyoruz
+    const currency = formData?.customerInfo?.currency || "EUR";
+    const exchangeRate = parseFloat(formData?.customerInfo?.exchangeRate) || 1.0000;
 
     // Diğer tablolardan doğrudan gelen net toplamlar
     const enerjiGideri = parseFloat(formData?.tables?.enerjiisletmettablosu?.yearlyCostEuro) || 0;
@@ -14,20 +18,64 @@ function OpexTablosu() {
 
     const storeTabloVerisi = formData?.tables?.opextablosu?.rows || formData?.tables?.opextablosu || [];
 
+    // 🌟 Lokasyon bazlı format seçimi
+    const activeLocale = isForeign ? "en-US" : "tr-TR";
+
+    // Sayı Formatlama Fonksiyonu (Düz Metin Hücreleri İçin)
+    const formatNumber = (value, minFraction = 0, maxFraction = 2) => {
+        if (isNaN(value)) return "0";
+        return value.toLocaleString(activeLocale, {
+            minimumFractionDigits: minFraction,
+            maximumFractionDigits: maxFraction
+        });
+    };
+
+    // Input Alanlarında Formatlı Gösterim İçin Yardımcı Fonksiyon
+    const formatInputValue = (val) => {
+        if (val === undefined || val === null || val === "") return "";
+        const num = parseFloat(val);
+        if (isNaN(num)) return val;
+        
+        return num.toLocaleString(activeLocale, {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2
+        });
+    };
+
+    // Formatlanmış string girdiyi temiz JS float sayısına çevirme
+    const parseInputValue = (val) => {
+        if (!val) return 0;
+        let cleanVal = val.toString();
+        if (isForeign) {
+            cleanVal = cleanVal.replace(/,/g, "");
+        } else {
+            cleanVal = cleanVal.replace(/\./g, "").replace(",", ".");
+        }
+        return parseFloat(cleanVal) || 0;
+    };
+
+    // 🌟 Yardımcı Fonksiyon: Dinamik Para/Yıl Simgesi
+    const getCurrencyUnitLabel = () => {
+        const symbol = currency === "USD" ? "$" : currency === "TRY" ? "₺" : "€";
+        return isForeign ? `${symbol} /year` : `${symbol}/yıl`;
+    };
+
     // 1. KURAL: İlk açılışta store'da veri varsa yükle, yoksa temiz iki ana kalemle başla
     const [rows, setRows] = useState(() => {
         if (storeTabloVerisi && storeTabloVerisi.length > 0) {
             return storeTabloVerisi;
         }
         return [
-            { id: "enerji_gideri", label: isForeign ? "Energy Operation Cost" : "Enerji Giderleri", value: enerjiGideri, unit: isForeign ? "€ /year" : "€/yıl", isDynamic: true },
-            { id: "sarf_gideri", label: isForeign ? "Consumables and Maintenance Cost" : "Sarf Malzemesi ve Bakım Giderleri", value: sarfMalzemeGideri, unit: isForeign ? "€ /year" : "€/yıl", isDynamic: true }
+            { id: "enerji_gideri", label: isForeign ? "Energy Operation Cost" : "Enerji Giderleri", value: enerjiGideri, isDynamic: true },
+            { id: "sarf_gideri", label: isForeign ? "Consumables and Maintenance Cost" : "Sarf Malzemesi ve Bakım Giderleri", value: sarfMalzemeGideri, isDynamic: true }
         ];
     });
 
+    // İnput odak yönetimi için geçici yerel string stateleri
+    const [editingCell, setEditingCell] = useState(null); // { id: rowId, value: 'string' }
     const [history, setHistory] = useState([]);
 
-    // Dil değiştiğinde statik satır etiketlerini ve birimlerini de otomatik güncelle
+    // Dil veya bağımlı Euro değerleri değiştiğinde dinamik satırları güncelle
     useEffect(() => {
         setRows((prevRows) =>
             prevRows.map((row) => {
@@ -35,7 +83,6 @@ function OpexTablosu() {
                     return { 
                         ...row, 
                         label: isForeign ? "Energy Operation Cost" : "Enerji Giderleri", 
-                        unit: isForeign ? "€ /year" : "€/yıl",
                         value: enerjiGideri 
                     };
                 }
@@ -43,7 +90,6 @@ function OpexTablosu() {
                     return { 
                         ...row, 
                         label: isForeign ? "Consumables and Maintenance Cost" : "Sarf Malzemesi ve Bakım Giderleri", 
-                        unit: isForeign ? "€ /year" : "€/yıl",
                         value: sarfMalzemeGideri 
                     };
                 }
@@ -52,8 +98,11 @@ function OpexTablosu() {
         );
     }, [enerjiGideri, sarfMalzemeGideri, teklifDili]);
 
-    // Dinamik Genel Toplam Hesaplama
-    const totalOpex = rows.reduce((sum, row) => sum + (parseFloat(row.value) || 0), 0);
+    // 🌟 Toplam hesabı Store'daki ham Euro değerleri üzerinden toplanır
+    const totalOpexEuro = rows.reduce((sum, row) => sum + (parseFloat(row.value) || 0), 0);
+    
+    // Ekranda gösterilecek kurla çarpılmış toplam maliyet
+    const totalOpexConverted = totalOpexEuro * exchangeRate;
 
     // Değişiklikleri merkezi store'a yazan useEffect
     useEffect(() => {
@@ -61,21 +110,20 @@ function OpexTablosu() {
             ...formData?.tables,
             opextablosu: {
                 rows: rows,
-                totalOpex: totalOpex
+                totalOpex: totalOpexEuro 
             }
         });
-    }, [rows, totalOpex]);
+    }, [rows, totalOpexEuro]);
 
     const updateStoreWithNewRows = (newRows) => {
         setRows(newRows);
     };
 
-    // 4. KURAL: REFRESH BUTONU - Manuel eklenenleri temizler, ana iki kaleme sıfırlar
     const handleRefresh = () => {
         setHistory([]);
         const resetRows = [
-            { id: "enerji_gideri", label: isForeign ? "Energy Operation Cost" : "Enerji Giderleri", value: enerjiGideri, unit: isForeign ? "€ /year" : "€/yıl", isDynamic: true },
-            { id: "sarf_gideri", label: isForeign ? "Consumables and Maintenance Cost" : "Sarf Malzemesi ve Bakım Giderleri", value: sarfMalzemeGideri, unit: isForeign ? "€ /year" : "€/yıl", isDynamic: true }
+            { id: "enerji_gideri", label: isForeign ? "Energy Operation Cost" : "Enerji Giderleri", value: enerjiGideri, isDynamic: true },
+            { id: "sarf_gideri", label: isForeign ? "Consumables and Maintenance Cost" : "Sarf Malzemesi ve Bakım Giderleri", value: sarfMalzemeGideri, isDynamic: true }
         ];
         updateStoreWithNewRows(resetRows);
     };
@@ -93,7 +141,15 @@ function OpexTablosu() {
 
     const handleInputChange = (id, field, newValue) => {
         saveToHistory(rows);
-        const updatedRows = rows.map(row => row.id === id ? { ...row, [field]: newValue } : row);
+        let finalValue = newValue;
+        
+        if (field === "value") {
+            // Ekrana girilen dövizli text veriyi parse edip kur katsayısına bölerek Euro tabanına indirgiyoruz
+            const parsedVal = parseInputValue(newValue);
+            finalValue = parsedVal / exchangeRate;
+        }
+
+        const updatedRows = rows.map(row => row.id === id ? { ...row, [field]: finalValue } : row);
         updateStoreWithNewRows(updatedRows);
     };
 
@@ -103,7 +159,6 @@ function OpexTablosu() {
             id: `manual_${Date.now()}`, 
             label: isForeign ? "New Operational Expense Description" : "Yeni İşletme Gideri Tanımı", 
             value: 0, 
-            unit: isForeign ? "€ /year" : "€/yıl", 
             isDynamic: false 
         };
 
@@ -138,30 +193,36 @@ function OpexTablosu() {
                             {isForeign ? "OPERATION EXPENDITURE - OPEX" : "OPEX (İşletme Giderleri) Özet Tablosu"}
                         </div>
 
-                        <div className="d-flex align-items-center gap-2">
-                            <button
-                                onClick={handleRefresh}
-                                className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
-                                style={{ backgroundColor: "#d97706", fontSize: "11px", borderRadius: "6px" }}
-                                title={isForeign ? "Reset Table to Initial Settings" : "Tabloyu İlk Ayarlarına Döndür"}
-                            >
-                                🔄 {isForeign ? "Refresh" : "Yenile"}
-                            </button>
+                        <div className="d-flex align-items-center gap-3">
+                            <span className="badge bg-dark text-warning border border-secondary fw-bold py-2 px-2" style={{ fontSize: "11px" }}>
+                                {currency} Modu
+                            </span>
 
-                            <button
-                                onClick={handleUndo}
-                                disabled={history.length === 0}
-                                className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
-                                style={{
-                                    backgroundColor: history.length === 0 ? "#334155" : "#1e3a8a",
-                                    fontSize: "11px",
-                                    borderRadius: "6px",
-                                    opacity: history.length === 0 ? 0.4 : 1,
-                                    cursor: history.length === 0 ? "not-allowed" : "pointer"
-                                }}
-                            >
-                                ↶
-                            </button>
+                            <div className="d-flex align-items-center gap-2">
+                                <button
+                                    onClick={handleRefresh}
+                                    className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
+                                    style={{ backgroundColor: "#d97706", fontSize: "11px", borderRadius: "6px" }}
+                                    title={isForeign ? "Reset Table to Initial Settings" : "Tabloyu İlk Ayarlarına Döndür"}
+                                >
+                                    🔄 {isForeign ? "Refresh" : "Yenile"}
+                                </button>
+
+                                <button
+                                    onClick={handleUndo}
+                                    disabled={history.length === 0}
+                                    className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
+                                    style={{
+                                        backgroundColor: history.length === 0 ? "#334155" : "#1e3a8a",
+                                        fontSize: "11px",
+                                        borderRadius: "6px",
+                                        opacity: history.length === 0 ? 0.4 : 1,
+                                        cursor: history.length === 0 ? "not-allowed" : "pointer"
+                                    }}
+                                >
+                                    ↶
+                                </button>
+                            </div>
                         </div>
                     </div>
 
@@ -181,63 +242,91 @@ function OpexTablosu() {
                     </div>
 
                     {/* TABLO SATIRLARI */}
-                    {rows.map((row, index) => (
-                        <div key={row.id} className="d-flex align-items-stretch table-row-opex">
+                    {rows.map((row, index) => {
+                        const convertedValue = (parseFloat(row.value) || 0) * exchangeRate;
+                        const isCurrentEditing = editingCell?.id === row.id;
 
-                            {/* 1. KOLON: Gider Tanımı */}
-                            <div className="p-2.5 px-3 d-flex align-items-center" style={{ width: "50%" }}>
-                                <input
-                                    type="text"
-                                    disabled={row.isDynamic}
-                                    className="form-control form-control-sm text-start text-white bg-transparent border-0 fw-medium p-1 opex-input rounded"
-                                    style={{ fontSize: "12px", boxShadow: "none", width: "100%", cursor: row.isDynamic ? "not-allowed" : "text" }}
-                                    value={row.label}
-                                    onChange={(e) => handleInputChange(row.id, "label", e.target.value)}
-                                />
+                        // Hücre input string değeri yönetimi
+                        let inputDisplayStr = "";
+                        if (isCurrentEditing) {
+                            inputDisplayStr = editingCell.value;
+                        } else {
+                            inputDisplayStr = formatInputValue(convertedValue);
+                        }
+
+                        return (
+                            <div key={row.id} className="d-flex align-items-stretch table-row-opex">
+
+                                {/* 1. KOLON: Gider Tanımı */}
+                                <div className="p-2.5 px-3 d-flex align-items-center" style={{ width: "50%" }}>
+                                    <input
+                                        type="text"
+                                        disabled={row.isDynamic}
+                                        className="form-control form-control-sm text-start text-white bg-transparent border-0 fw-medium p-1 opex-input rounded"
+                                        style={{ fontSize: "12px", boxShadow: "none", width: "100%", cursor: row.isDynamic ? "not-allowed" : "text" }}
+                                        value={row.label}
+                                        onChange={(e) => handleInputChange(row.id, "label", e.target.value)}
+                                    />
+                                </div>
+
+                                <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+
+                                {/* 2. KOLON: Dönüştürülmüş Fiyat Girişi veya Düz Metin Alanı */}
+                                <div className="p-2.5 px-3 d-flex align-items-center justify-content-end gap-2" style={{ width: "50%" }}>
+                                    {row.isDynamic ? (
+                                        // 🌟 Dinamik satırlar input yerine şık bir formatlı text olarak basılıyor
+                                        <span className="fw-bold text-white text-end pe-1" style={{ fontSize: "12px", width: "65%" }}>
+                                            {formatNumber(convertedValue, 2, 2)}
+                                        </span>
+                                    ) : (
+                                        // Manuel girilen satırlar kontrollü text input
+                                        <input
+                                            type="text"
+                                            className="form-control form-control-sm text-end fw-bold text-white bg-transparent border-0 p-1 opex-input rounded"
+                                            style={{ fontSize: "12px", boxShadow: "none", width: "65%" }}
+                                            value={inputDisplayStr}
+                                            onChange={(e) => setEditingCell({ id: row.id, value: e.target.value })}
+                                            onFocus={() => {
+                                                const cleanString = isForeign ? convertedValue.toString() : convertedValue.toString().replace(".", ",");
+                                                setEditingCell({ id: row.id, value: cleanString });
+                                            }}
+                                            onBlur={(e) => {
+                                                handleInputChange(row.id, "value", e.target.value);
+                                                setEditingCell(null);
+                                            }}
+                                        />
+                                    )}
+                                    
+                                    <span className="text-white-50 text-start ps-1" style={{ fontSize: "11px", minWidth: "65px" }}>
+                                        {getCurrencyUnitLabel()}
+                                    </span>
+                                </div>
+
+                                <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+
+                                {/* 3. KOLON: AKSİYON PANELİ */}
+                                <div className="p-1 d-flex align-items-center justify-content-center gap-2" style={{ width: "10%" }}>
+                                    <button
+                                        onClick={() => insertAfterRow(index)}
+                                        className="btn btn-sm p-0 border-0 text-success opacity-50 opacity-hover fw-bold"
+                                        style={{ fontSize: "15px", lineHeight: "1" }}
+                                        title={isForeign ? "Insert New Expense Below" : "Altına Yeni Gider Ekle"}
+                                    >
+                                        +
+                                    </button>
+                                    <button
+                                        onClick={() => deleteRow(row.id)}
+                                        disabled={row.isDynamic}
+                                        className="btn btn-sm p-0 border-0 text-danger opacity-50 opacity-hover"
+                                        style={{ fontSize: "16px", lineHeight: "1", visibility: row.isDynamic ? "hidden" : "visible" }}
+                                        title={isForeign ? "Delete Row" : "Satırı Sil"}
+                                    >
+                                        &times;
+                                    </button>
+                                </div>
                             </div>
-
-                            <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-
-                            {/* 2. KOLON: Değer ve Birim */}
-                            <div className="p-2.5 px-3 d-flex align-items-center justify-content-end gap-2" style={{ width: "50%" }}>
-                                <input
-                                    type="number"
-                                    disabled={row.isDynamic}
-                                    step="0.01"
-                                    className="form-control form-control-sm text-end fw-bold text-white bg-transparent border-0 p-1 opex-input rounded"
-                                    style={{ fontSize: "12px", boxShadow: "none", width: "65%", cursor: row.isDynamic ? "not-allowed" : "text" }}
-                                    value={row.value === 0 ? "0" : parseFloat(row.value || 0).toFixed(2)}
-                                    onChange={(e) => handleInputChange(row.id, "value", e.target.value)}
-                                />
-                                <span className="text-white-50 text-start ps-1" style={{ fontSize: "11px", minWidth: "50px" }}>
-                                    {row.unit}
-                                </span>
-                            </div>
-
-                            <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-
-                            {/* 3. KOLON: AKSİYON PANELİ */}
-                            <div className="p-1 d-flex align-items-center justify-content-center gap-2" style={{ width: "10%" }}>
-                                <button
-                                    onClick={() => insertAfterRow(index)}
-                                    className="btn btn-sm p-0 border-0 text-success opacity-50 opacity-hover fw-bold"
-                                    style={{ fontSize: "15px", lineHeight: "1" }}
-                                    title={isForeign ? "Insert New Expense Below" : "Altına Yeni Gider Ekle"}
-                                >
-                                    +
-                                </button>
-                                <button
-                                    onClick={() => deleteRow(row.id)}
-                                    disabled={row.isDynamic}
-                                    className="btn btn-sm p-0 border-0 text-danger opacity-50 opacity-hover"
-                                    style={{ fontSize: "16px", lineHeight: "1", visibility: row.isDynamic ? "hidden" : "visible" }}
-                                    title={isForeign ? "Delete Row" : "Satırı Sil"}
-                                >
-                                    &times;
-                                </button>
-                            </div>
-                        </div>
-                    ))}
+                        );
+                    })}
 
                     {/* GENEL TOPLAM SATIRI */}
                     <div className="d-flex align-items-stretch total-row-opex p-2.5 px-3">
@@ -245,10 +334,11 @@ function OpexTablosu() {
                             {isForeign ? "GRAND TOTAL" : "Genel Toplam"}
                         </div>
                         <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
+                        
                         <div className="d-flex align-items-center justify-content-end gap-2 text-success fw-bold" style={{ width: "35%", fontSize: "13px" }}>
-                            <span>{totalOpex.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
-                            <span style={{ fontSize: "11px", minWidth: "50px" }}>
-                                {isForeign ? "€ /year" : "€/yıl"}
+                            <span>{formatNumber(totalOpexConverted, 2, 2)}</span>
+                            <span style={{ fontSize: "11px", minWidth: "65px" }}>
+                                {getCurrencyUnitLabel()}
                             </span>
                         </div>
                         <div style={{ width: "1px", backgroundColor: "#334155" }}></div>

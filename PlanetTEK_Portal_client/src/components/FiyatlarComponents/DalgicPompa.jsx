@@ -6,6 +6,7 @@ import PumpCurveUpdateModal from "../modals/PumpCurveUpdateModal.jsx";
 import AlertModal from "../modals/AlertModal.jsx";
 
 function DalgicPompa() {
+    const [activeTableId, setActiveTableId] = useState(null);
     const [pumpsData, setPumpsData] = useState([]);
     const [sabitOranlar, setSabitOranlar] = useState([]);
 
@@ -19,7 +20,7 @@ function DalgicPompa() {
     const [curveModalOpen, setCurveModalOpen] = useState(false);
     const [selectedPumpId, setSelectedPumpId] = useState(null);
     const [selectedPumpName, setSelectedPumpName] = useState("");
-    
+
     const [alertConfig, setAlertConfig] = useState({
         show: false,
         title: "",
@@ -94,7 +95,7 @@ function DalgicPompa() {
             pompa_adi: "Yeni Pompa Modeli",
             name: "Yeni Pompa Modeli",
             pompa_tipi: "submersible",
-            kw: 0, 
+            kw: 0,
             alis_fiyati: 0,
             yi_satis: 0,
             yd_satis: 0,
@@ -159,7 +160,7 @@ function DalgicPompa() {
                     additionalData: {
                         alis_fiyati: Number(item.alis_fiyati) || 0,
                         pompa_tipi: item.pompa_tipi,
-                        kw: Number(item.kw) || 0 
+                        kw: Number(item.kw) || 0
                     }
                 });
                 return;
@@ -381,7 +382,7 @@ function DalgicPompa() {
             <div className="d-flex justify-content-between align-items-center mb-3">
                 <div className="mb-2 d-flex align-items-center" style={{ color: "#94a3b8" }}>
                     <i className="bi bi-gear-fill me-2 text-success"></i>
-                    <span className="fw-semibold small">Pompa Yönetimi</span>
+                    <span className="fw-semibold small fs-6">Pompa Yönetimi</span>
                 </div>
                 <div className="d-flex gap-2">
                     <button className="btn btn-outline-primary btn-sm px-3" onClick={handleAddNewRow}>
@@ -399,6 +400,9 @@ function DalgicPompa() {
                     <span className="fw-semibold small">Oran Katsayıları</span>
                 </div>
                 <ExcelGrid
+                    tableId="pompaoranlar"
+                    activeTableId={activeTableId}
+                    setActiveTableId={setActiveTableId}
                     headers={oranHeaders}
                     data={sabitOranlar}
                     fields={oranFields}
@@ -412,6 +416,9 @@ function DalgicPompa() {
                     <span className="fw-semibold small">Pompa Fiyat Listesi</span>
                 </div>
                 <ExcelGrid
+                    tableId="pompafiyat"
+                    activeTableId={activeTableId}
+                    setActiveTableId={setActiveTableId}
                     headers={headers}
                     data={visiblePumpsData}
                     fields={fields}

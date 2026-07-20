@@ -5,6 +5,7 @@ import PriceChangeUpdateConfirmationModal from "../modals/PriceChangeUpdateConfi
 import AlertModal from "../modals/AlertModal";
 
 function IleriAritmaEquipments() {
+    const [activeTableId, setActiveTableId] = useState(null);
     const [pumpsData, setPumpsData] = useState([]);
     const [sabitOranlar, setSabitOranlar] = useState([]);
 
@@ -355,7 +356,7 @@ function IleriAritmaEquipments() {
             <div className="d-flex justify-content-between align-items-center mb-3">
                 <div className="mb-2 d-flex align-items-center" style={{ color: "#94a3b8" }}>
                     <i className="bi bi-gear-fill me-2 text-success"></i>
-                    <span className="fw-semibold small">İleri Arıtma Ekipman Yönetimi</span>
+                    <span className="fw-semibold small fs-6">İleri Arıtma Ekipman Yönetimi</span>
                 </div>
                 <div className="d-flex gap-2">
                     <button className="btn btn-outline-primary btn-sm px-3" onClick={handleAddNewRow}>
@@ -375,6 +376,9 @@ function IleriAritmaEquipments() {
                 <div className="row">
                     <div className="col-12 col-md-5">
                         <ExcelGrid
+                            tableId="ilerioranHeaders"
+                            activeTableId={activeTableId}
+                            setActiveTableId={setActiveTableId}
                             headers={oranHeaders}
                             data={sabitOranlar}
                             fields={oranFields}
@@ -390,6 +394,9 @@ function IleriAritmaEquipments() {
                     <span className="fw-semibold small">Ekipman Fiyat Listesi</span>
                 </div>
                 <ExcelGrid
+                    tableId="ileriekipman"
+                    activeTableId={activeTableId}
+                    setActiveTableId={setActiveTableId}
                     headers={headers}
                     data={visiblePumpsData}
                     fields={fields}

@@ -7,26 +7,99 @@ function EnerjiIsletmeTablosu() {
     const updateSection = useTeklifStore((state) => state.updateSection);
 
     const teklifDili = formData?.customerInfo?.teklifDili;
+    const currency = formData?.customerInfo?.currency || "EUR";
+    const unitSystem = formData?.customerInfo?.unitSystem || "Metric";
+    const exchangeRate = parseFloat(formData?.customerInfo?.exchangeRate) || 1.0000;
 
-    // storeTabloVerisi'ni güvenli bir şekilde dizi kısmından okuyoruz
     const storeTabloVerisi = formData?.tables?.enerjiisletmettablosu?.rows || formData?.tables?.enerjiisletmettablosu || [];
-    const storeDebi = formData?.planetDiskDetails?.tasarim?.aritmaParametreleri?.debi || 0;
+    const displayDailyFlow = formData?.planetDiskDetails?.tasarim?.aritmaParametreleri?.debi || 0;
+    const storeDebi = unitSystem === "US" ? displayDailyFlow * 264.172 : displayDailyFlow;
 
+    // 🌟 Lokasyon bazlı format seçimi
+    const isForeign = teklifDili === "Yabancı";
+    const activeLocale = isForeign ? "en-US" : "tr-TR";
+
+    // Sayı Formatlama Fonksiyonu (Düz Metin Hücreleri İçin)
+    const formatNumber = (value, minFraction = 0, maxFraction = 2) => {
+        if (isNaN(value)) return "0";
+        return value.toLocaleString(activeLocale, {
+            minimumFractionDigits: minFraction,
+            maximumFractionDigits: maxFraction
+        });
+    };
+
+    // 🌟 Input Alanlarında Formatlı Gösterim İçin Yardımcı Fonksiyon
+    // Yabancı ise noktayı tutar, Yerli ise noktayı virgüle çevirir.
+    // 🌟 Hem binler hem ondalık ayracını teklif diline göre tam maskeler
+    const formatInputValue = (val) => {
+        if (val === undefined || val === null || val === "") return "";
+        const num = parseFloat(val);
+        if (isNaN(num)) return val;
+
+        // Hem binler basamağını hem de ondalık kısmını teklif diline göre ayırır
+        return num.toLocaleString(activeLocale, {
+            minimumFractionDigits: 0,
+            maximumFractionDigits: 2
+        });
+    };
+
+    // 🌟 Formatlanmış string değerini (nokta/virgül karmaşasını çözüp) temiz JS float'ına çevirir
+    const parseInputValue = (val) => {
+        if (!val) return 0;
+
+        let cleanVal = val.toString();
+        if (isForeign) {
+            // Yabancı dilde: Binler ayracı olan virgülleri kaldır, noktayı koru
+            cleanVal = cleanVal.replace(/,/g, "");
+        } else {
+            // Yerli dilde: Binler ayracı olan noktaları kaldır, virgülü noktaya çevir
+            cleanVal = cleanVal.replace(/\./g, "").replace(",", ".");
+        }
+        return parseFloat(cleanVal) || 0;
+    };
+    
     const [params, setParams] = useState({
         hydraulicLoad: storeDebi,
         energyPrice: 13,
     });
 
-    // 1. KURAL: İlk açılışta sadece store'a bak. Varsa direkt render et, yoksa boş dizi başla.
+    // İnputların anlık string değerlerini tutacak local stateler (İmleç kaymasını önlemek için)
+    const [inputHydraulic, setInputHydraulic] = useState(formatInputValue(storeDebi));
+    const [inputEnergyPrice, setInputEnergyPrice] = useState(formatInputValue((13 * exchangeRate).toFixed(2)));
+
     const [rows, setRows] = useState(() => {
-        if (storeTabloVerisi && storeTabloVerisi.length > 0) {
-            return storeTabloVerisi;
-        }
+        if (storeTabloVerisi && storeTabloVerisi.length > 0) return storeTabloVerisi;
         return [];
     });
 
     const [history, setHistory] = useState([]);
     const [activeMenuId, setActiveMenuId] = useState(null);
+
+    // Sync input values when storeDebi or exchangeRate changes
+    useEffect(() => {
+        setInputHydraulic(formatInputValue(params.hydraulicLoad));
+    }, [params.hydraulicLoad]);
+
+    useEffect(() => {
+        setInputEnergyPrice(formatInputValue((params.energyPrice * exchangeRate).toFixed(2)));
+    }, [params.energyPrice, exchangeRate]);
+
+    const getCurrencySymbol = () => {
+        if (currency === "USD") return "$";
+        if (currency === "TRY") return "₺";
+        return "€";
+    };
+
+    const getCentSymbol = () => {
+        if (currency === "USD") return "¢";
+        if (currency === "TRY") return "krş";
+        return "ct";
+    };
+
+    const getFlowUnitLabel = () => {
+        if (unitSystem === "US") return "GPD";
+        return isForeign ? "m³/day" : "m³/gün";
+    };
 
     const calculateRowConsumption = (row) => {
         if (row.isHeader || row.isSubHeader) return 0;
@@ -37,98 +110,79 @@ function EnerjiIsletmeTablosu() {
         return q * p * c * h;
     };
 
-    // Hesaplama değişkenleri
     const totalKwhDay = rows.reduce((sum, row) => sum + calculateRowConsumption(row), 0);
-    const dailyFlowM3 = (parseFloat(params.hydraulicLoad) || 0) * 24;
-    const consumptionPerM3 = dailyFlowM3 > 0 ? totalKwhDay / dailyFlowM3 : 0;
-    const costPerM3Cent = consumptionPerM3 * (parseFloat(params.energyPrice) || 0);
-    const dailyCostEuro = totalKwhDay * ((parseFloat(params.energyPrice) || 0) / 100);
-    const yearlyCostEuro = dailyCostEuro * 365;
 
-    // 2. KURAL: Eğer store'da veri yoksa (ilk kez açılıyorsa) fonksiyonu çalıştır ve store'a kaydet.
+    const dailyFlowM3 = unitSystem === "US"
+        ? (parseFloat(params.hydraulicLoad) || 0) / 264.172
+        : (parseFloat(params.hydraulicLoad) || 0);
+
+    const consumptionPerM3 = dailyFlowM3 > 0 ? totalKwhDay / dailyFlowM3 : 0;
+    const costPerM3Cent = consumptionPerM3 * (parseFloat(params.energyPrice) || 0) * exchangeRate;
+
+    const dailyCostConverted = totalKwhDay * ((parseFloat(params.energyPrice) || 0) / 100) * exchangeRate;
+    const yearlyCostConverted = dailyCostConverted * 365;
+
     useEffect(() => {
         if (!storeTabloVerisi || storeTabloVerisi.length === 0) {
             async function loadFromEngine() {
                 try {
                     const freshRows = await enerjiIsletmeHesapFonksiyonu(formData);
                     setRows(freshRows);
-
-                    // İlk yüklemede maliyeti de hesaplayıp obje halinde kaydediyoruz
                     const freshTotalKwhDay = freshRows.reduce((sum, row) => sum + calculateRowConsumption(row), 0);
                     const freshDailyCostEuro = freshTotalKwhDay * ((params.energyPrice || 13) / 100);
                     const freshYearlyCostEuro = freshDailyCostEuro * 365;
 
                     updateSection("tables", {
                         ...formData?.tables,
-                        enerjiisletmettablosu: {
-                            rows: freshRows,
-                            yearlyCostEuro: freshYearlyCostEuro
-                        }
+                        enerjiisletmettablosu: { rows: freshRows, yearlyCostEuro: freshYearlyCostEuro }
                     });
                 } catch (e) {
-                    console.error("Asenkron motor çalışırken hata:", e);
+                    console.error(e);
                 }
             }
             loadFromEngine();
         }
     }, []);
 
-    // Üst panel debi input'unu store ile senkronize tutalım
     useEffect(() => {
         setParams((prev) => ({ ...prev, hydraulicLoad: storeDebi }));
     }, [storeDebi]);
 
-    // Parametreler değiştikçe yıllık maliyet key'ini store'da güncel tutmak için useEffect ekliyoruz
     useEffect(() => {
         if (rows && rows.length > 0) {
+            const rawDaily = totalKwhDay * ((parseFloat(params.energyPrice) || 0) / 100);
             updateSection("tables", {
                 ...formData?.tables,
-                enerjiisletmettablosu: {
-                    rows: [...rows],
-                    yearlyCostEuro: yearlyCostEuro
-                }
+                enerjiisletmettablosu: { rows: [...rows], yearlyCostEuro: rawDaily * 365 }
             });
         }
     }, [params.energyPrice, params.hydraulicLoad]);
 
-    // 3. KURAL: Kullanıcı manuel bir değişiklik yaparsa store'u update et.
     const updateStoreWithNewRows = (newRows) => {
         setRows(newRows);
-
-        // Yeni satırlara göre dinamik maliyeti anlık hesapla ve ek key ile kaydet
         const currentTotalKwhDay = newRows.reduce((sum, row) => sum + calculateRowConsumption(row), 0);
         const currentDailyCostEuro = currentTotalKwhDay * ((parseFloat(params.energyPrice) || 0) / 100);
-        const currentYearlyCostEuro = currentDailyCostEuro * 365;
 
         updateSection("tables", {
             ...formData?.tables,
-            enerjiisletmettablosu: {
-                rows: [...newRows],
-                yearlyCostEuro: currentYearlyCostEuro
-            }
+            enerjiisletmettablosu: { rows: [...newRows], yearlyCostEuro: currentDailyCostEuro * 365 }
         });
     };
 
-    // 4. KURAL: REFRESH BUTONU - Her şeyi sil, motoru çalıştır, render et ve store'a kaydet.
     const handleRefresh = async () => {
         setHistory([]);
         try {
             const freshRows = await enerjiIsletmeHesapFonksiyonu(formData);
             setRows(freshRows);
-
             const freshTotalKwhDay = freshRows.reduce((sum, row) => sum + calculateRowConsumption(row), 0);
             const freshDailyCostEuro = freshTotalKwhDay * ((parseFloat(params.energyPrice) || 0) / 100);
-            const freshYearlyCostEuro = freshDailyCostEuro * 365;
 
             updateSection("tables", {
                 ...formData?.tables,
-                enerjiisletmettablosu: {
-                    rows: freshRows,
-                    yearlyCostEuro: freshYearlyCostEuro
-                }
+                enerjiisletmettablosu: { rows: freshRows, yearlyCostEuro: freshDailyCostEuro * 365 }
             });
         } catch (error) {
-            console.error("Tablo yenilenirken hata oluştu:", error);
+            console.error(error);
         }
     };
 
@@ -145,7 +199,8 @@ function EnerjiIsletmeTablosu() {
 
     const handleCellChange = (id, field, val) => {
         saveToHistory(rows);
-        const updatedRows = rows.map(row => row.id === id ? { ...row, [field]: val } : row);
+        const parsedVal = parseInputValue(val);
+        const updatedRows = rows.map(row => row.id === id ? { ...row, [field]: parsedVal } : row);
         updateStoreWithNewRows(updatedRows);
     };
 
@@ -154,13 +209,9 @@ function EnerjiIsletmeTablosu() {
         const newId = `new_${Date.now()}`;
         let newRow = { id: newId, label: "" };
 
-        if (type === 0) {
-            newRow = { ...newRow, label: "YENİ ANA BAŞLIK", isHeader: true };
-        } else if (type === 1) {
-            newRow = { ...newRow, label: "Yeni Alt Başlık", isSubHeader: true };
-        } else {
-            newRow = { ...newRow, label: "Yeni Mekanik Ekipman", qty: 1, power: 0, consumed: 90, hours: 24 };
-        }
+        if (type === 0) newRow = { ...newRow, label: "YENİ ANA BAŞLIK", isHeader: true };
+        else if (type === 1) newRow = { ...newRow, label: "Yeni Alt Başlık", isSubHeader: true };
+        else newRow = { ...newRow, label: "Yeni Mekanik Ekipman", qty: 1, power: 0, consumed: 90, hours: 24 };
 
         const updatedRows = [...rows];
         updatedRows.splice(index + 1, 0, newRow);
@@ -183,132 +234,157 @@ function EnerjiIsletmeTablosu() {
     return (
         <div className="d-flex flex-column w-100" onClick={() => setActiveMenuId(null)}>
             <style>{`
-            .table-row-energy { border-bottom: 1px solid #334155; transition: background-color 0.15s ease; position: relative; }
-            .table-row-energy:last-child { border-bottom: none; }
-            .energy-input:focus { outline: none; background-color: rgba(255, 255, 255, 0.05) !important; }
-            .header-cell { font-size: 11px; font-weight: 700; color: #94a3b8; background-color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: center; text-align: center; }
-            .param-input-top { background-color: #0f172a; border: 1px solid #475569; color: white; border-radius: 6px; padding: 3px 8px; font-size: 12px; width: 80px; text-align: right; font-weight: bold; }
-            .opacity-hover:hover { opacity: 1 !important; }
-            
-            .dropdown-menu-custom {
-                position: absolute;
-                right: 4%;
-                top: 80%;
-                background-color: #0f172a;
-                border: 1px solid #475569;
-                border-radius: 6px;
-                z-index: 100;
-                box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-                padding: 4px 0;
-                min-width: 130px;
-            }
-            .dropdown-item-custom {
-                color: #cbd5e1;
-                padding: 6px 12px;
-                font-size: 11.5px;
-                cursor: pointer;
-                text-align: left;
-                font-weight: 500;
-            }
-            .dropdown-item-custom:hover {
-                background-color: #1e293b;
-                color: white;
-            }
-        `}</style>
+                .table-row-energy { border-bottom: 1px solid #334155; transition: background-color 0.15s ease; position: relative; }
+                .table-row-energy:last-child { border-bottom: none; }
+                .energy-input:focus { outline: none; background-color: rgba(255, 255, 255, 0.05) !important; }
+                .header-cell { font-size: 11px; font-weight: 700; color: #94a3b8; background-color: #0f172a; text-transform: uppercase; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: center; text-align: center; }
+                .param-input-top { background-color: #0f172a; border: 1px solid #475569; color: white; border-radius: 6px; padding: 5px 10px; font-size: 13px; width: 120px; text-align: right; font-weight: bold; }
+                .opacity-hover:hover { opacity: 1 !important; }
+                .dropdown-menu-custom { position: absolute; right: 4%; top: 80%; background-color: #0f172a; border: 1px solid #475569; border-radius: 6px; z-index: 100; box-shadow: 0 4px 12px rgba(0,0,0,0.5); padding: 4px 0; min-width: 130px; }
+                .dropdown-item-custom { color: #cbd5e1; padding: 6px 12px; font-size: 11.5px; cursor: pointer; text-align: left; font-weight: 500; }
+                .dropdown-item-custom:hover { background-color: #1e293b; color: white; }
+            `}</style>
 
             <div className="d-flex flex-column rounded-3 overflow-x-auto" style={{ border: "1px solid #334155", width: "100%" }}>
                 <div style={{ minWidth: "900px" }}>
 
                     {/* ÜST PANEL */}
-                    <div className="d-flex justify-content-between align-items-center p-3" style={{ backgroundColor: "#1e293b", borderBottom: "1px solid #334155" }}>
-                        <div className="d-flex align-items-center gap-4">
-                            <div className="fw-semibold text-white" style={{ fontSize: "14px" }}>
-                                {teklifDili === "Yabancı" ? "Energy Operation Cost Table" : "Enerji İşletme Maliyeti Tablosu"}
-                            </div>
+                    <div className="p-3" style={{ backgroundColor: "#1e293b", borderBottom: "1px solid #334155" }}>
+                        <div className="row align-items-center g-3">
 
-                            <div className="d-flex align-items-center gap-3 border-start ps-4" style={{ borderColor: "#475569 !important" }}>
-                                <div className="d-flex align-items-center gap-2">
-                                    <span className="text-white-50" style={{ fontSize: "12px" }}>
-                                        {teklifDili === "Yabancı" ? "Total Hydraulic Load:" : "Hidrolik Yük:"}
-                                    </span>
-                                    <input type="number" className="param-input-top" value={params.hydraulicLoad} onChange={(e) => setParams({ ...params, hydraulicLoad: e.target.value })} />
-                                    <span className="text-white-50" style={{ fontSize: "11px" }}>
-                                        {teklifDili === "Yabancı" ? "m³/hour" : "m³/saat"}
-                                    </span>
-                                </div>
-                                <div className="d-flex align-items-center gap-2">
-                                    <span className="text-white-50" style={{ fontSize: "12px" }}>
-                                        {teklifDili === "Yabancı" ? "Energy Price for 1 kW.hour:" : "Enerji Fiyatı:"}
-                                    </span>
-                                    <input type="number" className="param-input-top text-warning" value={params.energyPrice} onChange={(e) => setParams({ ...params, energyPrice: e.target.value })} />
-                                    <span className="text-white-50" style={{ fontSize: "11px" }}>€ cent/kWh</span>
+                            <div className="col-md-3">
+                                <div className="fw-bold text-white" style={{ fontSize: "15px", letterSpacing: "0.5px" }}>
+                                    {isForeign ? "Energy Operation Cost Table" : "Enerji İşletme Maliyeti Tablosu"}
                                 </div>
                             </div>
-                        </div>
 
-                        <div className="d-flex align-items-center gap-2">
-                            <button
-                                onClick={handleRefresh}
-                                className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
-                                style={{ backgroundColor: "#d97706", fontSize: "11px", borderRadius: "6px" }}
-                                title={teklifDili === "Yabancı" ? "Reset Table to Initial Settings" : "Tabloyu İlk Ayarlarına Döndür"}
-                            >
-                                🔄 {teklifDili === "Yabancı" ? "Refresh" : "Yenile"}
-                            </button>
+                            <div className="col-md-5 border-start border-end" style={{ borderColor: "#475569" }}>
+                                <div className="row g-2 px-3">
+                                    {/* Hidrolik Yük Girişi */}
+                                    <div className="col-6 d-flex flex-column gap-1">
+                                        <label className="text-white-50" style={{ fontSize: "11px", fontWeight: "600" }}>
+                                            {isForeign ? "TOTAL HYDRAULIC LOAD" : "TOPLAM HİDROLİK YÜK"}
+                                        </label>
+                                        <div className="d-flex align-items-center gap-2">
+                                            {/* type="text" yapılarak dil kurallarına göre maskeleme sağlandı */}
+                                            <input
+                                                type="text"
+                                                className="param-input-top"
+                                                value={inputHydraulic}
+                                                onChange={(e) => setInputHydraulic(e.target.value)}
+                                                onBlur={(e) => {
+                                                    const parsed = parseInputValue(e.target.value);
+                                                    setParams({ ...params, hydraulicLoad: parsed });
+                                                    setInputHydraulic(formatInputValue(parsed));
+                                                }}
+                                            />
+                                            <span className="text-white fw-semibold" style={{ fontSize: "12px" }}>{getFlowUnitLabel()}</span>
+                                        </div>
+                                    </div>
 
-                            <button
-                                onClick={handleUndo}
-                                disabled={history.length === 0}
-                                className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
-                                style={{
-                                    backgroundColor: history.length === 0 ? "#334155" : "#1e3a8a",
-                                    fontSize: "11px",
-                                    borderRadius: "6px",
-                                    opacity: history.length === 0 ? 0.4 : 1,
-                                    cursor: history.length === 0 ? "not-allowed" : "pointer"
-                                }}
-                            >
-                                ↶
-                            </button>
+                                    {/* Enerji Fiyat Girişi */}
+                                    <div className="col-6 d-flex flex-column gap-1">
+                                        <label className="text-white-50" style={{ fontSize: "11px", fontWeight: "600" }}>
+                                            {isForeign ? "ENERGY PRICE FOR 1 kWh" : "1 kWh ENERJİ FİYATI"}
+                                        </label>
+                                        <div className="d-flex align-items-center gap-2">
+                                            <input
+                                                type="text"
+                                                className="param-input-top text-warning"
+                                                value={inputEnergyPrice}
+                                                onChange={(e) => setInputEnergyPrice(e.target.value)}
+                                                onBlur={(e) => {
+                                                    const displayVal = parseInputValue(e.target.value);
+                                                    const targetBasePrice = displayVal / exchangeRate;
+                                                    setParams({ ...params, energyPrice: targetBasePrice });
+                                                    setInputEnergyPrice(formatInputValue((targetBasePrice * exchangeRate).toFixed(2)));
+                                                }}
+                                            />
+                                            <span className="text-warning fw-semibold" style={{ fontSize: "12px" }}>{getCentSymbol()}/kWh</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="col-md-4 d-flex align-items-center justify-content-end gap-3">
+                                <div className="d-flex flex-column gap-1 text-end">
+                                    <div style={{ fontSize: "11px", color: "#94a3b8" }}>
+                                        {isForeign ? "Currency:" : "Para Birimi:"}{" "}
+                                        <span className="fw-bold text-warning">{currency}</span>
+                                    </div>
+                                    <div style={{ fontSize: "11px", color: "#94a3b8" }}>
+                                        {isForeign ? "Unit System:" : "Birim Sistemi:"}{" "}
+                                        <span className="fw-bold text-info">{unitSystem}</span>
+                                    </div>
+                                </div>
+
+                                <div style={{ width: "1px", height: "30px", backgroundColor: "#475569" }}></div>
+
+                                <div className="d-flex align-items-center gap-2">
+                                    <button
+                                        onClick={handleRefresh}
+                                        className="btn btn-sm px-3 py-2 fw-semibold text-white d-flex align-items-center gap-1 border-0"
+                                        style={{ backgroundColor: "#d97706", fontSize: "12px", borderRadius: "6px" }}
+                                        title={isForeign ? "Reset Table to Initial Settings" : "Tabloyu İlk Ayarlarına Döndür"}
+                                    >
+                                        🔄 {isForeign ? "Refresh" : "Yenile"}
+                                    </button>
+                                    <button
+                                        onClick={handleUndo}
+                                        disabled={history.length === 0}
+                                        className="btn btn-sm px-3 py-2 fw-semibold text-white d-flex align-items-center justify-content-center border-0"
+                                        style={{
+                                            backgroundColor: history.length === 0 ? "#334155" : "#1e3a8a",
+                                            fontSize: "12px",
+                                            borderRadius: "6px",
+                                            opacity: history.length === 0 ? 0.4 : 1,
+                                            cursor: history.length === 0 ? "not-allowed" : "pointer"
+                                        }}
+                                    >
+                                        ↶
+                                    </button>
+                                </div>
+                            </div>
+
                         </div>
                     </div>
 
                     {/* TABLO BAŞLIKLARI */}
                     <div className="d-flex align-items-stretch border-bottom" style={{ borderColor: "#334155" }}>
                         <div className="p-2 px-3 header-cell text-start justify-content-start" style={{ width: "32%" }}>
-                            {teklifDili === "Yabancı" ? "Mechanical Equipments / Units" : "Mekanik Ekipmanlar / Üniteler"}
+                            {isForeign ? "Mechanical Equipments / Units" : "Mekanik Ekipmanlar / Üniteler"}
                         </div>
                         <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
                         <div className="p-2 header-cell" style={{ width: "6%" }}>
-                            {teklifDili === "Yabancı" ? "Unit" : "Adet"}
+                            {isForeign ? "Unit" : "Adet"}
                         </div>
                         <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
                         <div className="p-2 header-cell" style={{ width: "10%" }}>
-                            {teklifDili === "Yabancı" ? <>Unit Installed<br />Power (kW)</> : <>Birim Güç<br />(kW)</>}
+                            {isForeign ? <>Unit Installed<br />Power (kW)</> : <>Birim Güç<br />(kW)</>}
                         </div>
                         <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
                         <div className="p-2 header-cell" style={{ width: "10%" }}>
-                            {teklifDili === "Yabancı" ? <>Total Installed<br />Power (kW)</> : <>Toplam Güç<br />(kW)</>}
+                            {isForeign ? <>Total Installed<br />Power (kW)</> : <>Toplam Güç<br />(kW)</>}
                         </div>
                         <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
                         <div className="p-2 header-cell" style={{ width: "9%" }}>
-                            {teklifDili === "Yabancı" ? <>Power<br />Consumed (%)</> : <>Tüketim<br />(%)</>}
+                            {isForeign ? <>Power<br />Consumed (%)</> : <>Tüketim<br />(%)</>}
                         </div>
                         <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
                         <div className="p-2 header-cell" style={{ width: "10%" }}>
-                            {teklifDili === "Yabancı" ? <>Daily Working<br />(hour)</> : <>Çalışma<br />(saat/gün)</>}
+                            {isForeign ? <>Daily Working<br />(hour)</> : <>Çalışma<br />(saat/gün)</>}
                         </div>
                         <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
                         <div className="p-2 header-cell text-end justify-content-end px-3" style={{ width: "18%" }}>
-                            {teklifDili === "Yabancı" ? <>Electricity Consumption<br />(kW.hour/day)</> : <>Elektrik Tüketimi<br />(kWh/gün)</>}
+                            {isForeign ? <>Electricity Consumption<br />(kW.hour/day)</> : <>Elektrik Tüketimi<br />(kWh/gün)</>}
                         </div>
                         <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
                         <div className="p-2 header-cell" style={{ width: "5%" }}>
-                            {teklifDili === "Yabancı" ? "Action" : "Aksiyon"}
+                            {isForeign ? "Action" : "Aksiyon"}
                         </div>
                     </div>
 
-                    {/* TABLO SATIRLARI */}
+                    {/* TABLO GÖVDESİ */}
                     <div>
                         {rows.map((row, index) => {
                             const isHeading = row.isHeader || row.isSubHeader;
@@ -339,10 +415,10 @@ function EnerjiIsletmeTablosu() {
                                     <div className="p-1 d-flex align-items-center justify-content-center" style={{ width: "6%" }}>
                                         {!isHeading && (
                                             <input
-                                                type="number"
+                                                type="text"
                                                 className="form-control form-control-sm text-center bg-transparent border-0 energy-input fw-bold text-white"
                                                 style={{ fontSize: "12px", boxShadow: "none" }}
-                                                value={row.qty}
+                                                value={formatInputValue(row.qty)}
                                                 onChange={(e) => handleCellChange(row.id, "qty", e.target.value)}
                                             />
                                         )}
@@ -352,10 +428,10 @@ function EnerjiIsletmeTablosu() {
                                     <div className="p-1 d-flex align-items-center justify-content-center" style={{ width: "10%" }}>
                                         {!isHeading && (
                                             <input
-                                                type="number"
+                                                type="text"
                                                 className="form-control form-control-sm text-center text-white bg-transparent border-0 energy-input"
                                                 style={{ fontSize: "12px", boxShadow: "none" }}
-                                                value={row.power}
+                                                value={formatInputValue(row.power)}
                                                 onChange={(e) => handleCellChange(row.id, "power", e.target.value)}
                                             />
                                         )}
@@ -363,7 +439,7 @@ function EnerjiIsletmeTablosu() {
                                     <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
 
                                     <div className="p-1 d-flex align-items-center justify-content-center fw-bold text-white" style={{ width: "10%", fontSize: "12px" }}>
-                                        {!isHeading && totalPower.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })}
+                                        {!isHeading && formatNumber(totalPower, 0, 2)}
                                     </div>
                                     <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
 
@@ -371,10 +447,10 @@ function EnerjiIsletmeTablosu() {
                                         {!isHeading && (
                                             <div className="d-flex align-items-center justify-content-center w-100">
                                                 <input
-                                                    type="number"
+                                                    type="text"
                                                     className="form-control form-control-sm text-center text-white bg-transparent border-0 energy-input"
                                                     style={{ fontSize: "12px", boxShadow: "none", width: "65%" }}
-                                                    value={row.consumed}
+                                                    value={formatInputValue(row.consumed)}
                                                     onChange={(e) => handleCellChange(row.id, "consumed", e.target.value)}
                                                 />
                                                 <span className="text-white-50" style={{ fontSize: "10px" }}>%</span>
@@ -386,10 +462,10 @@ function EnerjiIsletmeTablosu() {
                                     <div className="p-1 d-flex align-items-center justify-content-center" style={{ width: "10%" }}>
                                         {!isHeading && (
                                             <input
-                                                type="number"
+                                                type="text"
                                                 className="form-control form-control-sm text-center text-white bg-transparent border-0 energy-input"
                                                 style={{ fontSize: "12px", boxShadow: "none" }}
-                                                value={row.hours}
+                                                value={formatInputValue(row.hours)}
                                                 onChange={(e) => handleCellChange(row.id, "hours", e.target.value)}
                                             />
                                         )}
@@ -397,7 +473,7 @@ function EnerjiIsletmeTablosu() {
                                     <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
 
                                     <div className="p-1 px-3 d-flex align-items-center justify-content-end fw-bold" style={{ width: "18%", fontSize: "12px", color: "#4ade80" }}>
-                                        {!isHeading && consumption.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 3 })}
+                                        {!isHeading && formatNumber(consumption, 0, 3)}
                                     </div>
                                     <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
 
@@ -406,7 +482,7 @@ function EnerjiIsletmeTablosu() {
                                             onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === row.id ? null : row.id); }}
                                             className="btn btn-sm p-0 border-0 text-success opacity-50 opacity-hover fw-bold"
                                             style={{ fontSize: "16px", lineHeight: "1" }}
-                                            title={teklifDili === "Yabancı" ? "Add Row" : "Satır Ekle"}
+                                            title={isForeign ? "Add Row" : "Satır Ekle"}
                                             type="button"
                                         >
                                             +
@@ -415,7 +491,7 @@ function EnerjiIsletmeTablosu() {
                                             onClick={() => deleteRow(row.id)}
                                             className="btn btn-sm p-0 border-0 text-danger opacity-50 opacity-hover"
                                             style={{ fontSize: "16px", lineHeight: "1" }}
-                                            title={teklifDili === "Yabancı" ? "Delete Row" : "Satırı Sil"}
+                                            title={isForeign ? "Delete Row" : "Satırı Sil"}
                                             type="button"
                                         >
                                             &times;
@@ -424,13 +500,13 @@ function EnerjiIsletmeTablosu() {
                                         {activeMenuId === row.id && (
                                             <div className="dropdown-menu-custom" onClick={(e) => e.stopPropagation()}>
                                                 <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 0); setActiveMenuId(null); }}>
-                                                    {teklifDili === "Yabancı" ? "+ Main Header" : "+ Ana Başlık"}
+                                                    {isForeign ? "+ Main Header" : "+ Ana Başlık"}
                                                 </div>
                                                 <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 1); setActiveMenuId(null); }}>
-                                                    {teklifDili === "Yabancı" ? "+ Sub Header" : "+ Alt Başlık"}
+                                                    {isForeign ? "+ Sub Header" : "+ Alt Başlık"}
                                                 </div>
                                                 <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 3); setActiveMenuId(null); }}>
-                                                    {teklifDili === "Yabancı" ? "+ Normal Row" : "+ Normal Satır"}
+                                                    {isForeign ? "+ Normal Row" : "+ Normal Satır"}
                                                 </div>
                                             </div>
                                         )}
@@ -440,55 +516,65 @@ function EnerjiIsletmeTablosu() {
                         })}
                     </div>
 
-                    {/* ÖZET VE MALİYET PANELİ */}
+                    {/* ÖZET PANELİ */}
                     <div className="d-flex flex-column overflow-hidden border-top" style={{ borderColor: "#475569", backgroundColor: "#0f172a" }}>
                         <div className="d-flex align-items-center p-2 px-3 border-bottom" style={{ borderColor: "#334155" }}>
                             <div className="fw-bold text-end text-white-50" style={{ width: "75%", fontSize: "12px" }}>
-                                {teklifDili === "Yabancı" ? "TOTAL ELECTRICITY CONSUMPTION" : "TOPLAM ELEKTRİK TÜKETİMİ"}
+                                {isForeign ? "TOTAL ELECTRICITY CONSUMPTION" : "TOPLAM ELEKTRİK TÜKETİMİ"}
                             </div>
-                            <div className="fw-bold text-end text-white" style={{ width: "15%", fontSize: "13px" }}>{totalKwhDay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                            <div className="fw-bold text-end text-white" style={{ width: "15%", fontSize: "13px" }}>{formatNumber(totalKwhDay, 2, 2)}</div>
                             <div className="text-white-50 ms-2" style={{ fontSize: "11px" }}>
-                                {teklifDili === "Yabancı" ? "kW.hour/day" : "kWh/gün"}
+                                {isForeign ? "kW.hour/day" : "kWh/gün"}
                             </div>
                         </div>
 
                         <div className="d-flex align-items-center p-2 px-3 border-bottom" style={{ borderColor: "#334155" }}>
                             <div className="fw-bold text-end text-white-50" style={{ width: "75%", fontSize: "12px" }}>
-                                {teklifDili === "Yabancı" ? "ELECTRICITY CONSUMPTION PER 1 m³ WASTEWATER" : "1 m³ ATIKSU BAŞINA ELEKTRİK TÜKETİMİ"}
+                                {unitSystem === "US"
+                                    ? (isForeign ? "ELECTRICITY CONSUMPTION PER 1 GALLON WASTEWATER" : "1 GALLON ATIKSU BAŞINA ELEKTRİK TÜKETİMİ")
+                                    : (isForeign ? "ELECTRICITY CONSUMPTION PER 1 m³ WASTEWATER" : "1 m³ ATIKSU BAŞINA ELEKTRİK TÜKETİMİ")
+                                }
                             </div>
-                            <div className="fw-bold text-end text-white" style={{ width: "15%", fontSize: "13px" }}>{consumptionPerM3.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                            <div className="fw-bold text-end text-white" style={{ width: "15%", fontSize: "13px" }}>
+                                {formatNumber((unitSystem === "US" ? consumptionPerM3 / 264.172 : consumptionPerM3), 4, 6)}
+                            </div>
                             <div className="text-white-50 ms-2" style={{ fontSize: "11px" }}>
-                                {teklifDili === "Yabancı" ? "kW.hour / m³" : "kWh/m³"}
+                                {unitSystem === "US" ? "kWh/gal" : "kWh/m³"}
                             </div>
                         </div>
 
                         <div className="d-flex align-items-center p-2 px-3 border-bottom" style={{ borderColor: "#334155" }}>
                             <div className="fw-bold text-end text-white-50" style={{ width: "75%", fontSize: "12px" }}>
-                                {teklifDili === "Yabancı" ? "ELECTRICITY COST PER 1 m³ WASTEWATER" : "1 m³ ATIKSU BAŞINA ELEKTRİK MALİYETİ"}
+                                {unitSystem === "US"
+                                    ? (isForeign ? "ELECTRICITY COST PER 1 GALLON WASTEWATER" : "1 GALLON ATIKSU BAŞINA ELEKTRİK MALİYETİ")
+                                    : (isForeign ? "ELECTRICITY COST PER 1 m³ WASTEWATER" : "1 m³ ATIKSU BAŞINA ELEKTRİK MALİYETİ")
+                                }
                             </div>
-                            <div className="fw-bold text-end text-white" style={{ width: "15%", fontSize: "13px" }}>{costPerM3Cent.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                            <div className="fw-bold text-end text-white" style={{ width: "15%", fontSize: "13px" }}>
+                                {formatNumber((unitSystem === "US" ? costPerM3Cent / 264.172 : costPerM3Cent), 4, 6)}
+                            </div>
                             <div className="text-white-50 ms-2" style={{ fontSize: "11px" }}>
-                                {teklifDili === "Yabancı" ? "cent / m³" : "cent/m³"}
+                                {getCentSymbol()}/{unitSystem === "US" ? "gal" : "m³"}
                             </div>
                         </div>
 
                         <div className="d-flex align-items-center p-2 px-3 border-bottom" style={{ borderColor: "#334155" }}>
                             <div className="fw-bold text-end text-white-50" style={{ width: "75%", fontSize: "12px" }}>
-                                {teklifDili === "Yabancı" ? "ELECTRICITY CONSUMPTION COST" : "ELEKTRİK TÜKETİM MALİYETİ (GÜNLÜK)"}
+                                {isForeign ? "ELECTRICITY CONSUMPTION COST" : "ELEKTRİK TÜKETİM MALİYETİ (GÜNLÜK)"}
                             </div>
-                            <div className="fw-bold text-end text-warning" style={{ width: "15%", fontSize: "14px" }}>{dailyCostEuro.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</div>
+                            <div className="fw-bold text-end text-warning" style={{ width: "15%", fontSize: "14px" }}>{formatNumber(dailyCostConverted, 2, 2)}</div>
                             <div className="text-warning ms-2" style={{ fontSize: "11px" }}>
-                                {teklifDili === "Yabancı" ? "€ / day" : "€ / gün"}
+                                {getCurrencySymbol()} / {isForeign ? "day" : "gün"}
                             </div>
                         </div>
 
                         <div className="d-flex align-items-center p-2 px-3" style={{ backgroundColor: "#1e293b" }}>
                             <div className="fw-bold text-end text-white" style={{ width: "75%", fontSize: "12px" }}>
-                                {teklifDili === "Yabancı" ? "ELECTRICITY CONSUMPTION COST" : "ELEKTRİK TÜKETİM MALİYETİ (YILLIK)"}
+                                {isForeign ? "ELECTRICITY CONSUMPTION COST" : "ELEKTRİK TÜKETİM MALİYETİ (YILLIK)"}
                             </div>
-                            <div className="fw-bold text-end text-success" style={{ width: "15%", fontSize: "15px" }}>{yearlyCostEuro.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</div>
+                            <div className="fw-bold text-end text-success" style={{ width: "15%", fontSize: "15px" }}>{formatNumber(yearlyCostConverted, 0, 0)}</div>
                             <div className="text-success ms-2" style={{ fontSize: "11px" }}>
-                                {teklifDili === "Yabancı" ? "€ / year" : "€ / yıl"}
+                                {getCurrencySymbol()} / {isForeign ? "year" : "yıl"}
                             </div>
                         </div>
                     </div>

@@ -6,6 +6,7 @@ import AlertModal from "../modals/AlertModal";
 
 function Izgara() {
   // 3 bağımsız tablo için 3 ayrı state yönetimi
+  const [activeTableId, setActiveTableId] = useState(null);
   const [greaseData, setGreaseData] = useState([]);
   const [coarseData, setCoarseData] = useState([]);
   const [fineData, setFineData] = useState([]);
@@ -240,7 +241,7 @@ function Izgara() {
       <div className="d-flex justify-content-between align-items-center mb-4">
         <div className="d-flex align-items-center" style={{ color: "#94a3b8" }}>
           <i className="bi bi-grid-3x3-gap me-2 text-success" style={{ fontSize: "18px" }}></i>
-          <span className="fw-semibold fs-6">Izgara & Yağ Tutucu Fiyat Yönetim Merkezi</span>
+          <span className="fw-semibold small fs-6">Izgara & Yağ Tutucu Fiyat Yönetim Merkezi</span>
         </div>
         <button className="btn btn-success btn-sm px-5" onClick={handleSaveClick}>
           <i className="bi bi-file-earmark-excel me-2"></i>Değişiklikleri Kaydet
@@ -260,6 +261,9 @@ function Izgara() {
           </button>
         </div>
         <ExcelGrid
+          tableId="greaseData"
+          activeTableId={activeTableId}
+          setActiveTableId={setActiveTableId}
           headers={greaseHeaders}
           data={greaseData.filter(i => !i.isDeleted)}
           fields={greaseFields}
@@ -280,6 +284,9 @@ function Izgara() {
           </button>
         </div>
         <ExcelGrid
+          tableId="coarseData"
+          activeTableId={activeTableId}
+          setActiveTableId={setActiveTableId}
           headers={screenHeaders}
           data={coarseData.filter(i => !i.isDeleted)}
           fields={screenFields}
@@ -302,6 +309,9 @@ function Izgara() {
           </button>
         </div>
         <ExcelGrid
+          tableId="fineData"
+          activeTableId={activeTableId}
+          setActiveTableId={setActiveTableId}
           headers={screenHeaders} // 🌟 KRİTİK DÜZELTME: Tanımlı olan screenHeaders atandı
           data={fineData.filter(i => !i.isDeleted)}
           fields={screenFields}

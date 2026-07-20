@@ -5,6 +5,7 @@ import PriceChangeUpdateConfirmationModal from "../modals/PriceChangeUpdateConfi
 import AlertModal from "../modals/AlertModal";
 
 function CamurSusuzlastirma() {
+    const [activeTableId, setActiveTableId] = useState(null);
     const [dewateringData, setDewateringData] = useState([]);
     const [sabitOranlar, setSabitOranlar] = useState([]);
 
@@ -329,7 +330,7 @@ function CamurSusuzlastirma() {
             <div className="d-flex justify-content-between align-items-center mb-3">
                 <div className="mb-2 d-flex align-items-center" style={{ color: "#94a3b8" }}>
                     <i className="bi bi-water me-2 text-success"></i>
-                    <span className="fw-semibold small">Çamur Susuzlaştırma Maliyet Yönetimi</span>
+                    <span className="fw-semibold small fs-6">Çamur Susuzlaştırma Maliyet Yönetimi</span>
                 </div>
                 <div className="d-flex gap-2">
                     <button className="btn btn-outline-primary btn-sm px-3" onClick={handleAddNewRow}>
@@ -349,6 +350,9 @@ function CamurSusuzlastirma() {
                 <div className="row">
                     <div className="col-12 col-md-5">
                         <ExcelGrid
+                            tableId="camuroranHeaders"
+                            activeTableId={activeTableId}
+                            setActiveTableId={setActiveTableId}
                             headers={oranHeaders}
                             data={sabitOranlar}
                             fields={oranFields}
@@ -364,6 +368,9 @@ function CamurSusuzlastirma() {
                     <span className="fw-semibold small">Ekipman Maliyet ve Çarpan Listesi</span>
                 </div>
                 <ExcelGrid
+                    tableId="camurekipman"
+                    activeTableId={activeTableId}
+                    setActiveTableId={setActiveTableId}
                     headers={headers}
                     data={visibleDewateringData}
                     fields={fields}

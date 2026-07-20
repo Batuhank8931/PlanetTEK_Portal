@@ -20,7 +20,8 @@ function KademeDetail() {
     const girisBoi = Number(aritmaParametreleri.girisBoi) || 0;
     const sicaklik = Number(aritmaParametreleri.sicaklik) || 0;
     const cikisBoi = Number(aritmaParametreleri.cikisBoi) || 0;
-    
+    const maksimumEmperik = Number(aritmaParametreleri.maksimumEmperik) || 22;
+
     const emperik = Number(currentKademeData.emperik) || Number(aritmaParametreleri.emperik) || 0;
     const kademeler = currentKademeData.kademeler || [];
 
@@ -34,7 +35,7 @@ function KademeDetail() {
         return Math.PI * Math.pow(diskcapi / 2, 2) * 2;
     }, [diskcapi]);
 
-    const finalMetrekare = currentKademeData.finalMetrekare || []; 
+    const finalMetrekare = currentKademeData.finalMetrekare || [];
     const secilenUniteler = currentKademeData.secilenUniteler || {};
     const secilenSiralar = currentKademeData.secilenSiralar || {};
     const yerlesimDuzenleri = currentKademeData.yerlesimDuzenleri || {};
@@ -107,13 +108,13 @@ function KademeDetail() {
             id: Date.now(),
             ad: `Kademe ${kademeler.length + 1}`,
             boi: 30,
-            emperik: hesaplaDiskKatsayisiDetayli(sicaklik, 30)
+            emperik: hesaplaDiskKatsayisiDetayli(sicaklik, 30, maksimumEmperik)
         };
 
         if (kademeler.length === 0) {
             yeniKademe.ad = "Kademe 1";
             yeniKademe.boi = 40;
-            yeniKademe.emperik = hesaplaDiskKatsayisiDetayli(sicaklik, 40);
+            yeniKademe.emperik = hesaplaDiskKatsayisiDetayli(sicaklik, 40, maksimumEmperik);
         }
 
         updateSection("planetDiskDetails", {
@@ -137,7 +138,7 @@ function KademeDetail() {
                 };
 
                 if (field === "boi" && value !== "") {
-                    updatedKademe.emperik = hesaplaDiskKatsayisiDetayli(sicaklik, Number(value));
+                    updatedKademe.emperik = hesaplaDiskKatsayisiDetayli(sicaklik, Number(value), maksimumEmperik);
                 }
                 return updatedKademe;
             }
@@ -199,7 +200,7 @@ function KademeDetail() {
                     </div>
                     <div className="mt-1" style={{ fontSize: "10px", height: "14px", visibility: "hidden" }}>-</div>
                 </div>
-                
+
                 {/* DİNAMİK KADEMELER */}
                 {showsKademe && kademeler.map((kademe) => (
                     <div key={kademe.id} className="text-center d-flex flex-column align-items-center justify-content-between h-100 px-1" style={{ zIndex: 2, flex: "1 1 0px", minWidth: "95px", maxWidth: "130px" }}>

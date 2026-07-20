@@ -4,34 +4,54 @@ import { useTeklifStore } from "../../utils/teklifStore";
 // Dil bazlı parametre şablonları
 const PARAMETER_TEMPLATES = {
   TR: [
-    { key: "hidrolikYuk", label: "Toplam Atıksu Miktarı (max) – Hidrolik Yük", unit: "m³/gün", girişFn: (p) => p?.debi ? String(p.debi) : "0", çıkış: "-" },
-    { key: "organikYuk", label: "Toplam Kirlilik (max) – Organik Yük", unit: "kg/gün", girişFn: (p) => (p?.debi && p?.girisBoi) ? String(((p.debi * p.girisBoi) / 1000).toFixed(2)) : "0", çıkış: "-" },
-    { key: "dizaynDebisi", label: "Tesis Dizayn Debisi", unit: "m³/saat", girişFn: (p) => p?.debi ? String((p.debi / 24).toFixed(2)) : "0", çıkış: "-" },
-    { key: "boi", label: "Biyolojik Oksijen İhtiyacı (BOİ₅)", unit: "mg/L", girişFn: (p) => p?.girisBoi ? String(p.girisBoi) : "0", çıkışFn: (p) => p?.cikisBoi ? String(p.cikisBoi) : "0" },
-    { key: "koi", label: "Kimyasal Oksijen İhtiyacı (KOİ)", unit: "mg/L", girişFn: (p) => p?.girisBoi ? String((p.girisBoi * 1.8).toFixed(0)) : "0", çıkışFn: (p) => p?.cikisBoi ? String((p.cikisBoi * 1.8).toFixed(0)) : "0" },
-    { key: "akm", label: "Askıda Katı Madde (AKM)", unit: "mg/L", girişFn: (p) => p?.girisBoi ? String(p.girisBoi) : "0", çıkışFn: (p) => p?.cikisBoi ? `<${p.cikisBoi}` : "0" },
-    { key: "tn", label: "Toplam Azot (TN)", unit: "mg/L", requiresIleriAritma: true, girişFn: (p, ia) => ia?.girisToplamAzot ? String(ia.girisToplamAzot) : "0", çıkışFn: (p, ia) => ia?.cikisToplamAzot ? String(ia.cikisToplamAzot) : "0" },
-    { key: "nh4", label: "Amonyum Azotu (NH4-N)", unit: "mg/L", requiresNitrifikasyon: true, girişFn: (p) => p?.girisAmonyum ? String(p.girisAmonyum) : "0", çıkışFn: (p) => p?.cikisAmonyum ? String(p.cikisAmonyum) : "0" },
-    { key: "tp", label: "Toplam Fosfor (TP)", unit: "mg/L", requiresIleriAritma: true, girişFn: (p, ia) => ia?.girisToplamFosfor ? String(ia.girisToplamFosfor) : "0", çıkışFn: (p, ia) => ia?.cikisToplamFosfor ? String(ia.cikisToplamFosfor) : "0" },
-    { key: "yagGres", label: "Yağ ve Gres", unit: "mg/L", giriş: "≤25", çıkış: "<20" },
-    { key: "ph", label: "pH", unit: "-", giriş: "6 – 9", çıkış: "6 – 9" },
-    { key: "sicaklikAralik", label: "Atıksu Sıcaklığı", unit: "°C", giriş: "15-32", çıkış: "15-32" },
-    { key: "kabulEdilenSicaklik", label: "Kabul Edilen Sıcaklık", unit: "°C", girişFn: (p) => p?.sicaklik ? String(p.sicaklik) : "19", çıkış: "-" }
+    { key: "hidrolikYuk", label: "Toplam Atıksu Miktarı (max) – Hidrolik Yük", girişFn: (p) => p?.debi ? String(p.debi) : "0", çıkış: "-" },
+    { key: "organikYuk", label: "Toplam Kirlilik (max) – Organik Yük", girişFn: (p) => (p?.debi && p?.girisBoi) ? String(((p.debi * p.girisBoi) / 1000).toFixed(2)) : "0", çıkış: "-" },
+    { key: "dizaynDebisi", label: "Tesis Dizayn Debisi", girişFn: (p) => p?.debi ? String((p.debi / 24).toFixed(2)) : "0", çıkış: "-" },
+    { key: "boi", label: "Biyolojik Oksijen İhtiyacı (BOİ₅)", girişFn: (p) => p?.girisBoi ? String(p.girisBoi) : "0", çıkışFn: (p) => p?.cikisBoi ? String(p.cikisBoi) : "0" },
+    {
+      key: "filtrasyonBoi",
+      label: "Üçüncül Arıtma Sonrası BOİ",
+      requiresFiltrasyon: true,
+      girişFn: (p) => p?.girisBoi ? String(p.girisBoi) : "0",
+      çıkışFn: (p) => {
+        const cikisVal = parseFloat(p?.cikisBoi);
+        return !isNaN(cikisVal) ? String(Math.round(cikisVal * 0.8 * 100) / 100) : "0";
+      }
+    },
+    { key: "koi", label: "Kimyasal Oksijen İhtiyacı (KOİ)", girişFn: (p) => p?.girisBoi ? String((p.girisBoi * 1.8).toFixed(0)) : "0", çıkışFn: (p) => p?.cikisBoi ? String((p.cikisBoi * 1.8).toFixed(0)) : "0" },
+    { key: "akm", label: "Askıda Katı Madde (AKM)", girişFn: (p) => p?.girisBoi ? String(p.girisBoi) : "0", çıkışFn: (p) => p?.cikisBoi ? `<${p.cikisBoi}` : "0" },
+    { key: "tn", label: "Toplam Azot (TN)", requiresIleriAritma: true, girişFn: (p, ia) => ia?.girisToplamAzot ? String(ia.girisToplamAzot) : "0", çıkışFn: (p, ia) => ia?.cikisToplamAzot ? String(ia.cikisToplamAzot) : "0" },
+    { key: "nh4", label: "Amonyum Azotu (NH4-N)", requiresNitrifikasyon: true, girişFn: (p) => p?.girisAmonyum ? String(p.girisAmonyum) : "0", çıkışFn: (p) => p?.cikisAmonyum ? String(p.cikisAmonyum) : "0" },
+    { key: "tp", label: "Toplam Fosfor (TP)", requiresIleriAritma: true, girişFn: (p, ia) => ia?.girisToplamFosfor ? String(ia.girisToplamFosfor) : "0", çıkışFn: (p, ia) => ia?.cikisToplamFosfor ? String(ia.cikisToplamFosfor) : "0" },
+    { key: "yagGres", label: "Yağ ve Gres", giriş: "≤25", çıkış: "<20" },
+    { key: "ph", label: "pH", giriş: "6 – 9", çıkış: "6 – 9" },
+    { key: "sicaklikAralik", label: "Atıksu Sıcaklığı", giriş: "15-32", çıkış: "15-32" },
+    { key: "kabulEdilenSicaklik", label: "Kabul Edilen Sıcaklık", girişFn: (p) => p?.sicaklik ? String(p.sicaklik) : "19", çıkış: "-" }
   ],
   EN: [
-    { key: "hidrolikYuk", label: "Design Flow Rate (Q)", unit: "m³/d", girişFn: (p) => p?.debi ? String(p.debi) : "0", çıkış: "-" },
-    { key: "organikYuk", label: "Daily BOD₅ Load", unit: "kg/d", girişFn: (p) => (p?.debi && p?.girisBoi) ? String(((p.debi * p.girisBoi) / 1000).toFixed(2)) : "0", çıkış: "-" },
-    { key: "dizaynDebisi", label: "Plant Design Flow Rate", unit: "m³/h", girişFn: (p) => p?.debi ? String((p.debi / 24).toFixed(2)) : "0", çıkış: "-" },
-    { key: "boi", label: "Biochemical Oxygen Demand (BOD₅)", unit: "mg/L", girişFn: (p) => p?.girisBoi ? String(p.girisBoi) : "0", çıkışFn: (p) => p?.cikisBoi ? String(p.cikisBoi) : "0" },
-    { key: "koi", label: "Chemical Oxygen Demand (COD)", unit: "mg/L", girişFn: (p) => p?.girisBoi ? String((p.girisBoi * 1.8).toFixed(0)) : "0", çıkışFn: (p) => p?.cikisBoi ? String((p.cikisBoi * 1.8).toFixed(0)) : "0" },
-    { key: "akm", label: "Total Suspended Solids (TSS)", unit: "mg/L", girişFn: (p) => p?.girisBoi ? String(p.girisBoi) : "0", çıkışFn: (p) => p?.cikisBoi ? `<${p.cikisBoi}` : "0" },
-    { key: "tn", label: "Total Nitrogen (TN)", unit: "mg/L", requiresIleriAritma: true, girişFn: (p, ia) => ia?.girisToplamAzot ? String(ia.girisToplamAzot) : "0", çıkışFn: (p, ia) => ia?.cikisToplamAzot ? String(ia.cikisToplamAzot) : "0" },
-    { key: "nh4", label: "Ammonium Nitrogen (NH4-N)", unit: "mg/L", requiresNitrifikasyon: true, girişFn: (p) => p?.girisAmonyum ? String(p.girisAmonyum) : "0", çıkışFn: (p) => p?.cikisAmonyum ? String(p.cikisAmonyum) : "0" },
-    { key: "tp", label: "Total Phosphorus (TP)", unit: "mg/L", requiresIleriAritma: true, girişFn: (p, ia) => ia?.girisToplamFosfor ? String(ia.girisToplamFosfor) : "0", çıkışFn: (p, ia) => ia?.cikisToplamFosfor ? String(ia.cikisToplamFosfor) : "0" },
-    { key: "yagGres", label: "Oil and Grease", unit: "mg/L", giriş: "≤25", çıkış: "<20" },
-    { key: "ph", label: "pH", unit: "-", giriş: "6 – 9", çıkış: "6 – 9" },
-    { key: "sicaklikAralik", label: "Wastewater Temperature", unit: "°C", giriş: "15-32", çıkış: "15-32" },
-    { key: "kabulEdilenSicaklik", label: "Accepted Temperature", unit: "°C", girişFn: (p) => p?.sicaklik ? String(p.sicaklik) : "19", çıkış: "-" }
+    { key: "hidrolikYuk", label: "Design Flow Rate (Q)", girişFn: (p) => p?.debi ? String(p.debi) : "0", çıkış: "-" },
+    { key: "organikYuk", label: "Daily BOD₅ Load", girişFn: (p) => (p?.debi && p?.girisBoi) ? String(((p.debi * p.girisBoi) / 1000).toFixed(2)) : "0", çıkış: "-" },
+    { key: "dizaynDebisi", label: "Plant Design Flow Rate", girişFn: (p) => p?.debi ? String((p.debi / 24).toFixed(2)) : "0", çıkış: "-" },
+    { key: "boi", label: "Biochemical Oxygen Demand (BOD₅)", girişFn: (p) => p?.girisBoi ? String(p.girisBoi) : "0", çıkışFn: (p) => p?.cikisBoi ? String(p.cikisBoi) : "0" },
+    {
+      key: "filtrasyonBoi",
+      label: "BOD After Tertiary Treatment",
+      requiresFiltrasyon: true,
+      girişFn: (p) => p?.girisBoi ? String(p.girisBoi) : "0",
+      çıkışFn: (p) => {
+        const cikisVal = parseFloat(p?.cikisBoi);
+        return !isNaN(cikisVal) ? String(Math.round(cikisVal * 0.8 * 100) / 100) : "0";
+      }
+    },
+    { key: "koi", label: "Chemical Oxygen Demand (COD)", girişFn: (p) => p?.girisBoi ? String((p.girisBoi * 1.8).toFixed(0)) : "0", çıkışFn: (p) => p?.cikisBoi ? String((p.cikisBoi * 1.8).toFixed(0)) : "0" },
+    { key: "akm", label: "Total Suspended Solids (TSS)", girişFn: (p) => p?.girisBoi ? String(p.girisBoi) : "0", çıkışFn: (p) => p?.cikisBoi ? `<${p.cikisBoi}` : "0" },
+    { key: "tn", label: "Total Nitrogen (TN)", requiresIleriAritma: true, girişFn: (p, ia) => ia?.girisToplamAzot ? String(ia.girisToplamAzot) : "0", çıkışFn: (p, ia) => ia?.cikisToplamAzot ? String(ia.cikisToplamAzot) : "0" },
+    { key: "nh4", label: "Ammonium Nitrogen (NH4-N)", requiresNitrifikasyon: true, girişFn: (p) => p?.girisAmonyum ? String(p.girisAmonyum) : "0", checkoutFn: (p) => p?.cikisAmonyum ? String(p.cikisAmonyum) : "0" },
+    { key: "tp", label: "Total Phosphorus (TP)", requiresIleriAritma: true, girişFn: (p, ia) => ia?.girisToplamFosfor ? String(ia.girisToplamFosfor) : "0", çıkışFn: (p, ia) => ia?.cikisToplamFosfor ? String(ia.cikisToplamFosfor) : "0" },
+    { key: "yagGres", label: "Oil and Grease", giriş: "≤25", çıkış: "<20" },
+    { key: "ph", label: "pH", giriş: "6 – 9", çıkış: "6 – 9" },
+    { key: "sicaklikAralik", label: "Wastewater Temperature", giriş: "15-32", çıkış: "15-32" },
+    { key: "kabulEdilenSicaklik", label: "Accepted Temperature", girişFn: (p) => p?.sicaklik ? String(p.sicaklik) : "19", çıkış: "-" }
   ]
 };
 
@@ -39,12 +59,104 @@ function ParametreTablosu() {
   const formData = useTeklifStore((state) => state.formData);
   const updateSection = useTeklifStore((state) => state.updateSection);
 
-  // Dil yönetimi
   const teklifDili = formData?.customerInfo?.teklifDili;
+  const unitSystem = formData?.customerInfo?.unitSystem || "Metric"; 
   const isForeign = teklifDili === "Yabancı";
   const activeTemplates = isForeign ? PARAMETER_TEMPLATES.EN : PARAMETER_TEMPLATES.TR;
 
   const storeParametre = formData?.tables?.parametretablosu;
+
+  // 🌟 Lokasyon bazlı format seçimi
+  const activeLocale = isForeign ? "en-US" : "tr-TR";
+
+  // Sayısal veya Karışık İfadeleri Maskelemek İçin Yardımcı Format Fonksiyonu
+  const formatInputValue = (val) => {
+    if (val === undefined || val === null || val === "") return "";
+    let str = val.toString().trim();
+    if (str === "-") return "-";
+
+    // Aralık içeriyorsa ("15-32" veya "15 – 32") iki tarafı da ayrı formatla
+    if (str.includes("-") || str.includes("–")) {
+      const separator = str.includes("-") ? "-" : "–";
+      const parts = str.split(separator).map(p => parseFloat(p.replace(/[^\d.]/g, "")));
+      if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+        return `${parts[0].toLocaleString(activeLocale)} ${separator} ${parts[1].toLocaleString(activeLocale)}`;
+      }
+    }
+
+    // Ön ek temizliği (Örn: "<25" -> prefix: "<", num: 25)
+    const prefix = str.startsWith("<") ? "<" : str.startsWith("≤") ? "≤" : "";
+    const cleanStr = str.replace(/[^\d.]/g, "");
+    const num = parseFloat(cleanStr);
+    
+    if (isNaN(num)) return val; // Sayı barındırmıyorsa ("6 – 9" gibi özel durumlar veya düz metin)
+    
+    return `${prefix}${num.toLocaleString(activeLocale, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 2
+    })}`;
+  };
+
+  // Formatlanmış string ifadeyi standart JS formatına çevirme
+  const parseInputValue = (val) => {
+    if (!val) return "0";
+    let cleanVal = val.toString();
+    if (isForeign) {
+      cleanVal = cleanVal.replace(/,/g, "");
+    } else {
+      cleanVal = cleanVal.replace(/\./g, "").replace(",", ".");
+    }
+    return cleanVal;
+  };
+
+  // Gelişmiş Birim ve Değer Dönüştürücü Gözü
+  const convertValueAndUnit = (key, rawStr, targetSystem) => {
+    if (!rawStr || rawStr === "-") return { value: rawStr, unit: "-" };
+    
+    const cleanNum = parseFloat(rawStr.replace(/[^\d.]/g, ""));
+    const prefix = rawStr.startsWith("<") ? "<" : rawStr.startsWith("≤") ? "≤" : "";
+
+    if (key === "hidrolikYuk") {
+      if (targetSystem === "US" && !isNaN(cleanNum)) {
+        return { value: formatInputValue(Math.round(cleanNum * 264.172)), unit: "GPD" };
+      }
+      return { value: formatInputValue(rawStr), unit: isForeign ? "m³/d" : "m³/gün" };
+    }
+
+    if (key === "organikYuk") {
+      if (targetSystem === "US" && !isNaN(cleanNum)) {
+        return { value: formatInputValue((cleanNum * 2.20462).toFixed(2)), unit: "lb/d" };
+      }
+      return { value: formatInputValue(rawStr), unit: isForeign ? "kg/d" : "kg/gün" };
+    }
+
+    if (key === "dizaynDebisi") {
+      if (targetSystem === "US" && !isNaN(cleanNum)) {
+        return { value: formatInputValue((cleanNum * 4.40287).toFixed(2)), unit: "GPM" };
+      }
+      return { value: formatInputValue(rawStr), unit: isForeign ? "m³/h" : "m³/saat" };
+    }
+
+    if (key === "sicaklikAralik" || key === "kabulEdilenSicaklik") {
+      if (targetSystem === "US") {
+        if (rawStr.includes("-")) {
+          const parts = rawStr.split("-").map(p => parseFloat(p.trim()));
+          if (parts.length === 2 && !isNaN(parts[0]) && !isNaN(parts[1])) {
+            const f1 = Math.round((parts[0] * 1.8) + 32);
+            const f2 = Math.round((parts[1] * 1.8) + 32);
+            return { value: formatInputValue(`${f1}-${f2}`), unit: "°F" };
+          }
+        } else if (!isNaN(cleanNum)) {
+          return { value: formatInputValue(Math.round((cleanNum * 1.8) + 32)), unit: "°F" };
+        }
+      }
+      return { value: formatInputValue(rawStr), unit: "°C" };
+    }
+
+    if (key === "ph") return { value: rawStr, unit: "-" };
+
+    return { value: formatInputValue(rawStr), unit: "mg/L" };
+  };
 
   const generateRowsFromDesign = () => {
     const pDetails = formData?.planetDiskDetails?.tasarim?.aritmaParametreleri || {};
@@ -52,18 +164,28 @@ function ParametreTablosu() {
 
     const hasIleriAritma = formData?.equipments?.modulesState?.ileriAritma?.checked === true;
     const hasNitrifikasyon = pDetails.nitrifikasyon === "nitrifikasyonVar";
+    const isFiltrasyonChecked = formData?.equipments?.modulesState?.filtrasyon?.checked === true;
 
     return activeTemplates
       .filter(param => !param.requiresNitrifikasyon || hasNitrifikasyon)
       .filter(param => !param.requiresIleriAritma || hasIleriAritma)
-      .map((param, index) => ({
-        id: `design_${param.key}_${index}`,
-        label: param.label,
-        unit: param.unit,
-        giriş: param.girişFn ? param.girişFn(pDetails, ileriAritmaData) : (param.giriş || "0"),
-        çıkış: param.çıkışFn ? param.çıkışFn(pDetails, ileriAritmaData) : (param.çıkış || "0"),
-        isUrgent: false
-      }));
+      .filter(param => !param.requiresFiltrasyon || isFiltrasyonChecked)
+      .map((param, index) => {
+        const rawGiriş = param.girişFn ? param.girişFn(pDetails, ileriAritmaData) : (param.giriş || "0");
+        const rawÇıkış = param.çıkışFn ? param.çıkışFn(pDetails, ileriAritmaData) : (param.çıkış || "0");
+
+        const convertedGiriş = convertValueAndUnit(param.key, rawGiriş, unitSystem);
+        const convertedÇıkış = convertValueAndUnit(param.key, rawÇıkış, unitSystem);
+
+        return {
+          id: `design_${param.key}_${index}`,
+          label: param.label,
+          unit: convertedGiriş.unit, 
+          giriş: convertedGiriş.value,
+          çıkış: convertedÇıkış.value,
+          isUrgent: false
+        };
+      });
   };
 
   const [rows, setRows] = useState(() => {
@@ -73,6 +195,8 @@ function ParametreTablosu() {
     return generateRowsFromDesign();
   });
 
+  // İnput odak yönetimi için geçici yerel string stateleri
+  const [editingCell, setEditingCell] = useState(null); // { id: rowId, field: 'giriş'|'çıkış', value: 'string' }
   const [history, setHistory] = useState([]);
 
   useEffect(() => {
@@ -81,14 +205,21 @@ function ParametreTablosu() {
       if (prevRows.length === 0) return freshRows;
       return freshRows.map(fRow => {
         const existing = prevRows.find(p => p.id === fRow.id);
-        return existing ? { ...fRow, giriş: existing.giriş, çıkış: existing.çıkış, label: existing.label, unit: existing.unit } : fRow;
+        const isUnitSystemChanged = existing && existing.id.startsWith("design_") && (fRow.unit !== existing.unit);
+        
+        if (existing && !isUnitSystemChanged) {
+          return { ...fRow, giriş: existing.giriş, çıkış: existing.çıkış, label: existing.label, unit: existing.unit };
+        }
+        return fRow;
       }).concat(prevRows.filter(p => !p.id.toString().startsWith("design_")));
     });
   }, [
     formData?.planetDiskDetails?.tasarim?.aritmaParametreleri,
     formData?.equipments?.ileriAritma?.IleriAritmaInputSelections,
     formData?.equipments?.modulesState?.ileriAritma?.checked,
-    teklifDili
+    formData?.equipments?.modulesState?.filtrasyon?.checked,
+    teklifDili,
+    unitSystem 
   ]);
 
   useEffect(() => {
@@ -117,19 +248,20 @@ function ParametreTablosu() {
 
   const handleCellChange = (id, field, newValue) => {
     saveToHistory(rows);
-    setRows(rows.map(row => row.id === id ? { ...row, [field]: newValue } : row));
+    const parsedValue = parseInputValue(newValue);
+    setRows(rows.map(row => row.id === id ? { ...row, [field]: parsedValue } : row));
   };
 
   const insertAfterRow = (index) => {
     saveToHistory(rows);
     const newId = `new_${Date.now()}`;
-    const newRow = { 
-      id: newId, 
-      label: isForeign ? "Inserted New Parameter" : "Araya Eklenen Yeni Parametre", 
-      unit: "mg/L", 
-      giriş: "0", 
-      çıkış: "0", 
-      isUrgent: false 
+    const newRow = {
+      id: newId,
+      label: isForeign ? "Inserted New Parameter" : "Araya Eklenen Yeni Parametre",
+      unit: "mg/L",
+      giriş: "0",
+      çıkış: "0",
+      isUrgent: false
     };
 
     const updatedRows = [...rows];
@@ -140,6 +272,41 @@ function ParametreTablosu() {
   const deleteRow = (id) => {
     saveToHistory(rows);
     setRows(rows.filter(row => row.id !== id));
+  };
+
+  // Dinamik input render kontrolü fonksiyonu
+  const renderCellInput = (row, field) => {
+    const isCurrentEditing = editingCell?.id === row.id && editingCell?.field === field;
+    let cellDisplayStr = "";
+
+    if (isCurrentEditing) {
+      cellDisplayStr = editingCell.value;
+    } else {
+      cellDisplayStr = formatInputValue(row[field]);
+    }
+
+    return (
+      <input
+        type="text"
+        className="form-control form-control-sm text-end fw-bold text-white bg-transparent border-0 p-1 param-input rounded"
+        style={{ fontSize: "12px", boxShadow: "none", width: "100%" }}
+        value={cellDisplayStr}
+        onChange={(e) => setEditingCell({ ...editingCell, value: e.target.value })}
+        onFocus={() => {
+          let currentRawStr = row[field].toString();
+          // Eğer içinde özel karakter varsa, yazma kolaylığı için odaktayken noktayı virgüle (veya tersi) çevirip temiz sunalım
+          if (!isForeign) {
+            currentRawStr = currentRawStr.replace(/\./g, "").replace(",", "."); // Standart ara çevrim
+            currentRawStr = currentRawStr.replace(".", ",");
+          }
+          setEditingCell({ id: row.id, field, value: currentRawStr });
+        }}
+        onBlur={(e) => {
+          handleCellChange(row.id, field, e.target.value);
+          setEditingCell(null);
+        }}
+      />
+    );
   };
 
   return (
@@ -168,6 +335,7 @@ function ParametreTablosu() {
           <div className="d-flex justify-content-between align-items-center p-3" style={{ backgroundColor: "#1e293b", borderBottom: "1px solid #334155" }}>
             <div className="fw-semibold text-white" style={{ fontSize: "14px" }}>
               {isForeign ? "Design Influent / Effluent Parameters Table" : "Tasarım Giriş / Çıkış Parametreleri Tablosu"}
+              <span className="badge ms-2" style={{ backgroundColor: "#0284c7", fontSize: "10px" }}>{unitSystem} Mode</span>
             </div>
 
             <div className="d-flex align-items-center gap-2">
@@ -246,26 +414,16 @@ function ParametreTablosu() {
 
                 <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
 
+                {/* 🌟 Atıksu Giriş hücresi kontrollü hale getirildi */}
                 <div className="p-1 px-3 d-flex align-items-center justify-content-end" style={{ width: "20%" }}>
-                  <input
-                    type="text"
-                    className="form-control form-control-sm text-end fw-bold text-white bg-transparent border-0 p-1 param-input rounded"
-                    style={{ fontSize: "12px", boxShadow: "none", width: "100%" }}
-                    value={row.giriş}
-                    onChange={(e) => handleCellChange(row.id, "giriş", e.target.value)}
-                  />
+                  {renderCellInput(row, "giriş")}
                 </div>
 
                 <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
 
+                {/* 🌟 Atıksu Çıkış hücresi kontrollü hale getirildi */}
                 <div className="p-1 px-3 d-flex align-items-center justify-content-end" style={{ width: "20%" }}>
-                  <input
-                    type="text"
-                    className="form-control form-control-sm text-end fw-bold text-white bg-transparent border-0 p-1 param-input rounded"
-                    style={{ fontSize: "12px", boxShadow: "none", width: "100%" }}
-                    value={row.çıkış}
-                    onChange={(e) => handleCellChange(row.id, "çıkış", e.target.value)}
-                  />
+                  {renderCellInput(row, "çıkış")}
                 </div>
 
                 <div style={{ width: "1px", backgroundColor: "#334155" }}></div>

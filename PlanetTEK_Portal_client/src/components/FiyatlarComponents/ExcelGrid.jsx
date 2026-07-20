@@ -20,7 +20,17 @@ const TEXT_FIELDS = [
   "elkKisi", "elkGun", "hacim", "alan"
 ];
 
-const ExcelGrid = ({ headers, data, fields, onDataChange, isMainTable = false, onActionClick }) => {
+const ExcelGrid = ({
+  headers,
+  data,
+  fields,
+  onDataChange,
+  isMainTable = false,
+  onActionClick,
+  tableId,            // 🚀 Yeni
+  activeTableId,      // 🚀 Yeni
+  setActiveTableId    // 🚀 Yeni
+}) => {
   const tableRef = useRef(null);
 
   const [selection, setSelection] = useState({ start: null, end: null });
@@ -101,7 +111,15 @@ const ExcelGrid = ({ headers, data, fields, onDataChange, isMainTable = false, o
   };
 
   useEffect(() => {
+    // Eğer başka bir tabloya tıklandıysa, bu tablonun seçimini sıfırla
+    if (activeTableId !== tableId) {
+      setSelection({ start: null, end: null });
+    }
+  }, [activeTableId, tableId]);
+
+  useEffect(() => {
     const onKeyDown = (e) => {
+      if (activeTableId !== tableId) return; // 🚀 Efektin en başına ekle
       if (e.key !== "Delete") return;
       if (!selection.start || editingCell.row !== null) return;
 
@@ -124,6 +142,7 @@ const ExcelGrid = ({ headers, data, fields, onDataChange, isMainTable = false, o
 
   useEffect(() => {
     const onCopy = (e) => {
+      if (activeTableId !== tableId) return; // 🚀 Efektin en başına ekle
       if (document.activeElement.getAttribute("contenteditable") === "true") return;
       const cells = getSelectionCells();
       if (!cells.length) return;
@@ -157,6 +176,7 @@ const ExcelGrid = ({ headers, data, fields, onDataChange, isMainTable = false, o
 
   useEffect(() => {
     const onPaste = (e) => {
+      if (activeTableId !== tableId) return; // 🚀 Efektin en başına ekle
       if (editingCell.row !== null) return;
       if (!selection.start) return;
 
@@ -365,6 +385,7 @@ const ExcelGrid = ({ headers, data, fields, onDataChange, isMainTable = false, o
                       onBlur={(e) => handleCellBlur(rowIndex, colIndex, e.currentTarget.innerText)}
                       onMouseDown={() => {
                         if (isEditing) return;
+                        setActiveTableId(tableId); // 🚀 Tıklanan tabloyu aktif tablo yap
                         setIsDragging(true);
                         setSelection({ start: { row: rowIndex, col: colIndex }, end: { row: rowIndex, col: colIndex } });
                       }}

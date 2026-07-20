@@ -6,13 +6,50 @@ function SarfMalzemeTablosu() {
   const formData = useTeklifStore((state) => state.formData);
   const updateSection = useTeklifStore((state) => state.updateSection);
 
-
+  // 🌟 Canlı Döviz ve Dil Bilgilerini Store'dan Çekiyoruz
   const teklifDili = formData?.customerInfo?.teklifDili;
+  const currency = formData?.customerInfo?.currency || "EUR";
+  const exchangeRate = parseFloat(formData?.customerInfo?.exchangeRate) || 1.0000;
 
-  // storeTabloVerisi'ni güvenli bir şekilde rows yapısından veya direkt diziden okuyoruz
   const storeTabloVerisi = formData?.tables?.sarfmalzemettablosu?.rows || formData?.tables?.sarfmalzemettablosu || [];
 
-  // 1. KURAL: İlk açılışta sadece store'a bak. Varsa direkt render et, yoksa boş dizi başla.
+  // 🌟 Lokasyon bazlı format seçimi
+  const isForeign = teklifDili === "Yabancı";
+  const activeLocale = isForeign ? "en-US" : "tr-TR";
+
+  // Sayı Formatlama Fonksiyonu (Düz Metin Hücreleri İçin)
+  const formatNumber = (value, minFraction = 0, maxFraction = 2) => {
+    if (isNaN(value)) return "0";
+    return value.toLocaleString(activeLocale, {
+      minimumFractionDigits: minFraction,
+      maximumFractionDigits: maxFraction
+    });
+  };
+
+  // Input Alanlarında Formatlı Gösterim İçin Yardımcı Fonksiyon
+  const formatInputValue = (val, maxDigits = 2) => {
+    if (val === undefined || val === null || val === "") return "";
+    const num = parseFloat(val);
+    if (isNaN(num)) return val;
+
+    return num.toLocaleString(activeLocale, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: maxDigits
+    });
+  };
+
+  // Formatlanmış string girdiyi temiz JS float sayısına çevirme
+  const parseInputValue = (val) => {
+    if (!val) return 0;
+    let cleanVal = val.toString();
+    if (isForeign) {
+      cleanVal = cleanVal.replace(/,/g, "");
+    } else {
+      cleanVal = cleanVal.replace(/\./g, "").replace(",", ".");
+    }
+    return parseFloat(cleanVal) || 0;
+  };
+
   const [rows, setRows] = useState(() => {
     if (storeTabloVerisi && storeTabloVerisi.length > 0) {
       return storeTabloVerisi;
@@ -20,24 +57,38 @@ function SarfMalzemeTablosu() {
     return [];
   });
 
+  // İnput odak yönetimi için geçici yerel string stateleri
+  const [editingCell, setEditingCell] = useState(null); // { id: rowId, field: 'qty'|'consumption'|'unitPrice', value: 'string' }
+
   const [history, setHistory] = useState([]);
   const [activeMenuId, setActiveMenuId] = useState(null);
 
+  // 🌟 Para birimi simgelerini dinamik getiren yardımcı fonksiyonlar
+  const getCurrencySymbol = () => {
+    if (currency === "USD") return "$";
+    if (currency === "TRY") return "₺";
+    return "€";
+  };
+
+  // 🌟 Kur Dönüşümlü Satır Toplamı Hesaplama (Euro ham değerini kurla çarpar)
   const calculateRowTotal = (row) => {
     if (row.isHeader || row.isSubHeader) return 0;
     const qty = parseFloat(row.qty) || 0;
     const consumption = parseFloat(row.consumption) || 0;
-    const unitPrice = parseFloat(row.unitPrice) || 0;
-    return qty === 0 ? 0 : qty * consumption * unitPrice;
+    const unitPrice = parseFloat(row.unitPrice) || 0; // Arka planda hep Euro
+    return qty === 0 ? 0 : qty * consumption * unitPrice * exchangeRate;
   };
 
   // Gres ve Redüktör yağlarının toplam yıllık fiyatını hesaplayan yardımcı fonksiyon
   const calculateOilTotal = (currentRows) => {
     return currentRows.reduce((sum, row) => {
       const labelUpper = (row.label || "").toLowerCase();
-      // "gress yağı", "gres yağı" veya "redüktör yağı" içeren satırları yakalar
       if (labelUpper.includes("gres") || labelUpper.includes("redüktör") || labelUpper.includes("reduktor")) {
-        return sum + calculateRowTotal(row);
+        if (row.isHeader || row.isSubHeader) return sum;
+        const qty = parseFloat(row.qty) || 0;
+        const consumption = parseFloat(row.consumption) || 0;
+        const unitPrice = parseFloat(row.unitPrice) || 0;
+        return sum + (qty === 0 ? 0 : qty * consumption * unitPrice);
       }
       return sum;
     }, 0);
@@ -45,7 +96,7 @@ function SarfMalzemeTablosu() {
 
   const grandTotal = rows.reduce((sum, row) => sum + calculateRowTotal(row), 0);
 
-  // 2. KURAL: Eğer store'da veri yoksa (ilk kez açılıyorsa) fonksiyonu çalıştır ve store'a kaydet.
+  // İlk yükleme
   useEffect(() => {
     if (!storeTabloVerisi || storeTabloVerisi.length === 0) {
       async function loadFromEngine() {
@@ -53,8 +104,14 @@ function SarfMalzemeTablosu() {
           const freshRows = await sarfMalzemeHesapFonksiyonu(formData);
           setRows(freshRows);
 
-          // İlk yüklemede genel toplamı ve yağların toplamını hesaplıyoruz
-          const freshGrandTotal = freshRows.reduce((sum, row) => sum + calculateRowTotal(row), 0);
+          const freshGrandTotal = freshRows.reduce((sum, row) => {
+            if (row.isHeader || row.isSubHeader) return sum;
+            const qty = parseFloat(row.qty) || 0;
+            const consumption = parseFloat(row.consumption) || 0;
+            const unitPrice = parseFloat(row.unitPrice) || 0;
+            return sum + (qty === 0 ? 0 : qty * consumption * unitPrice);
+          }, 0);
+
           const oilTotal = calculateOilTotal(freshRows);
 
           updateSection("tables", {
@@ -62,7 +119,7 @@ function SarfMalzemeTablosu() {
             sarfmalzemettablosu: {
               rows: freshRows,
               grandTotal: freshGrandTotal,
-              RBCYillikSarfMalzeme: oilTotal // Özel parametre eklendi
+              RBCYillikSarfMalzeme: oilTotal
             }
           });
         } catch (e) {
@@ -71,42 +128,55 @@ function SarfMalzemeTablosu() {
       }
       loadFromEngine();
     }
-  }, []); // Sadece bileşen mount olduğunda tek bir kez çalışır
+  }, []);
 
-  // 3. KURAL: Kullanıcı manuel bir değişiklik yaparsa store'u update et.
+  // Kullanıcı manuel değişiklik yaparsa store güncelleme
   const updateStoreWithNewRows = (newRows) => {
     setRows(newRows);
 
-    // Yeni satırlara göre anlık toplamları hesapla ve store'a gönder
-    const currentGrandTotal = newRows.reduce((sum, row) => sum + calculateRowTotal(row), 0);
+    const currentGrandTotalEuro = newRows.reduce((sum, row) => {
+      if (row.isHeader || row.isSubHeader) return sum;
+      const qty = parseFloat(row.qty) || 0;
+      const consumption = parseFloat(row.consumption) || 0;
+      const unitPrice = parseFloat(row.unitPrice) || 0;
+      return sum + (qty === 0 ? 0 : qty * consumption * unitPrice);
+    }, 0);
+
     const oilTotal = calculateOilTotal(newRows);
 
     updateSection("tables", {
       ...formData?.tables,
       sarfmalzemettablosu: {
         rows: [...newRows],
-        grandTotal: currentGrandTotal,
-        RBCYillikSarfMalzeme: oilTotal // Özel parametre güncellendi
+        grandTotal: currentGrandTotalEuro,
+        RBCYillikSarfMalzeme: oilTotal
       }
     });
   };
 
-  // 4. KURAL: REFRESH BUTONU - Motoru çalıştır, render et ve store'a kaydet.
+  // REFRESH BUTONU
   const handleRefresh = async () => {
     setHistory([]);
     try {
       const freshRows = await sarfMalzemeHesapFonksiyonu(formData);
       setRows(freshRows);
 
-      const freshGrandTotal = freshRows.reduce((sum, row) => sum + calculateRowTotal(row), 0);
+      const freshGrandTotalEuro = freshRows.reduce((sum, row) => {
+        if (row.isHeader || row.isSubHeader) return sum;
+        const qty = parseFloat(row.qty) || 0;
+        const consumption = parseFloat(row.consumption) || 0;
+        const unitPrice = parseFloat(row.unitPrice) || 0;
+        return sum + (qty === 0 ? 0 : qty * consumption * unitPrice);
+      }, 0);
+
       const oilTotal = calculateOilTotal(freshRows);
 
       updateSection("tables", {
         ...formData?.tables,
         sarfmalzemettablosu: {
           rows: freshRows,
-          grandTotal: freshGrandTotal,
-          RBCYillikSarfMalzeme: oilTotal // Özel parametre güncellendi
+          grandTotal: freshGrandTotalEuro,
+          RBCYillikSarfMalzeme: oilTotal
         }
       });
     } catch (error) {
@@ -127,7 +197,15 @@ function SarfMalzemeTablosu() {
 
   const handleCellChange = (id, field, val) => {
     saveToHistory(rows);
-    const updatedRows = rows.map(row => row.id === id ? { ...row, [field]: val } : row);
+    let parsedVal = val;
+    // Eğer nümerik bir alan ise veriyi parse ederek float'a dönüştürürüz
+    if (field === "qty" || field === "consumption") {
+      parsedVal = parseInputValue(val);
+    } else if (field === "unitPrice") {
+      // Birim fiyat ekranda kurla çarpılmış gösterilir, store'a giderken bölünür
+      parsedVal = parseInputValue(val) / exchangeRate;
+    }
+    const updatedRows = rows.map(row => row.id === id ? { ...row, [field]: parsedVal } : row);
     updateStoreWithNewRows(updatedRows);
   };
 
@@ -143,7 +221,7 @@ function SarfMalzemeTablosu() {
     } else if (type === 2) {
       newRow = { ...newRow, label: "Yeni Alt Başlık (Açık)", isSubHeader: true, isLight: true };
     } else {
-      newRow = { ...newRow, label: "Yeni Sarf Malzemesi", qty: 1, qtyUnit: "adet", consumption: 1, consumptionUnit: "birim/yıl", unitPrice: 0, priceUnit: "€/birim" };
+      newRow = { ...newRow, label: "Yeni Sarf Malzemesi", qty: 1, qtyUnit: "adet", consumption: 1, consumptionUnit: "birim/yıl", unitPrice: 0, priceUnit: `${getCurrencySymbol()}/birim` };
     }
 
     const updatedRows = [...rows];
@@ -162,6 +240,42 @@ function SarfMalzemeTablosu() {
     if (row.isSubHeader) return row.isLight ? "#2a3a52" : "#1e2d42";
     if (!row.isHeader && !row.isSubHeader && (parseFloat(row.qty) === 0)) return "#2a1515";
     return "#151f32";
+  };
+
+  // Dinamik input hücre render metodu (yazım kolaylığı ve blur anında tam binler ayracı formatlama)
+  const renderManagedInput = (row, field, rawValue, widthStyle, isPrice = false) => {
+    const isCurrent = editingCell?.id === row.id && editingCell?.field === field;
+
+    // Değeri ekrana basmak üzere formatlama mantığı
+    let displayValue = "";
+    if (isCurrent) {
+      displayValue = editingCell.value;
+    } else {
+      const valNum = isPrice ? parseFloat(rawValue || 0) * exchangeRate : parseFloat(rawValue || 0);
+      displayValue = formatInputValue(valNum, isPrice ? 2 : 3);
+    }
+
+    return (
+      <input
+        type="text"
+        className="form-control form-control-sm text-end bg-transparent border-0 sarf-input fw-semibold p-0 text-white"
+        style={{ fontSize: "12px", boxShadow: "none", width: widthStyle }}
+        value={displayValue}
+        onChange={(e) => {
+          setEditingCell({ ...editingCell, value: e.target.value });
+        }}
+        onFocus={() => {
+          const valNum = isPrice ? parseFloat(rawValue || 0) * exchangeRate : parseFloat(rawValue || 0);
+          // Odaklandığında düzenlemeyi kolaylaştırmak adına binler ayracını kaldırırız
+          const cleanString = isForeign ? valNum.toString() : valNum.toString().replace(".", ",");
+          setEditingCell({ id: row.id, field, value: cleanString });
+        }}
+        onBlur={(e) => {
+          handleCellChange(row.id, field, e.target.value);
+          setEditingCell(null);
+        }}
+      />
+    );
   };
 
   return (
@@ -204,24 +318,29 @@ function SarfMalzemeTablosu() {
 
           {/* ÜST PANEL */}
           <div className="d-flex justify-content-between align-items-center p-3" style={{ backgroundColor: "#151f32", borderBottom: "1px solid #334155" }}>
-            <div className="fw-semibold text-white" style={{ fontSize: "14px" }}>
-              {teklifDili === "Yabancı" ? "Consumables and Maintenance Expenses Table" : "Sarf Malzeme ve Bakım Giderleri Tablosu"}
+            <div className="d-flex align-items-center gap-3">
+              <div className="fw-semibold text-white" style={{ fontSize: "14px" }}>
+                {isForeign ? "Consumables and Maintenance Expenses Table" : "Sarf Malzeme ve Bakım Giderleri Tablosu"}
+              </div>
+              <span className="badge bg-dark text-warning" style={{ fontSize: "11px", border: "1px solid #475569" }}>
+                {currency} Modu
+              </span>
             </div>
 
             <div className="d-flex align-items-center gap-2">
               <button
                 onClick={handleRefresh}
-                className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
+                className="btn btn-sm px-3 py-1.5 fw-semibold text-white d-flex align-items-center gap-1 border-0"
                 style={{ backgroundColor: "#d97706", fontSize: "11px", borderRadius: "6px" }}
-                title={teklifDili === "Yabancı" ? "Reset Table to Initial Settings" : "Tabloyu İlk Ayarlarına Döndür"}
+                title={isForeign ? "Reset Table to Initial Settings" : "Tabloyu İlk Ayarlarına Döndür"}
               >
-                🔄 {teklifDili === "Yabancı" ? "Refresh" : "Yenile"}
+                🔄 {isForeign ? "Refresh" : "Yenile"}
               </button>
 
               <button
                 onClick={handleUndo}
                 disabled={history.length === 0}
-                className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
+                className="btn btn-sm px-3 py-1.5 fw-semibold text-white d-flex align-items-center gap-1 border-0"
                 style={{
                   backgroundColor: history.length === 0 ? "#334155" : "#1e3a8a",
                   fontSize: "11px",
@@ -238,31 +357,31 @@ function SarfMalzemeTablosu() {
           {/* TABLO BAŞLIKLARI */}
           <div className="d-flex align-items-stretch border-bottom" style={{ borderColor: "#334155" }}>
             <div className="p-2 px-3 header-title-cell justify-content-start" style={{ width: "30%" }}>
-              {teklifDili === "Yabancı" ? "Description of Expenses" : "Giderlerin Tanımları"}
+              {isForeign ? "Description of Expenses" : "Giderlerin Tanımları"}
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2 header-title-cell" style={{ width: "16%" }}>
-              {teklifDili === "Yabancı" ? "Total Quantity" : "Toplam Miktar"}
+              {isForeign ? "Total Quantity" : "Toplam Miktar"}
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2 header-title-cell" style={{ width: "18%" }}>
-              {teklifDili === "Yabancı" ? "Consumption Rate" : "Tüketim Oranı"}
+              {isForeign ? "Consumption Rate" : "Tüketim Oranı"}
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2 header-title-cell" style={{ width: "14%" }}>
-              {teklifDili === "Yabancı" ? "Unit Price" : "Birim Fiyat"}
+              {isForeign ? "Unit Price" : "Birim Fiyat"}
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2 header-title-cell text-end pe-4" style={{ width: "16%" }}>
-              {teklifDili === "Yabancı" ? "Total Price" : "Toplam Fiyat"}
+              {isForeign ? "Total Price" : "Toplam Fiyat"}
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2 header-title-cell" style={{ width: "6%" }}>
-              {teklifDili === "Yabancı" ? "Action" : "Aksiyon"}
+              {isForeign ? "Action" : "Aksiyon"}
             </div>
           </div>
 
-          {/* TABLO SATIRLARI */}
+          {/* TABLO GÖVDESİ */}
           <div>
             {rows.map((row, index) => {
               const isHeading = row.isHeader || row.isSubHeader;
@@ -290,16 +409,11 @@ function SarfMalzemeTablosu() {
                   </div>
                   <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
 
+                  {/* TOPLAM MİKTAR HÜCRESİ */}
                   <div className="p-1 px-2 d-flex align-items-center justify-content-center gap-1" style={{ width: "16%" }}>
                     {!isHeading && (
                       <>
-                        <input
-                          type="number"
-                          className="form-control form-control-sm text-end bg-transparent border-0 sarf-input fw-bold p-0"
-                          style={{ fontSize: "12px", boxShadow: "none", color: numColor, width: "50%" }}
-                          value={row.qty}
-                          onChange={(e) => handleCellChange(row.id, "qty", e.target.value)}
-                        />
+                        {renderManagedInput(row, "qty", row.qty, "50%")}
                         <input
                           type="text"
                           className="form-control form-control-sm text-start text-white-50 bg-transparent border-0 p-0"
@@ -312,16 +426,11 @@ function SarfMalzemeTablosu() {
                   </div>
                   <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
 
+                  {/* TÜKETİM ORANI HÜCRESİ */}
                   <div className="p-1 px-2 d-flex align-items-center justify-content-center gap-1" style={{ width: "18%" }}>
                     {!isHeading && (
                       <>
-                        <input
-                          type="number"
-                          className="form-control form-control-sm text-end text-white bg-transparent border-0 sarf-input fw-semibold p-0"
-                          style={{ fontSize: "12px", boxShadow: "none", width: "40%" }}
-                          value={row.consumption}
-                          onChange={(e) => handleCellChange(row.id, "consumption", e.target.value)}
-                        />
+                        {renderManagedInput(row, "consumption", row.consumption, "40%")}
                         <input
                           type="text"
                           className="form-control form-control-sm text-start text-white-50 bg-transparent border-0 p-0"
@@ -334,34 +443,26 @@ function SarfMalzemeTablosu() {
                   </div>
                   <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
 
+                  {/* BİRİM FİYAT HÜCRESİ (Kur Çevrimli ve Formatlı) */}
                   <div className="p-1 px-2 d-flex align-items-center justify-content-center gap-1" style={{ width: "14%" }}>
                     {!isHeading && (
                       <>
-                        <input
-                          type="number"
-                          className="form-control form-control-sm text-end text-white bg-transparent border-0 sarf-input fw-semibold p-0"
-                          style={{ fontSize: "12px", boxShadow: "none", width: "45%" }}
-                          value={row.unitPrice}
-                          onChange={(e) => handleCellChange(row.id, "unitPrice", e.target.value)}
-                        />
-                        <input
-                          type="text"
-                          className="form-control form-control-sm text-start text-white-50 bg-transparent border-0 p-0"
-                          style={{ fontSize: "10px", boxShadow: "none", width: "50%" }}
-                          value={row.priceUnit}
-                          onChange={(e) => handleCellChange(row.id, "priceUnit", e.target.value)}
-                        />
+                        {renderManagedInput(row, "unitPrice", row.unitPrice, "45%", true)}
+                        <span className="text-white-50 text-start" style={{ fontSize: "11px", width: "50%" }}>
+                          {row.priceUnit || "birim"}
+                        </span>
                       </>
                     )}
                   </div>
                   <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
 
+                  {/* SATIR TOPLAMI (Düz Metin Hücresi) */}
                   <div className="p-1 px-3 d-flex align-items-center justify-content-end fw-bold" style={{ width: "16%", fontSize: "12px", color: isZero ? "#ef4444" : "#4ade80" }}>
                     {!isHeading && (
                       <>
-                        <span>{rowTotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 1 })}</span>
+                        <span>{formatNumber(rowTotal, 2, 2)}</span>
                         <span className="text-white-50 ms-1" style={{ fontSize: "11px" }}>
-                          {teklifDili === "Yabancı" ? "€/year" : "€/yıl"}
+                          {getCurrencySymbol()}/{isForeign ? "year" : "yıl"}
                         </span>
                       </>
                     )}
@@ -369,39 +470,14 @@ function SarfMalzemeTablosu() {
                   <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
 
                   <div className="p-1 d-flex align-items-center justify-content-center gap-2" style={{ width: "6%" }}>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === row.id ? null : row.id); }}
-                      className="btn btn-sm p-0 border-0 text-success opacity-50 opacity-hover fw-bold"
-                      style={{ fontSize: "16px", lineHeight: "1" }}
-                      title={teklifDili === "Yabancı" ? "Add Row" : "Satır Ekle"}
-                      type="button"
-                    >
-                      +
-                    </button>
-                    <button
-                      onClick={() => deleteRow(row.id)}
-                      className="btn btn-sm p-0 border-0 text-danger opacity-50 opacity-hover"
-                      style={{ fontSize: "16px", lineHeight: "1" }}
-                      title={teklifDili === "Yabancı" ? "Delete Row" : "Satırı Sil"}
-                      type="button"
-                    >
-                      &times;
-                    </button>
-
+                    <button onClick={(e) => { e.stopPropagation(); setActiveMenuId(activeMenuId === row.id ? null : row.id); }} className="btn btn-sm p-0 border-0 text-success opacity-50 opacity-hover fw-bold" style={{ fontSize: "16px", lineHeight: "1" }} title={isForeign ? "Add Row" : "Satır Ekle"} type="button">+</button>
+                    <button onClick={() => deleteRow(row.id)} className="btn btn-sm p-0 border-0 text-danger opacity-50 opacity-hover" style={{ fontSize: "16px", lineHeight: "1" }} title={isForeign ? "Delete Row" : "Satırı Sil"} type="button">&times;</button>
                     {activeMenuId === row.id && (
                       <div className="dropdown-menu-custom" onClick={(e) => e.stopPropagation()}>
-                        <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 0); setActiveMenuId(null); }}>
-                          {teklifDili === "Yabancı" ? "+ Main Header" : "+ Ana Başlık"}
-                        </div>
-                        <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 1); setActiveMenuId(null); }}>
-                          {teklifDili === "Yabancı" ? "+ Sub Header" : "+ Alt Başlık"}
-                        </div>
-                        <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 2); setActiveMenuId(null); }}>
-                          {teklifDili === "Yabancı" ? "+ Sub Header (Open)" : "+ Alt Başlık (Açık)"}
-                        </div>
-                        <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 3); setActiveMenuId(null); }}>
-                          {teklifDili === "Yabancı" ? "+ Normal Row" : "+ Normal Satır"}
-                        </div>
+                        <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 0); setActiveMenuId(null); }}>{isForeign ? "+ Main Header" : "+ Ana Başlık"}</div>
+                        <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 1); setActiveMenuId(null); }}>{isForeign ? "+ Sub Header" : "+ Alt Başlık"}</div>
+                        <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 2); setActiveMenuId(null); }}>{isForeign ? "+ Sub Header (Open)" : "+ Alt Başlık (Açık)"}</div>
+                        <div className="dropdown-item-custom" onClick={() => { insertAfterRow(index, 3); setActiveMenuId(null); }}>{isForeign ? "+ Normal Row" : "+ Normal Satır"}</div>
                       </div>
                     )}
                   </div>
@@ -413,13 +489,13 @@ function SarfMalzemeTablosu() {
             {/* GENEL TOPLAM SATIRI */}
             <div className="d-flex align-items-stretch p-2.5 px-3 border-top" style={{ borderColor: "#475569", backgroundColor: "#0f172a", borderTopWidth: "2px" }}>
               <div className="fw-bold text-uppercase text-white-50 text-end pe-3" style={{ width: "78%", fontSize: "12px", letterSpacing: "0.5px" }}>
-                {teklifDili === "Yabancı" ? "GRAND TOTAL EXPENSES" : "Genel Toplam Giderler"}
+                {isForeign ? "GRAND TOTAL EXPENSES" : "Genel Toplam Giderler"}
               </div>
               <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
               <div className="d-flex align-items-center justify-content-end text-success fw-bold pe-2" style={{ width: "16%", fontSize: "14px" }}>
-                <span>{grandTotal.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</span>
-                <span style={{ fontSize: "11px", minWidth: "40px" }} className="ms-1 text-white-50">
-                  {teklifDili === "Yabancı" ? "€/year" : "€/yıl"}
+                <span>{formatNumber(grandTotal, 0, 0)}</span>
+                <span style={{ fontSize: "11px", minWidth: "50px" }} className="ms-1 text-white-50">
+                  {getCurrencySymbol()}/{isForeign ? "year" : "yıl"}
                 </span>
               </div>
               <div style={{ width: "1px", backgroundColor: "transparent" }}></div>

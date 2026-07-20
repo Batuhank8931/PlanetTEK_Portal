@@ -5,6 +5,7 @@ import PriceChangeUpdateConfirmationModal from "../modals/PriceChangeUpdateConfi
 import AlertModal from "../modals/AlertModal";
 
 function DebiDagitim() {
+  const [activeTableId, setActiveTableId] = useState(null);
   const [debiDagitimData, setDebiDagitimData] = useState([]);
   const [originalData, setOriginalData] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -207,7 +208,7 @@ function DebiDagitim() {
       <div className="d-flex justify-content-between align-items-center mb-3">
         <div className="mb-2 d-flex align-items-center" style={{ color: "#94a3b8" }}>
           <i className="bi bi-shuffle me-2 text-success"></i>
-          <span className="fw-semibold small">Debi Dağıtım / Çıkış Grubu Yönetimi</span>
+          <span className="fw-semibold small fs-6">Debi Dağıtım / Çıkış Grubu Yönetimi</span>
         </div>
         <div className="d-flex gap-2">
           <button className="btn btn-outline-primary btn-sm px-3" onClick={handleAddNewRow}>
@@ -220,6 +221,9 @@ function DebiDagitim() {
       </div>
 
       <ExcelGrid
+        tableId="debidagitim"
+        activeTableId={activeTableId}
+        setActiveTableId={setActiveTableId}
         headers={headers}
         data={visibleDebiDagitimData}
         fields={fields}

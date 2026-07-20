@@ -100,6 +100,11 @@ const API = {
         return crudClient.get("api/price/filtration-costs");
     },
 
+    // 🔍 Filtration Costs Listesi Getir
+    getMembraneCosts: async () => {
+        return crudClient.get("api/price/membrane-costs");
+    },
+
     // 🔍 Sludge Dewatering Costs Listesi Getir
     getSludgeDewateringCosts: async () => {
         return crudClient.get("api/price/sludge-dewatering-costs");

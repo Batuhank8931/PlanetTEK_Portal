@@ -9,6 +9,10 @@ function EnerjiKarsilastirmaTablosu() {
   const teklifDili = formData?.customerInfo?.teklifDili;
   const isForeign = teklifDili === "Yabancı";
 
+  // 🌟 Canlı Döviz ve Kur Bilgilerini Çekiyoruz
+  const currency = formData?.customerInfo?.currency || "EUR";
+  const exchangeRate = parseFloat(formData?.customerInfo?.exchangeRate) || 1.0000;
+
   // Kıyaslanacak alternatif sistem seçimi: "aktif_camur" veya "mbbr"
   const [selectedSystem, setSelectedSystem] = useState("aktif_camur");
 
@@ -21,28 +25,78 @@ function EnerjiKarsilastirmaTablosu() {
     .filter(item => item && item.isLamella === false)
     .reduce((sum, item) => sum + (parseInt(item.adet) || 0), 0);
 
+  // 🌟 Lokasyon bazlı format seçimi
+  const activeLocale = isForeign ? "en-US" : "tr-TR";
+
+  // Sayı Formatlama Fonksiyonu (Düz Metin Hücreleri İçin)
+  const formatNumber = (value, minFraction = 0, maxFraction = 2) => {
+    if (isNaN(value)) return "0";
+    return value.toLocaleString(activeLocale, {
+      minimumFractionDigits: minFraction,
+      maximumFractionDigits: maxFraction
+    });
+  };
+
+  // Input Alanlarında Formatlı Gösterim İçin Yardımcı Fonksiyon
+  const formatInputValue = (val, maxDigits = 2) => {
+    if (val === undefined || val === null || val === "") return "";
+    const num = parseFloat(val);
+    if (isNaN(num)) return val;
+    
+    return num.toLocaleString(activeLocale, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: maxDigits
+    });
+  };
+
+  // Formatlanmış string girdiyi temiz JS float sayısına çevirme
+  const parseInputValue = (val) => {
+    if (!val) return 0;
+    let cleanVal = val.toString();
+    if (isForeign) {
+      cleanVal = cleanVal.replace(/,/g, "");
+    } else {
+      cleanVal = cleanVal.replace(/\./g, "").replace(",", ".");
+    }
+    return parseFloat(cleanVal) || 0;
+  };
+
+  // 🌟 Yardımcı Fonksiyonlar: Dinamik Para Birimi Simgeleri
+  const getCurrencySymbol = () => {
+    if (currency === "USD") return "$";
+    if (currency === "TRY") return "₺";
+    return "€";
+  };
+
+  const getCurrencyUnitLabel = () => {
+    const symbol = getCurrencySymbol();
+    return isForeign ? `${symbol} /year` : `${symbol} / yıl`;
+  };
+
+  const getTenYearsUnitLabel = () => {
+    const symbol = getCurrencySymbol();
+    return isForeign ? `${symbol} /10 year` : `${symbol} / 10 yıl`;
+  };
+
   // 1. ADIM: Temel PlanetDISK objesini oluşturuyoruz
   const basePlanetState = {
     qty: toplamRbcAdedi || 8,
     power: RBCUnite === "MX" ? 0.37 : 0.25,
     consumptionFactor: 90,
-    price: 0.13,
+    price: 0.13, 
     dailyHours: 24,
     yearlyDays: 365
   };
 
-  // 2. ADIM: Güncellenmiş pazarlama motorunu seçili sisteme göre (6 katı veya 5 katı) çalıştırıyoruz
   const sistemSimulasyonu = hesaplaKlasikSistemEkipmanlari(basePlanetState, selectedSystem);
 
-  // Fabrika ayarları şablonu
   const defaultInitialState = {
     planet: basePlanetState,
     blower: sistemSimulasyonu.blower,
     pump: sistemSimulasyonu.pump,
-    maintenanceSaving: toplamRbcAdedi * 494 // Adet başına bakım tasarrufu
+    maintenanceSaving: toplamRbcAdedi * 494 
   };
 
-  // 1. KURAL: İlk açılışta store'da veri varsa yükle, yoksa temiz iki ana kalemle başla
   const [data, setData] = useState(() => {
     if (storeTabloVerisi && storeTabloVerisi.planet) {
       return storeTabloVerisi;
@@ -50,9 +104,10 @@ function EnerjiKarsilastirmaTablosu() {
     return defaultInitialState;
   });
 
+  // İnput odak yönetimi için geçici yerel string stateleri
+  const [editingCell, setEditingCell] = useState(null); // { system: 'planet'|'blower'|'pump', field: 'qty'|'power'|..., value: 'string' }
   const [history, setHistory] = useState([]);
 
-  // Form verisindeki disk adetleri, tipleri veya kıyaslanan sistem switch'i değiştikçe state'i tazeleyelim
   useEffect(() => {
     setData(defaultInitialState);
   }, [toplamRbcAdedi, RBCUnite, selectedSystem]);
@@ -69,19 +124,27 @@ function EnerjiKarsilastirmaTablosu() {
   const blowerMetrics = getMetrics(data.blower);
   const pumpMetrics = getMetrics(data.pump);
 
+  // Ham Euro bazlı hesaplamalar
   const totalAltSystemCost = blowerMetrics.yearlyCost + pumpMetrics.yearlyCost;
   const yearlySaving = totalAltSystemCost - planetMetrics.yearlyCost;
   const tenYearsSaving = yearlySaving * 10;
   const totalGainWithMaintenance = tenYearsSaving + data.maintenanceSaving;
 
-  // 2. KURAL: State, metrikler veya switch her değiştiğinde store'u güncel tut
+  // 🌟 Render edilecek kurla çarpılmış maliyet ve tasarruflar
+  const planetYearlyCostConverted = planetMetrics.yearlyCost * exchangeRate;
+  const blowerYearlyCostConverted = blowerMetrics.yearlyCost * exchangeRate;
+  const pumpYearlyCostConverted = pumpMetrics.yearlyCost * exchangeRate;
+  const yearlySavingConverted = yearlySaving * exchangeRate;
+  const tenYearsSavingConverted = tenYearsSaving * exchangeRate;
+  const totalGainWithMaintenanceConverted = totalGainWithMaintenance * exchangeRate;
+
   useEffect(() => {
     updateSection("tables", {
       ...formData?.tables,
       enerjikarsilastirmatablosu: {
         data: data,
         selectedSystem: selectedSystem,
-        yearlySaving: yearlySaving,
+        yearlySaving: yearlySaving, 
         tenYearsSaving: tenYearsSaving,
         totalGainWithMaintenance: totalGainWithMaintenance
       }
@@ -92,7 +155,6 @@ function EnerjiKarsilastirmaTablosu() {
     setData(newData);
   };
 
-  // 4. KURAL: REFRESH BUTONU - Tüm değişiklikleri siler ve tabloyu fabrika ayarlarına çeker
   const handleRefresh = () => {
     setHistory([]);
     updateStoreWithNewData(defaultInitialState);
@@ -111,16 +173,54 @@ function EnerjiKarsilastirmaTablosu() {
 
   const handleParamChange = (system, field, value) => {
     saveToHistory(data);
+    let finalValue = parseInputValue(value);
+
+    if (field === "price") {
+      finalValue = finalValue / exchangeRate;
+    }
+
     setData({
       ...data,
       [system]: {
         ...data[system],
-        [field]: parseFloat(value) || 0
+        [field]: finalValue
       }
     });
   };
 
-  // Dinamik metin ve renklendirme yönetimi
+  // Dinamik input hücre render metodu
+  const renderManagedInput = (system, field, rawValue, isPrice = false) => {
+    const isCurrent = editingCell?.system === system && editingCell?.field === field;
+    
+    let displayValue = "";
+    if (isCurrent) {
+      displayValue = editingCell.value;
+    } else {
+      const valNum = isPrice ? parseFloat(rawValue || 0) * exchangeRate : parseFloat(rawValue || 0);
+      displayValue = formatInputValue(valNum, isPrice || field === "power" ? 2 : 0);
+    }
+
+    return (
+      <input
+        type="text"
+        className="form-control form-control-sm bg-transparent border-0 text-center text-white fw-bold p-0 comp-input"
+        value={displayValue}
+        onChange={(e) => {
+          setEditingCell({ ...editingCell, value: e.target.value });
+        }}
+        onFocus={() => {
+          const valNum = isPrice ? parseFloat(rawValue || 0) * exchangeRate : parseFloat(rawValue || 0);
+          const cleanString = isForeign ? valNum.toString() : valNum.toString().replace(".", ",");
+          setEditingCell({ system, field, value: cleanString });
+        }}
+        onBlur={(e) => {
+          handleParamChange(system, field, e.target.value);
+          setEditingCell(null);
+        }}
+      />
+    );
+  };
+
   const altSystemName = selectedSystem === "aktif_camur" 
     ? (isForeign ? "ACTIVATED SLUDGE SYSTEM" : "Klasik Aktif Çamur Sistemi") 
     : (isForeign ? "MBBR SYSTEM" : "MBBR Sistemi");
@@ -165,36 +265,42 @@ function EnerjiKarsilastirmaTablosu() {
       <div className="w-100" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
         <div className="d-flex flex-column rounded-3 overflow-hidden" style={{ border: "1px solid #334155", backgroundColor: "#151f32", minWidth: "950px" }}>
 
-          {/* ÜST PANEL: REFRESH / UNDO BUTONLARI */}
+          {/* ÜST PANEL */}
           <div className="d-flex justify-content-between align-items-center p-3" style={{ backgroundColor: "#0f172a", borderBottom: "1px solid #334155" }}>
             <div className="fw-semibold text-white" style={{ fontSize: "14px" }}>
               {isForeign ? "Energy and Operational Cost Comparison Analysis" : "Enerji ve İşletme Maliyeti Karşılaştırma Analizi"}
             </div>
 
-            <div className="d-flex align-items-center gap-2">
-              <button
-                onClick={handleRefresh}
-                className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
-                style={{ backgroundColor: "#d97706", fontSize: "11px", borderRadius: "6px" }}
-                title={isForeign ? "Reset Table to Initial Settings" : "Tabloyu İlk Ayarlarına Döndür"}
-              >
-                🔄 {isForeign ? "Refresh" : "Yenile"}
-              </button>
+            <div className="d-flex align-items-center gap-3">
+              <span className="badge fw-bold py-2 px-3" style={{ backgroundColor: "#090d16", color: "#fbbf24", border: "1px solid #475569", fontSize: "11px" }}>
+                {currency} Modu
+              </span>
 
-              <button
-                onClick={handleUndo}
-                disabled={history.length === 0}
-                className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
-                style={{
-                  backgroundColor: history.length === 0 ? "#334155" : "#1e3a8a",
-                  fontSize: "11px",
-                  borderRadius: "6px",
-                  opacity: history.length === 0 ? 0.4 : 1,
-                  cursor: history.length === 0 ? "not-allowed" : "pointer"
-                }}
-              >
-                ↶
-              </button>
+              <div className="d-flex align-items-center gap-2">
+                <button
+                  onClick={handleRefresh}
+                  className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
+                  style={{ backgroundColor: "#d97706", fontSize: "11px", borderRadius: "6px" }}
+                  title={isForeign ? "Reset Table to Initial Settings" : "Tabloyu İlk Ayarlarına Döndür"}
+                >
+                  🔄 {isForeign ? "Refresh" : "Yenile"}
+                </button>
+
+                <button
+                  onClick={handleUndo}
+                  disabled={history.length === 0}
+                  className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
+                  style={{
+                    backgroundColor: history.length === 0 ? "#334155" : "#1e3a8a",
+                    fontSize: "11px",
+                    borderRadius: "6px",
+                    opacity: history.length === 0 ? 0.4 : 1,
+                    cursor: history.length === 0 ? "not-allowed" : "pointer"
+                  }}
+                >
+                  ↶
+                </button>
+              </div>
             </div>
           </div>
 
@@ -238,17 +344,17 @@ function EnerjiKarsilastirmaTablosu() {
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2 d-flex justify-content-center align-items-center gap-1 bg-planet-column" style={{ width: "23%" }}>
-              <input type="number" className="form-control form-control-sm bg-transparent border-0 text-center text-white fw-bold p-0 comp-input" value={data.planet.qty} onChange={(e) => handleParamChange("planet", "qty", e.target.value)} />
+              {renderManagedInput("planet", "qty", data.planet.qty)}
               <span className="text-white-50" style={{ fontSize: "11px" }}>{isForeign ? (data.planet.qty > 1 ? "pieces" : "piece") : "Adet"}</span>
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2 d-flex justify-content-center align-items-center gap-1 bg-activated-column" style={{ width: "23%" }}>
-              <input type="number" className="form-control form-control-sm bg-transparent border-0 text-center text-white fw-bold p-0 comp-input" value={data.blower.qty} onChange={(e) => handleParamChange("blower", "qty", e.target.value)} />
+              {renderManagedInput("blower", "qty", data.blower.qty)}
               <span className="text-white-50" style={{ fontSize: "11px" }}>{isForeign ? (data.blower.qty > 1 ? "pieces" : "piece") : "Adet"}</span>
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2 d-flex justify-content-center align-items-center gap-1 bg-activated-column" style={{ width: "23%" }}>
-              <input type="number" className="form-control form-control-sm bg-transparent border-0 text-center text-white fw-bold p-0 comp-input" value={data.pump.qty} onChange={(e) => handleParamChange("pump", "qty", e.target.value)} />
+              {renderManagedInput("pump", "qty", data.pump.qty)}
               <span className="text-white-50" style={{ fontSize: "11px" }}>{isForeign ? (data.pump.qty > 1 ? "pieces" : "piece") : "Adet"}</span>
             </div>
           </div>
@@ -260,18 +366,18 @@ function EnerjiKarsilastirmaTablosu() {
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2 d-flex justify-content-center align-items-center gap-1 bg-planet-column" style={{ width: "23%" }}>
-              <input type="number" step="0.01" className="form-control form-control-sm bg-transparent border-0 text-center text-white fw-bold p-0 comp-input" value={data.planet.power} onChange={(e) => handleParamChange("planet", "power", e.target.value)} />
+              {renderManagedInput("planet", "power", data.planet.power)}
               <span className="text-white-50" style={{ fontSize: "11px" }}>kW</span>
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2 d-flex justify-content-center align-items-center gap-1 bg-activated-column" style={{ width: "23%" }}>
-              <input type="number" step="0.1" className="form-control form-control-sm bg-transparent border-0 text-center text-white fw-bold p-0 comp-input" value={data.blower.power} onChange={(e) => handleParamChange("blower", "power", e.target.value)} />
-              <span className="text-white-50" style={{ fontSize: "11px" }}>{isForeign ? "kW/hour" : "kW"}</span>
+              {renderManagedInput("blower", "power", data.blower.power)}
+              <span className="text-white-50" style={{ fontSize: "11px" }}>kW</span>
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2 d-flex justify-content-center align-items-center gap-1 bg-activated-column" style={{ width: "23%" }}>
-              <input type="number" step="0.1" className="form-control form-control-sm bg-transparent border-0 text-center text-white fw-bold p-0 comp-input" value={data.pump.power} onChange={(e) => handleParamChange("pump", "power", e.target.value)} />
-              <span className="text-white-50" style={{ fontSize: "11px" }}>{isForeign ? "kW/hour" : "kW"}</span>
+              {renderManagedInput("pump", "power", data.pump.power)}
+              <span className="text-white-50" style={{ fontSize: "11px" }}>kW</span>
             </div>
           </div>
 
@@ -281,11 +387,11 @@ function EnerjiKarsilastirmaTablosu() {
               {isForeign ? "Total Power" : "Toplam Kurulu Güç"}
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-            <div className="p-2 text-center bg-planet-column fw-bold d-flex align-items-center justify-content-center" style={{ width: "23%" }}>{planetMetrics.totalPower.toFixed(2)} {isForeign ? "kW/hour" : "kW"}</div>
+            <div className="p-2 text-center bg-planet-column fw-bold d-flex align-items-center justify-content-center" style={{ width: "23%" }}>{formatNumber(planetMetrics.totalPower, 2, 2)} kW</div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-            <div className="p-2 text-center bg-activated-column fw-bold d-flex align-items-center justify-content-center" style={{ width: "23%" }}>{blowerMetrics.totalPower.toFixed(2)} {isForeign ? "kW/hour" : "kW"}</div>
+            <div className="p-2 text-center bg-activated-column fw-bold d-flex align-items-center justify-content-center" style={{ width: "23%" }}>{formatNumber(blowerMetrics.totalPower, 2, 2)} kW</div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-            <div className="p-2 text-center bg-activated-column fw-bold d-flex align-items-center justify-content-center" style={{ width: "23%" }}>{pumpMetrics.totalPower.toFixed(2)} {isForeign ? "kW/hour" : "kW"}</div>
+            <div className="p-2 text-center bg-activated-column fw-bold d-flex align-items-center justify-content-center" style={{ width: "23%" }}>{formatNumber(pumpMetrics.totalPower, 2, 2)} kW</div>
           </div>
 
           {/* TÜKETİM ORANI ROW */}
@@ -295,17 +401,17 @@ function EnerjiKarsilastirmaTablosu() {
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2 d-flex justify-content-center align-items-center gap-1 bg-planet-column" style={{ width: "23%" }}>
-              <input type="number" className="form-control form-control-sm bg-transparent border-0 text-center text-white fw-bold p-0 comp-input" value={data.planet.consumptionFactor} onChange={(e) => handleParamChange("planet", "consumptionFactor", e.target.value)} />
+              {renderManagedInput("planet", "consumptionFactor", data.planet.consumptionFactor)}
               <span className="text-white-50" style={{ fontSize: "11px" }}>%</span>
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2 d-flex justify-content-center align-items-center gap-1 bg-activated-column" style={{ width: "23%" }}>
-              <input type="number" className="form-control form-control-sm bg-transparent border-0 text-center text-white fw-bold p-0 comp-input" value={data.blower.consumptionFactor} onChange={(e) => handleParamChange("blower", "consumptionFactor", e.target.value)} />
+              {renderManagedInput("blower", "consumptionFactor", data.blower.consumptionFactor)}
               <span className="text-white-50" style={{ fontSize: "11px" }}>%</span>
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2 d-flex justify-content-center align-items-center gap-1 bg-activated-column" style={{ width: "23%" }}>
-              <input type="number" className="form-control form-control-sm bg-transparent border-0 text-center text-white fw-bold p-0 comp-input" value={data.pump.consumptionFactor} onChange={(e) => handleParamChange("pump", "consumptionFactor", e.target.value)} />
+              {renderManagedInput("pump", "consumptionFactor", data.pump.consumptionFactor)}
               <span className="text-white-50" style={{ fontSize: "11px" }}>%</span>
             </div>
           </div>
@@ -316,32 +422,32 @@ function EnerjiKarsilastirmaTablosu() {
               {isForeign ? "Total Actual Power to be used" : "Kullanılacak Gerçek Net Güç"}
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-            <div className="p-2 text-center bg-planet-column fw-bold text-warning d-flex align-items-center justify-content-center" style={{ width: "23%" }}>{planetMetrics.actualPower.toFixed(2)} kW</div>
+            <div className="p-2 text-center bg-planet-column fw-bold text-warning d-flex align-items-center justify-content-center" style={{ width: "23%" }}>{formatNumber(planetMetrics.actualPower, 2, 2)} kW</div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-            <div className="p-2 text-center bg-activated-column fw-bold text-success d-flex align-items-center justify-content-center" style={{ width: "23%" }}>{blowerMetrics.actualPower.toFixed(2)} kW</div>
+            <div className="p-2 text-center bg-activated-column fw-bold text-success d-flex align-items-center justify-content-center" style={{ width: "23%" }}>{formatNumber(blowerMetrics.actualPower, 2, 2)} kW</div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-            <div className="p-2 text-center bg-activated-column fw-bold text-success d-flex align-items-center justify-content-center" style={{ width: "23%" }}>{pumpMetrics.actualPower.toFixed(2)} kW</div>
+            <div className="p-2 text-center bg-activated-column fw-bold text-success d-flex align-items-center justify-content-center" style={{ width: "23%" }}>{formatNumber(pumpMetrics.actualPower, 2, 2)} kW</div>
           </div>
 
           {/* FİYAT ROW */}
           <div className="d-flex align-items-stretch comp-row">
             <div className="p-2 ps-3 fw-medium text-white-50 d-flex align-items-center" style={{ width: "31%", fontSize: "12px" }}>
-              {isForeign ? "Electricity Price (€/kW)" : "Elektrik Birim Fiyatı (€/kWh)"}
+              {isForeign ? `Electricity Price (${getCurrencySymbol()}/kWh)` : `Elektrik Birim Fiyatı (${getCurrencySymbol()}/kWh)`}
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2 d-flex justify-content-center align-items-center gap-1 bg-planet-column" style={{ width: "23%" }}>
-              <input type="number" step="0.01" className="form-control form-control-sm bg-transparent border-0 text-center text-white fw-bold p-0 comp-input" value={data.planet.price} onChange={(e) => handleParamChange("planet", "price", e.target.value)} />
-              <span className="text-white-50" style={{ fontSize: "11px" }}>€/kW</span>
+              {renderManagedInput("planet", "price", data.planet.price, true)}
+              <span className="text-white-50" style={{ fontSize: "11px" }}>{getCurrencySymbol()}/kWh</span>
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2 d-flex justify-content-center align-items-center gap-1 bg-activated-column" style={{ width: "23%" }}>
-              <input type="number" step="0.01" className="form-control form-control-sm bg-transparent border-0 text-center text-white fw-bold p-0 comp-input" value={data.blower.price} onChange={(e) => handleParamChange("blower", "price", e.target.value)} />
-              <span className="text-white-50" style={{ fontSize: "11px" }}>€/kW</span>
+              {renderManagedInput("blower", "price", data.blower.price, true)}
+              <span className="text-white-50" style={{ fontSize: "11px" }}>{getCurrencySymbol()}/kWh</span>
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2 d-flex justify-content-center align-items-center gap-1 bg-activated-column" style={{ width: "23%" }}>
-              <input type="number" step="0.01" className="form-control form-control-sm bg-transparent border-0 text-center text-white fw-bold p-0 comp-input" value={data.pump.price} onChange={(e) => handleParamChange("pump", "price", e.target.value)} />
-              <span className="text-white-50" style={{ fontSize: "11px" }}>€/kW</span>
+              {renderManagedInput("pump", "price", data.pump.price, true)}
+              <span className="text-white-50" style={{ fontSize: "11px" }}>{getCurrencySymbol()}/kWh</span>
             </div>
           </div>
 
@@ -352,18 +458,18 @@ function EnerjiKarsilastirmaTablosu() {
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2 d-flex justify-content-center align-items-center gap-1 bg-planet-column" style={{ width: "23%" }}>
-              <input type="number" className="form-control form-control-sm bg-transparent border-0 text-center text-white fw-bold p-0 comp-input" value={data.planet.dailyHours} onChange={(e) => handleParamChange("planet", "dailyHours", e.target.value)} />
-              <span className="text-white-50" style={{ fontSize: "11px" }}>{isForeign ? "hour/day" : "saat"}</span>
+              {renderManagedInput("planet", "dailyHours", data.planet.dailyHours)}
+              <span className="text-white-50" style={{ fontSize: "11px" }}>{isForeign ? "hour" : "saat"}</span>
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2 d-flex justify-content-center align-items-center gap-1 bg-activated-column" style={{ width: "23%" }}>
-              <input type="number" className="form-control form-control-sm bg-transparent border-0 text-center text-white fw-bold p-0 comp-input" value={data.blower.dailyHours} onChange={(e) => handleParamChange("blower", "dailyHours", e.target.value)} />
-              <span className="text-white-50" style={{ fontSize: "11px" }}>{isForeign ? "hour/day" : "saat"}</span>
+              {renderManagedInput("blower", "dailyHours", data.blower.dailyHours)}
+              <span className="text-white-50" style={{ fontSize: "11px" }}>{isForeign ? "hour" : "saat"}</span>
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2 d-flex justify-content-center align-items-center gap-1 bg-activated-column" style={{ width: "23%" }}>
-              <input type="number" className="form-control form-control-sm text-center bg-transparent border-0 text-white fw-bold p-0 comp-input" value={data.pump.dailyHours} onChange={(e) => handleParamChange("pump", "dailyHours", e.target.value)} />
-              <span className="text-white-50" style={{ fontSize: "11px" }}>{isForeign ? "hour/day" : "saat"}</span>
+              {renderManagedInput("pump", "dailyHours", data.pump.dailyHours)}
+              <span className="text-white-50" style={{ fontSize: "11px" }}>{isForeign ? "hour" : "saat"}</span>
             </div>
           </div>
 
@@ -374,15 +480,15 @@ function EnerjiKarsilastirmaTablosu() {
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2.5 text-center bg-planet-column fw-bold text-warning d-flex align-items-center justify-content-center" style={{ width: "23%", fontSize: "13px" }}>
-              {Math.round(planetMetrics.yearlyCost).toLocaleString()} € <span style={{ fontSize: "10px" }} className="text-white-50 ms-1">{isForeign ? "€ /year" : "/ yıl"}</span>
+              {formatNumber(Math.round(planetYearlyCostConverted), 0, 0)} {getCurrencySymbol()} <span style={{ fontSize: "10px" }} className="text-white-50 ms-1">{isForeign ? "/year" : "/ yıl"}</span>
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2.5 text-center bg-activated-column fw-bold text-danger d-flex align-items-center justify-content-center" style={{ width: "23%", fontSize: "13px" }}>
-              {Math.round(blowerMetrics.yearlyCost).toLocaleString()} € <span style={{ fontSize: "10px" }} className="text-white-50 ms-1">{isForeign ? "€ /year" : "/ yıl"}</span>
+              {formatNumber(Math.round(blowerYearlyCostConverted), 0, 0)} {getCurrencySymbol()} <span style={{ fontSize: "10px" }} className="text-white-50 ms-1">{isForeign ? "/year" : "/ yıl"}</span>
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2.5 text-center bg-activated-column fw-bold text-danger d-flex align-items-center justify-content-center" style={{ width: "23%", fontSize: "13px" }}>
-              {Math.round(pumpMetrics.yearlyCost).toLocaleString()} € <span style={{ fontSize: "10px" }} className="text-white-50 ms-1">{isForeign ? "€ /year" : "/ yıl"}</span>
+              {formatNumber(Math.round(pumpYearlyCostConverted), 0, 0)} {getCurrencySymbol()} <span style={{ fontSize: "10px" }} className="text-white-50 ms-1">{isForeign ? "/year" : "/ yıl"}</span>
             </div>
           </div>
 
@@ -394,28 +500,28 @@ function EnerjiKarsilastirmaTablosu() {
 
         <div className="d-flex justify-content-between align-items-center border-bottom pb-2" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
           <span className="text-white-50" style={{ fontSize: "12.5px" }}>
-            {isForeign ? <>Comparing PlanetDISK® Unit with other systems yearly, electric power saving is</> : <>"Klasik Aktif Çamur Sistemi"'ne Kıyasla **Yıllık Enerji Tasarrufu**:</>}
+            {isForeign ? <>Comparing PlanetDISK® Unit with other systems yearly, electric power saving is</> : <>"{altSystemName}"'ne Kıyasla <b>Yıllık Enerji Tasarrufu</b>:</>}
           </span>
           <span className="fw-bold text-danger font-monospace" style={{ fontSize: "14px" }}>
-            {Math.round(yearlySaving).toLocaleString()} {isForeign ? "€/year" : "€ / yıl"}
+            {formatNumber(Math.round(yearlySavingConverted), 0, 0)} {getCurrencyUnitLabel()}
           </span>
         </div>
 
         <div className="d-flex justify-content-between align-items-center border-bottom pb-2" style={{ borderColor: "rgba(255,255,255,0.05)" }}>
           <span className="text-white-50" style={{ fontSize: "12.5px" }}>
-            {isForeign ? <>For <b>10 years</b> electric power saving price is equal to</> : <>Sistem Ömrü Boyunca **10 Yıllık Elektrik Kazancı**:</>}
+            {isForeign ? <>For <b>10 years</b> electric power saving price is equal to</> : <>Sistem Ömrü Boyunca <b>10 Yıllık Elektrik Kazancı</b>:</>}
           </span>
           <span className="fw-bold text-danger font-monospace" style={{ fontSize: "14px" }}>
-            {Math.round(tenYearsSaving).toLocaleString()} {isForeign ? "€/10 year" : "€ / 10 yıl"}
+            {formatNumber(Math.round(tenYearsSavingConverted), 0, 0)} {getTenYearsUnitLabel()}
           </span>
         </div>
 
         <div className="d-flex justify-content-center flex-column align-items-center p-3 rounded-2 mt-1" style={{ backgroundColor: "#1e293b", border: "1px solid rgba(255,255,255,0.05)" }}>
           <span className="text-white-50 mb-1 fw-medium text-center" style={{ fontSize: "12px", letterSpacing: "0.5px" }}>
-            {isForeign ? "and together with blower and diffusers maintenance cost, it will be approx" : "Blower, Difüzör Yenileme ve Bakım Maliyetleri Dahil **Yaklaşık Toplam Tasarruf**"}
+            {isForeign ? "and together with blower and diffusers maintenance cost, it will be approx" : "Blower, Difüzör Yenileme ve Bakım Maliyetleri Dahil <b>Yaklaşık Toplam Tasarruf (10 Yıl)</b>"}
           </span>
           <span className="fw-extrabold text-danger font-monospace text-center" style={{ fontSize: "32px", letterSpacing: "1px" }}>
-            {Math.round(totalGainWithMaintenance / 10000) * 10000} €
+            {formatNumber(Math.round(totalGainWithMaintenanceConverted / 1000) * 1000, 0, 0)} {getCurrencySymbol()}
           </span>
         </div>
 

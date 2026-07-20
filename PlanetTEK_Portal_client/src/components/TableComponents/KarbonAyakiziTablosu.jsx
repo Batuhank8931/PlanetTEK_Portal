@@ -7,18 +7,57 @@ function KarbonAyakiziTablosu() {
 
   const teklifDili = formData?.customerInfo?.teklifDili;
   const isForeign = teklifDili === "Yabancı";
+  const unitSystem = formData?.customerInfo?.unitSystem || "Metric";
+  const isUS = unitSystem === "US"; // 🇺🇸 US sistemi kontrolü
+
+  // 🌟 Lokasyon bazlı format seçimi (US modunda zorunlu en-US formatı)
+  const activeLocale = isUS || isForeign ? "en-US" : "tr-TR";
+
+  // 🌟 Canlı Döviz Bilgisini Çekiyoruz
+  const currency = formData?.customerInfo?.currency || "EUR";
 
   // Enerji karşılaştırma tablosunun store'a yazdığı güncel durumları çekiyoruz
   const enerjiKarsilastirma = formData?.tables?.enerjikarsilastirmatablosu;
   const selectedSystem = enerjiKarsilastirma?.selectedSystem || "aktif_camur";
   const enerjiKarsilastirmaData = enerjiKarsilastirma?.data;
 
+  // Sayı Formatlama Fonksiyonu
+  const formatNumber = (value, minFraction = 0, maxFraction = 2) => {
+    if (isNaN(value)) return "0";
+    return value.toLocaleString(activeLocale, {
+      minimumFractionDigits: minFraction,
+      maximumFractionDigits: maxFraction
+    });
+  };
+
+  // Input Alanlarında Formatlı Gösterim
+  const formatInputValue = (val, maxDigits = 2) => {
+    if (val === undefined || val === null || val === "") return "";
+    const num = parseFloat(val);
+    if (isNaN(num)) return val;
+
+    return num.toLocaleString(activeLocale, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: maxDigits
+    });
+  };
+
+  // Formatlanmış string girdiyi temiz JS float sayısına çevirme
+  const parseInputValue = (val) => {
+    if (!val) return 0;
+    let cleanVal = val.toString();
+    if (isUS || isForeign) {
+      cleanVal = cleanVal.replace(/,/g, "");
+    } else {
+      cleanVal = cleanVal.replace(/\./g, "").replace(",", ".");
+    }
+    return parseFloat(cleanVal) || 0;
+  };
+
   // Mağazadan veya dinamik parametrelerden gelen günlük kWh hesapları
-  // 1. PlanetDISK Günlük kWh (Güç * Adet * Faktör% * Saat)
   const planetTotalPower = (enerjiKarsilastirmaData?.planet?.qty * enerjiKarsilastirmaData?.planet?.power) || 0;
   const planetDailyKwh = planetTotalPower * ((enerjiKarsilastirmaData?.planet?.consumptionFactor || 90) / 100) * (enerjiKarsilastirmaData?.planet?.dailyHours || 24);
 
-  // 2. Alternatif Sistem Günlük kWh (Blower + Pompa Tüketimleri Toplamı)
   const blowerTotalPower = (enerjiKarsilastirmaData?.blower?.qty * enerjiKarsilastirmaData?.blower?.power) || 0;
   const blowerDailyKwh = blowerTotalPower * ((enerjiKarsilastirmaData?.blower?.consumptionFactor || 90) / 100) * (enerjiKarsilastirmaData?.blower?.dailyHours || 24);
 
@@ -29,49 +68,62 @@ function KarbonAyakiziTablosu() {
 
   const storeTabloVerisi = formData?.tables?.karbonayakizitablosu?.data || formData?.tables?.karbonayakizitablosu;
 
-  // 1. KURAL: İlk açılışta store'da veri varsa yükle, yoksa temiz şablonla başla
   const [data, setData] = useState(() => {
     if (storeTabloVerisi && storeTabloVerisi.co2Factor) {
       return storeTabloVerisi;
     }
     return {
-      co2Factor: 0.43, // Standart şebeke emisyon faktörü kg CO2 / kWh
+      co2Factor: 0.43,
     };
   });
 
+  // İnput odak yönetimi için geçici yerel string stateleri
+  const [editingCell, setEditingCell] = useState(null);
   const [history, setHistory] = useState([]);
 
-  // Enerji karşılaştırma tablosundaki cihaz güçleri veya adetleri değiştikçe burası store ile otomatik senkron kalır
   const currentPlanetDailyKwh = planetDailyKwh || 64.6;
   const currentAltDailyKwh = altSystemDailyKwh || 345.5;
 
   const planetYearlyKwh = currentPlanetDailyKwh * 365;
-  const planetCo2 = (planetYearlyKwh * data.co2Factor) / 1000;
-
   const altYearlyKwh = currentAltDailyKwh * 365;
-  const altCo2 = (altYearlyKwh * data.co2Factor) / 1000;
 
-  const savedCo2 = altCo2 - planetCo2;
-  const rawEquivalentTrees = (savedCo2 * 1000) / 22;
+  // 🌍 Tonaj Dönüşüm Katsayısı (1 Metrik Ton = 1.10231 US Short Ton)
+  const tonToUsTon = 1.10231;
 
-  // Pazarlama odaklı jilet gibi yuvarlama: 1000'in altındaysa en yakın 100'e, üstündeyse en yakın 1000'e yuvarla
+  // Temel Karbon Hesapları (Metrik Ton cinsinden)
+  let planetCo2 = (planetYearlyKwh * data.co2Factor) / 1000;
+  let altCo2 = (altYearlyKwh * data.co2Factor) / 1000;
+  let savedCo2 = altCo2 - planetCo2;
+
+  // 🇺🇸 Eğer sistem US ise hesapları Amerikan Tonu'na (Short Ton) çeviriyoruz
+  if (isUS) {
+    planetCo2 = planetCo2 * tonToUsTon;
+    altCo2 = altCo2 * tonToUsTon;
+    savedCo2 = savedCo2 * tonToUsTon;
+  }
+
+  // Ağaç eşdeğeri hesabı: Bir ağaç yılda ~22 kg (yada US sisteminde ~48.5 lbs) CO2 emer.
+  // Çevrilmiş savedCo2 değerini kg veya lbs bazına geri döndürüp ağaç sayısını buluyoruz.
+  const rawEquivalentTrees = isUS
+    ? (savedCo2 * 2000) / 48.5  // Ton -> lbs ve 48.5 lbs/ağaç emilimi
+    : (savedCo2 * 1000) / 22;   // Metrik ton -> kg ve 22 kg/ağaç emilimi
+
   const equivalentTrees = rawEquivalentTrees > 1000
     ? Math.round(rawEquivalentTrees / 1000) * 1000
     : Math.round(rawEquivalentTrees / 100) * 100;
 
-  // 2. KURAL: Veriler değiştikçe merkezi store'a kaydet
   useEffect(() => {
     updateSection("tables", {
       ...formData?.tables,
       karbonayakizitablosu: {
         data: data,
         savedCo2: savedCo2,
-        equivalentTrees: Number(equivalentTrees)
+        equivalentTrees: Number(equivalentTrees),
+        unitSystemUsed: unitSystem // İleride rapor üretirken hangi sistemle basıldığını bilmek için
       }
     });
-  }, [data, savedCo2, equivalentTrees]);
+  }, [data, savedCo2, equivalentTrees, unitSystem]);
 
-  // 4. KURAL: REFRESH BUTONU - Değişiklikleri temizler ve fabrika emisyon değerine sıfırlar
   const handleRefresh = () => {
     setHistory([]);
     setData({ co2Factor: 0.43 });
@@ -89,15 +141,29 @@ function KarbonAyakiziTablosu() {
 
   const handleParamChange = (field, value) => {
     saveToHistory(data);
-    setData({ ...data, [field]: parseFloat(value) || 0 });
+    const parsedVal = parseInputValue(value);
+    setData({ ...data, [field]: parsedVal });
   };
 
-  const altSystemName = selectedSystem === "aktif_camur" 
-    ? (isForeign ? "Activated Sludge System" : "Klasik Aktif Çamur Sistemi") 
+  const altSystemName = selectedSystem === "aktif_camur"
+    ? (isForeign ? "Activated Sludge System" : "Klasik Aktif Çamur Sistemi")
     : (isForeign ? "MBBR System" : "MBBR Sistemi");
 
   const headerThemeClass = selectedSystem === "aktif_camur" ? "text-success" : "text-info";
   const headerBgStyle = selectedSystem === "aktif_camur" ? "rgba(22, 163, 74, 0.1)" : "rgba(6, 182, 212, 0.1)";
+
+  // CO2 Emisyon Faktörü Input Değeri Yönetimi
+  const isEditingFactor = editingCell?.field === "co2Factor";
+  const factorDisplayValue = isEditingFactor ? editingCell.value : formatInputValue(data.co2Factor, 2);
+
+  // Dinamik Birim Etiketleri
+  const tonLabel = isUS 
+    ? "Ton" 
+    : (isForeign ? "ton" : "ton CO₂");
+
+  const tonYearLabel = isUS
+    ? "Ton/year"
+    : (isForeign ? "ton/year" : "ton CO₂/yıl");
 
   return (
     <div className="d-flex flex-column gap-3 w-100 text-white">
@@ -115,36 +181,42 @@ function KarbonAyakiziTablosu() {
       <div className="w-100" style={{ overflowX: "auto", WebkitOverflowScrolling: "touch" }}>
         <div className="d-flex flex-column rounded-3 overflow-hidden" style={{ border: "1px solid #334155", backgroundColor: "#151f32", minWidth: "850px" }}>
 
-          {/* ÜST PANEL: BAŞLIK VE REFRESH / UNDO PANELİ */}
+          {/* ÜST PANEL */}
           <div className="d-flex justify-content-between align-items-center p-3" style={{ backgroundColor: "#0f172a", borderBottom: "1px solid #334155" }}>
             <div className="fw-semibold text-white" style={{ fontSize: "14px", textTransform: isForeign ? "uppercase" : "none", letterSpacing: isForeign ? "0.5px" : "normal" }}>
               {isForeign ? "CARBON FOOTPRINT and Environmental Impact Analysis" : "Karbon Ayak İzi ve Çevresel Etki Analizi"}
             </div>
 
-            <div className="d-flex align-items-center gap-2">
-              <button
-                onClick={handleRefresh}
-                className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
-                style={{ backgroundColor: "#d97706", fontSize: "11px", borderRadius: "6px" }}
-                title={isForeign ? "Reset Table to Initial Settings" : "Tabloyu İlk Ayarlarına Döndür"}
-              >
-                🔄 {isForeign ? "Refresh" : "Yenile"}
-              </button>
+            <div className="d-flex align-items-center gap-3">
+              <span className="badge fw-bold py-2 px-3" style={{ backgroundColor: "#090d16", color: "#fbbf24", border: "1px solid #475569", fontSize: "11px" }}>
+                {currency} Modu ({unitSystem})
+              </span>
 
-              <button
-                onClick={handleUndo}
-                disabled={history.length === 0}
-                className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
-                style={{
-                  backgroundColor: history.length === 0 ? "#334155" : "#1e3a8a",
-                  fontSize: "11px",
-                  borderRadius: "6px",
-                  opacity: history.length === 0 ? 0.4 : 1,
-                  cursor: history.length === 0 ? "not-allowed" : "pointer"
-                }}
-              >
-                ↶
-              </button>
+              <div className="d-flex align-items-center gap-2">
+                <button
+                  onClick={handleRefresh}
+                  className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
+                  style={{ backgroundColor: "#d97706", fontSize: "11px", borderRadius: "6px" }}
+                  title={isForeign ? "Reset Table to Initial Settings" : "Tabloyu İlk Ayarlarına Döndür"}
+                >
+                  🔄 {isForeign ? "Refresh" : "Yenile"}
+                </button>
+
+                <button
+                  onClick={handleUndo}
+                  disabled={history.length === 0}
+                  className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
+                  style={{
+                    backgroundColor: history.length === 0 ? "#334155" : "#1e3a8a",
+                    fontSize: "11px",
+                    borderRadius: "6px",
+                    opacity: history.length === 0 ? 0.4 : 1,
+                    cursor: history.length === 0 ? "not-allowed" : "pointer"
+                  }}
+                >
+                  ↶
+                </button>
+              </div>
             </div>
           </div>
 
@@ -170,11 +242,11 @@ function KarbonAyakiziTablosu() {
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2 text-center bg-planet-column fw-bold d-flex align-items-center justify-content-center text-white font-monospace" style={{ width: "33%", fontSize: "12.5px" }}>
-              {currentPlanetDailyKwh.toFixed(1)} <span className="text-white-50 font-sans-serif fw-normal ms-1" style={{ fontSize: "11px" }}>{isForeign ? "kw/day" : "kWh/gün"}</span>
+              {formatNumber(currentPlanetDailyKwh, 1, 1)} <span className="text-white-50 font-sans-serif fw-normal ms-1" style={{ fontSize: "11px" }}>{isForeign ? "kw/day" : "kWh/gün"}</span>
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2 text-center bg-alt-column fw-bold d-flex align-items-center justify-content-center text-white font-monospace" style={{ width: "33%", fontSize: "12.5px" }}>
-              {currentAltDailyKwh.toFixed(1)} <span className="text-white-50 font-sans-serif fw-normal ms-1" style={{ fontSize: "11px" }}>{isForeign ? "kw/day" : "kWh/gün"}</span>
+              {formatNumber(currentAltDailyKwh, 1, 1)} <span className="text-white-50 font-sans-serif fw-normal ms-1" style={{ fontSize: "11px" }}>{isForeign ? "kw/day" : "kWh/gün"}</span>
             </div>
           </div>
 
@@ -184,9 +256,9 @@ function KarbonAyakiziTablosu() {
               {isForeign ? "Annual Energy Consumption" : "Yıllık Toplam Enerji Tüketimi"}
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-            <div className="p-2.5 text-center bg-planet-column fw-bold" style={{ width: "33%" }}>{Math.round(planetYearlyKwh).toLocaleString()} {isForeign ? "kW/year" : "kWh/yıl"}</div>
+            <div className="p-2.5 text-center bg-planet-column fw-bold" style={{ width: "33%" }}>{formatNumber(Math.round(planetYearlyKwh), 0, 0)} {isForeign ? "kW/year" : "kWh/yıl"}</div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-            <div className="p-2.5 text-center bg-alt-column fw-bold" style={{ width: "33%" }}>{Math.round(altYearlyKwh).toLocaleString()} {isForeign ? "kW/year" : "kWh/yıl"}</div>
+            <div className="p-2.5 text-center bg-alt-column fw-bold" style={{ width: "33%" }}>{formatNumber(Math.round(altYearlyKwh), 0, 0)} {isForeign ? "kW/year" : "kWh/yıl"}</div>
           </div>
 
           {/* EMİSYON FAKTÖRÜ ROW */}
@@ -196,8 +268,22 @@ function KarbonAyakiziTablosu() {
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2 d-flex justify-content-center align-items-center gap-1" style={{ width: "66%" }}>
-              <input type="number" step="0.01" className="form-control form-control-sm bg-transparent border-0 text-center text-warning fw-bold p-0 comp-input" style={{ width: "60px" }} value={data.co2Factor} onChange={(e) => handleParamChange("co2Factor", e.target.value)} />
-              <span className="text-white-50" style={{ fontSize: "11px" }}>{isForeign ? "kg/eMWh" : "kg CO₂ / kWh"}</span>
+              <input
+                type="text"
+                className="form-control form-control-sm bg-transparent border-0 text-center text-warning fw-bold p-0 comp-input"
+                style={{ width: "60px" }}
+                value={factorDisplayValue}
+                onChange={(e) => setEditingCell({ field: "co2Factor", value: e.target.value })}
+                onFocus={() => {
+                  const cleanString = isUS || isForeign ? data.co2Factor.toString() : data.co2Factor.toString().replace(".", ",");
+                  setEditingCell({ field: "co2Factor", value: cleanString });
+                }}
+                onBlur={(e) => {
+                  handleParamChange("co2Factor", e.target.value);
+                  setEditingCell(null);
+                }}
+              />
+              <span className="text-white-50" style={{ fontSize: "11px" }}>{isUS || isForeign ? "kg/eMWh" : "kg CO₂ / kWh"}</span>
             </div>
           </div>
 
@@ -208,11 +294,11 @@ function KarbonAyakiziTablosu() {
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-3 text-center bg-planet-column fw-bold text-success font-monospace" style={{ width: "33%", fontSize: "15px" }}>
-              {planetCo2.toFixed(1)} <span style={{ fontSize: "11px" }} className="text-white-50 font-sans-serif fw-normal">{isForeign ? "ton/year" : "ton CO₂/yıl"}</span>
+              {formatNumber(planetCo2, 1, 1)} <span style={{ fontSize: "11px" }} className="text-white-50 font-sans-serif fw-normal">{tonYearLabel}</span>
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-3 text-center bg-alt-column fw-bold text-danger font-monospace" style={{ width: "33%", fontSize: "15px" }}>
-              {altCo2.toFixed(1)} <span style={{ fontSize: "11px" }} className="text-white-50 font-sans-serif fw-normal">{isForeign ? "ton/year" : "ton CO₂/yıl"}</span>
+              {formatNumber(altCo2, 1, 1)} <span style={{ fontSize: "11px" }} className="text-white-50 font-sans-serif fw-normal">{tonYearLabel}</span>
             </div>
           </div>
 
@@ -232,7 +318,7 @@ function KarbonAyakiziTablosu() {
             </span>
           </div>
           <span className="fw-extrabold text-success font-monospace" style={{ fontSize: "22px" }}>
-            {savedCo2 > 0 ? `+${savedCo2.toFixed(1)}` : savedCo2.toFixed(1)} ton CO₂
+            {savedCo2 > 0 ? `+${formatNumber(savedCo2, 1, 1)}` : formatNumber(savedCo2, 1, 1)} {tonLabel}
           </span>
         </div>
 
@@ -248,7 +334,7 @@ function KarbonAyakiziTablosu() {
           <div className="d-flex align-items-center gap-2">
             <span style={{ fontSize: "24px" }}>🌳</span>
             <span className="fw-extrabold text-info font-monospace" style={{ fontSize: "22px" }}>
-              {isForeign ? `~ ${equivalentTrees.toLocaleString()} trees to nature / year` : `~ ${equivalentTrees.toLocaleString()} Ağaç / yıl`}
+              {isUS || isForeign ? `~ ${formatNumber(equivalentTrees, 0, 0)} trees to nature / year` : `~ ${formatNumber(equivalentTrees, 0, 0)} Ağaç / yıl`}
             </span>
           </div>
         </div>

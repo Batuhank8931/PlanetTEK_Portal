@@ -110,6 +110,7 @@ function InputParameters() {
                         sicaklik: storeAritmaParametreleri.sicaklik !== undefined ? storeAritmaParametreleri.sicaklik : 19,
                         giderimVerimi: storeAritmaParametreleri.giderimVerimi !== undefined ? storeAritmaParametreleri.giderimVerimi : 33,
                         emperik: storeAritmaParametreleri.emperik !== undefined ? storeAritmaParametreleri.emperik : maxEmp,
+                        maksimumEmperik: maxEmp, // <-- İlk yüklemede store içerisine ekledik
                         nitrifikasyon: storeAritmaParametreleri.nitrifikasyon || "nitrifikasyonYok",
                         girisAmonyum: storeAritmaParametreleri.girisAmonyum !== undefined ? storeAritmaParametreleri.girisAmonyum : 48,
                         cikisAmonyum: storeAritmaParametreleri.cikisAmonyum !== undefined ? storeAritmaParametreleri.cikisAmonyum : 8,
@@ -147,7 +148,7 @@ function InputParameters() {
     const storeAritmaParametreleri = storePlanetDisk.tasarim?.aritmaParametreleri || {};
     const rootDebi = storePlanetDisk.debi !== undefined ? storePlanetDisk.debi : 70;
 
-    // Dinamik otomatik hesaplama yapan useEffect
+    // Dinamik otomatik hesaplama yapan useEffect (GÜNCELLENDİ)
     useEffect(() => {
         if (loading || !storeAritmaParametreleri.sicaklik) return;
 
@@ -158,9 +159,8 @@ function InputParameters() {
         const yeniEmperikRaw = hesaplaDiskKatsayisiDetayli(currentSicaklik, currentCikisBoi, Number(maksimumEmperik));
         const yeniEmperik = parseFloat(yeniEmperikRaw) || 0;
 
-        if (yeniEmperik !== storeAritmaParametreleri.emperik) {
-
-            // updateSection yerine doğrudan ana store'u atomic olarak manipüle ediyoruz
+        // Hem hesaplanan emperik katsayısı hem de API'den gelen maksimumEmperik değeri değiştiyse store'u tek seferde güncelliyoruz.
+        if (yeniEmperik !== storeAritmaParametreleri.emperik || maksimumEmperik !== storeAritmaParametreleri.maksimumEmperik) {
             useTeklifStore.setState((state) => {
                 const diskDetails = state.formData.planetDiskDetails || {};
                 const tasarim = diskDetails.tasarim || {};
@@ -175,7 +175,8 @@ function InputParameters() {
                                 ...tasarim,
                                 aritmaParametreleri: {
                                     ...params,
-                                    emperik: yeniEmperik
+                                    emperik: yeniEmperik,
+                                    maksimumEmperik: maksimumEmperik // <-- Değişiklik durumunda store'da update ettik
                                 }
                             }
                         }
@@ -217,6 +218,7 @@ function InputParameters() {
         maksimumEmperik,
         loading,
         storeAritmaParametreleri.emperik,
+        storeAritmaParametreleri.maksimumEmperik, // <-- Bağımlılıklara ekledik
         storeAritmaParametreleri.nitrifikasyonEmperik,
         storeAritmaParametreleri.isEmperikManual
     ]);
@@ -236,7 +238,6 @@ function InputParameters() {
         return { nihaiDebi, nihaiGirisBoi };
     };
 
-    // handleChange (GÜNCELLENDİ)
     const handleChange = (e) => {
         const rawValue = e.target.value;
         const val = rawValue === "" ? 0 : (!isNaN(Number(rawValue)) ? Number(rawValue) : rawValue);
@@ -244,7 +245,6 @@ function InputParameters() {
 
         let updatedParamData = { ...currentParamData, [name]: val };
 
-        // Normal BOİ ampirik katsayısı el ile değiştirilirse bayrağı kaldır/işaretle
         if (name === "emperik" || name === "nitrifikasyonEmperik") {
             updatedParamData.isEmperikManual = true;
         }
@@ -405,7 +405,9 @@ function InputParameters() {
     };
 
     return (
+        // JSX kodunuzda herhangi bir değişiklik yapılması gerekmedi, aynen kalabilir.
         <div className="card-body p-4 d-flex flex-column gap-3" style={{ position: "relative" }}>
+            {/* ...Mevcut JSX render alanınız... */}
             <div className="d-flex align-items-center">
                 <span className="fw-bold text-uppercase pe-2" style={{ fontSize: "11px", letterSpacing: "0.7px", color: "#00874e" }}>
                     Arıtma Parametreleri
@@ -432,7 +434,6 @@ function InputParameters() {
                             <input
                                 type="number"
                                 name="girisBoi"
-                                // Hem 0 hem undefined/null durumunu boş string'e düşürürüz
                                 value={(currentParamData.girisBoi === 0 || currentParamData.girisBoi === undefined) ? "" : currentParamData.girisBoi}
                                 onChange={handleChange}
                                 className="form-control form-control-sm text-white fw-bold border-0 text-center"
@@ -596,7 +597,6 @@ function InputParameters() {
                                 type="number"
                                 step="0.1"
                                 name="nitrifikasyonEmperik"
-                                // Buraya ekstra koruma ekliyoruz
                                 value={(currentParamData.nitrifikasyonEmperik === 0 || currentParamData.nitrifikasyonEmperik === undefined) ? "" : currentParamData.nitrifikasyonEmperik}
                                 onChange={handleChange}
                                 className="form-control form-control-sm text-center fw-bold border-0 py-1 text-warning"

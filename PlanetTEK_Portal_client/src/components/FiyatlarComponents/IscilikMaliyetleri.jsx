@@ -5,6 +5,7 @@ import PriceChangeUpdateConfirmationModal from "../modals/PriceChangeUpdateConfi
 import AlertModal from "../modals/AlertModal";
 
 function IscilikMaliyetleri() {
+    const [activeTableId, setActiveTableId] = useState(null);
     const [laborCostsData, setLaborCostsData] = useState([]);
     const [originalData, setOriginalData] = useState([]); // Değişiklik kontrolü için saf veri kopyası
     const [loading, setLoading] = useState(true);
@@ -248,7 +249,7 @@ function IscilikMaliyetleri() {
             <div className="d-flex justify-content-between align-items-center mb-3">
                 <div className="mb-2 d-flex align-items-center" style={{ color: "#94a3b8" }}>
                     <i className="bi bi-people-fill me-2 text-success"></i>
-                    <span className="fw-semibold small">İşçilik ve Kombinasyon Maliyet Yönetimi</span>
+                    <span className="fw-semibold small fs-6">İşçilik ve Kombinasyon Maliyet Yönetimi</span>
                 </div>
                 <div className="d-flex gap-2">
                     <button className="btn btn-outline-primary btn-sm px-3" onClick={handleAddNewRow}>
@@ -263,6 +264,9 @@ function IscilikMaliyetleri() {
             {/* TEK VE SAĞLAM HAVUZ TABLOSU */}
             <div className="mb-4">
                 <ExcelGrid
+                    tableId="iscilik"
+                    activeTableId={activeTableId}
+                    setActiveTableId={setActiveTableId}
                     headers={headers}
                     data={visibleLaborCostsData}
                     fields={fields}

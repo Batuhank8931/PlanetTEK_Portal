@@ -12,7 +12,6 @@ const pool = mysql.createPool({
 });
 
 // Güvenlik İçin İzin Verilen Tablo ve Sütun Beyaz Listesi (Whitelist)
-// Güvenlik İçin İzin Verilen Tablo ve Sütun Beyaz Listesi (Whitelist)
 // Bu kontrol CWE-89 (SQL Injection) riskini dinamik sorgularda tamamen engeller.
 const ALLOWED_TABLES = {
     main_units: [
@@ -23,11 +22,20 @@ const ALLOWED_TABLES = {
     submersible_pumps: ["pompa_adi", "pompa_tipi", "kw", "alis_fiyati", "yd_katsayi", "yi_katsayi"],
     ileri_aritma_ekipmanlari: ["ekipman_adi", "ekipman_tipi", "kw", "alis_fiyati", "yd_katsayi", "yi_katsayi"],
 
-    // 🚀 YENİ NORMALE GÖRE EKLENEN FİLTRASYON VE KLORLAMA TABLOLARIMIZ:
     filtration_equipments: ["debi", "ekipman_tipi", "yi_oran", "yd_oran", "alis_fiyat"],
     filtration_feed_pumps: ["debi", "kw", "yi_oran", "yd_oran", "alis_fiyat"],
     filtration_backwash_pumps: ["geri_yikama_debi", "kw", "yi_oran", "yd_oran", "alis_fiyat"],
     on_klorlama_ekipmanlari: ["ekipman_adi", "ekipman_tipi", "kw", "alis_fiyati", "yd_katsayi", "yi_katsayi"],
+
+    // 🚀 YENİ MBR (MEMBRAN) SİSTEMİ BEYAZ LİSTEMİZ:
+    membrane_cassettes: ["general_capacity", "alan", "adet", "boyutlar", "yi_oran", "yd_oran", "alis_fiyat"],
+    membrane_feed_pumps: ["general_capacity", "debi", "kw", "yi_oran", "yd_oran", "alis_fiyat"],
+    membrane_recirculation_pumps: ["general_capacity", "debi", "kw", "yi_oran", "yd_oran", "alis_fiyat"],
+    membrane_naocl_dosing_pumps: ["general_capacity", "debi", "kw", "yi_oran", "yd_oran", "alis_fiyat"],
+    membrane_naocl_dosing_tanks: ["general_capacity", "kapasite", "malzeme", "yi_oran", "yd_oran", "alis_fiyat"],
+    membrane_citric_dosing_pumps: ["general_capacity", "debi", "kw", "yi_oran", "yd_oran", "alis_fiyat"],
+    membrane_citric_dosing_tanks: ["general_capacity", "kapasite", "malzeme", "yi_oran", "yd_oran", "alis_fiyat"],
+    membrane_blowers: ["general_capacity", "kapasite_nm3h", "kw", "yi_oran", "yd_oran", "alis_fiyat"],
 
     grease_trap_data: ["kapasite", "plakaboyut", "yd_fiyat", "yi_fiyat"],
     coarse_screen_data: ["kapasite", "tipi", "yd_fiyat", "yi_fiyat"],
@@ -44,6 +52,46 @@ const ALLOWED_TABLES = {
 // ==========================================
 // 🔍 GET İSTEKLERİ (VERİ LİSTELEME)
 // ==========================================
+
+// 🚀 YENİ: TÜM MEMBRAN DATASINI PARALEL SORGULAYAN VE PAKET OLARAK DÖNEN METOT
+// Backend hiçbir filtreleme yapmadan veritabanındaki TÜM MBR datalarını döner:
+const getMembraneCosts = async (req, res) => {
+    try {
+        const [
+            cassettes,
+            feedPumps,
+            recircPumps,
+            naoclPumps,
+            naoclTanks,
+            citricPumps,
+            citricTanks,
+            blowers
+        ] = await Promise.all([
+            pool.execute("SELECT * FROM membrane_cassettes ORDER BY general_capacity ASC, id ASC"),
+            pool.execute("SELECT * FROM membrane_feed_pumps ORDER BY general_capacity ASC, id ASC"),
+            pool.execute("SELECT * FROM membrane_recirculation_pumps ORDER BY general_capacity ASC, id ASC"),
+            pool.execute("SELECT * FROM membrane_naocl_dosing_pumps ORDER BY general_capacity ASC, id ASC"),
+            pool.execute("SELECT * FROM membrane_naocl_dosing_tanks ORDER BY general_capacity ASC, id ASC"),
+            pool.execute("SELECT * FROM membrane_citric_dosing_pumps ORDER BY general_capacity ASC, id ASC"),
+            pool.execute("SELECT * FROM membrane_citric_dosing_tanks ORDER BY general_capacity ASC, id ASC"),
+            pool.execute("SELECT * FROM membrane_blowers ORDER BY general_capacity ASC, id ASC")
+        ]);
+
+        return res.json({
+            membraneCassettes: cassettes[0],
+            feedPumps: feedPumps[0],
+            recirculationPumps: recircPumps[0],
+            naoclDosingPumps: naoclPumps[0],
+            naoclDosingTanks: naoclTanks[0],
+            citricDosingPumps: citricPumps[0],
+            citricDosingTanks: citricTanks[0],
+            blowers: blowers[0]
+        });
+    } catch (error) {
+        console.error("getMembraneCosts Error:", error.message);
+        return res.status(500).json({ message: "Membran verileri çekilirken hata oluştu.", error: error.message });
+    }
+};
 
 const getMainUnits = async (req, res) => {
     try {
@@ -125,33 +173,27 @@ const getSubmersibleCosts = async (req, res) => {
 
 const getFiltrationCosts = async (req, res) => {
     try {
-        // Performans odaklı paralel execute (Promise.all içine ön klorlamayı da ekledik)
         const [
             equipmentsPromise,
             feedPumpsPromise,
             backwashPumpsPromise,
-            onKlorlamaPromise // 🚀 4. tabloyu ekledik
+            onKlorlamaPromise
         ] = await Promise.all([
             pool.execute("SELECT * FROM filtration_equipments ORDER BY id ASC"),
             pool.execute("SELECT * FROM filtration_feed_pumps ORDER BY id ASC"),
             pool.execute("SELECT * FROM filtration_backwash_pumps ORDER BY id ASC"),
-            pool.execute("SELECT * FROM on_klorlama_ekipmanlari ORDER BY id ASC") // 👈 Yeni sorgu
+            pool.execute("SELECT * FROM on_klorlama_ekipmanlari ORDER BY id ASC")
         ]);
 
-        // Tüm dataların ilk indekslerini (rows) tek bir objede paketleyip dönüyoruz
         return res.json({
             filtrationEquipments: equipmentsPromise[0],
             feedPumps: feedPumpsPromise[0],
             backwashPumps: backwashPumpsPromise[0],
-            onKlorlamaEquipments: onKlorlamaPromise[0] // 🚀 Frontend'e giden pakete eklendi
+            onKlorlamaEquipments: onKlorlamaPromise[0]
         });
-
     } catch (error) {
         console.error("getFiltrationCosts Error:", error.message);
-        return res.status(500).json({
-            message: "Teknik bir hata oluştu.",
-            error: error.message
-        });
+        return res.status(500).json({ message: "Teknik bir hata oluştu.", error: error.message });
     }
 };
 
@@ -177,18 +219,16 @@ const getIlerAritmaEquipmentsCosts = async (req, res) => {
 
 
 // ====================================================================
-// 🛠️ ORTAK YARDIMCI MOTORLAR (YAZMA, SİLME, GÜNCELLEME VE GÜVENLİK MOTORU)
+// 🛠️ ORTAK YARDIMCI MOTORLAR (CRUD MOTORU)
 // ====================================================================
 
 const executeCommonCoreEngine = async (connection, tableName, item, userId, loglar, customUpdateFormulaLogic) => {
     const { id, columnName, newValue, additionalData } = item;
 
-    // Güvenlik Bariyeri Kontrolü
     if (newValue !== null && columnName && (!ALLOWED_TABLES[tableName] || !ALLOWED_TABLES[tableName].includes(columnName))) {
         throw new Error(`Güvenlik bariyeri: ${tableName} tablosundaki ${columnName} sütunu için geçersiz işlem!`);
     }
 
-    // ❌ SİLME MOTORU
     if (id !== undefined && newValue === null) {
         const [oldRows] = await connection.execute(`SELECT * FROM ${tableName} WHERE id = ? LIMIT 1`, [id]);
         if (oldRows.length === 0) return { deleted: 0, inserted: 0, updated: 0 };
@@ -198,23 +238,26 @@ const executeCommonCoreEngine = async (connection, tableName, item, userId, logl
         return { deleted: 1, inserted: 0, updated: 0 };
     }
 
-    // ➕ EKLEME MOTORU
     if (id === undefined || id === null) {
-        if (!columnName || newValue === undefined) return { deleted: 0, inserted: 0, updated: 0 };
+        const hasAdditionalData = additionalData && typeof additionalData === 'object' && Object.keys(additionalData).length > 0;
+
+        if (!hasAdditionalData && (!columnName || newValue === undefined)) {
+            return { deleted: 0, inserted: 0, updated: 0 };
+        }
 
         const uniqueFields = new Set();
         const insertValues = [];
         const placeholders = [];
 
-        if (ALLOWED_TABLES[tableName].includes(columnName)) {
+        if (columnName && ALLOWED_TABLES[tableName] && ALLOWED_TABLES[tableName].includes(columnName)) {
             uniqueFields.add(columnName);
             insertValues.push(newValue);
             placeholders.push("?");
         }
 
-        if (additionalData && typeof additionalData === 'object') {
+        if (hasAdditionalData) {
             for (const [key, val] of Object.entries(additionalData)) {
-                if (ALLOWED_TABLES[tableName].includes(key) && !uniqueFields.has(key)) {
+                if (ALLOWED_TABLES[tableName] && ALLOWED_TABLES[tableName].includes(key) && !uniqueFields.has(key)) {
                     uniqueFields.add(key);
                     insertValues.push(val);
                     placeholders.push("?");
@@ -228,11 +271,21 @@ const executeCommonCoreEngine = async (connection, tableName, item, userId, logl
         const insertQuery = `INSERT INTO ${tableName} (${insertFields.join(", ")}) VALUES (${placeholders.join(", ")})`;
         const [insertResult] = await connection.execute(insertQuery, insertValues);
 
-        loglar.push({ userId, payload: { tip: "yeni_kayit_ekleme", tablo: tableName, kayit_id: insertResult.insertId, yeni_deger: { [columnName]: newValue, ...additionalData }, not: "Yeni satır oluşturuldu.", tarih: new Date().toISOString() } });
+        loglar.push({
+            userId,
+            payload: {
+                tip: "yeni_kayit_ekleme",
+                tablo: tableName,
+                kayit_id: insertResult.insertId,
+                yeni_deger: columnName ? { [columnName]: newValue, ...additionalData } : { ...additionalData },
+                not: "Yeni satır oluşturuldu.",
+                tarih: new Date().toISOString()
+            }
+        });
+
         return { deleted: 0, inserted: 1, updated: 0 };
     }
 
-    // 🔄 GÜNCELLEME MOTORU
     if (id !== undefined && columnName && newValue !== undefined) {
         const [currentRows] = await connection.execute(`SELECT ${columnName} FROM ${tableName} WHERE id = ? LIMIT 1`, [id]);
         if (currentRows.length === 0) return { deleted: 0, inserted: 0, updated: 0 };
@@ -245,7 +298,6 @@ const executeCommonCoreEngine = async (connection, tableName, item, userId, logl
 
         await connection.execute(`UPDATE ${tableName} SET ${columnName} = ? WHERE id = ?`, [newValue, id]);
 
-        // Eğer tabloya özel bir formül çalıştırılması gerekiyorsa tetikle
         let ekstraBilgi = "";
         if (customUpdateFormulaLogic) {
             ekstraBilgi = await customUpdateFormulaLogic(connection, id, columnName, newValue);
@@ -260,10 +312,53 @@ const executeCommonCoreEngine = async (connection, tableName, item, userId, logl
 
 
 // ====================================================================
-// 🚀 TALEP EDİLEN TABLO BAZLI ALT BÖLÜNMÜŞ METOTLAR (TABLO YÖNETİMLERİ)
+// 🚀 TABLO BAZLI ALT BÖLÜNMÜŞ METOTLAR (TABLO YÖNETİMLERİ)
 // ====================================================================
 
-// 1. Main Units Bölümü
+// 🚀 YENİ: 8 ADET MEMBRAN TABLOSUNUN CRUD VE GLOBAL KATSAYI MOTORU
+const updateAddDeleteMembraneCosts = async (connection, item, userId, loglar, currentBodyTableName) => {
+    const { id, columnName, newValue } = item;
+
+    // 🌟 KATSAYI TETİKLEYİCİ: Eğer MBR grubunda global oran değişirse 8 tablonun birden çarpanını toptan günceller!
+    if (["yi_oran", "yd_oran"].includes(columnName)) {
+        let ekstraBilgi = "";
+        const targetTables = [
+            "membrane_cassettes", "membrane_feed_pumps", "membrane_recirculation_pumps",
+            "membrane_naocl_dosing_pumps", "membrane_naocl_dosing_tanks",
+            "membrane_citric_dosing_pumps", "membrane_citric_dosing_tanks", "membrane_blowers"
+        ];
+
+        if (columnName === "yi_oran") {
+            await Promise.all(targetTables.map(table => connection.execute(`UPDATE ${table} SET yi_oran = ?`, [newValue])));
+            ekstraBilgi = " (Membran grubuna ait 8 tablonun Yurt İçi Oranı toptan güncellendi)";
+        }
+        else if (columnName === "yd_oran") {
+            await Promise.all(targetTables.map(table => connection.execute(`UPDATE ${table} SET yd_oran = ?`, [newValue])));
+            ekstraBilgi = " (Membran grubuna ait 8 tablonun Yurt Dışı Oranı toptan güncellendi)";
+        }
+
+        loglar.push({
+            userId,
+            payload: {
+                tip: "fiyat_guncelleme",
+                tablo: currentBodyTableName,
+                kayit_id: id || 1,
+                sutun: columnName,
+                eski_deger: "Eski Oran",
+                yeni_deger: newValue,
+                not: `Membran global çarpanı toptan revize edildi.${ekstraBilgi}`,
+                tarih: new Date().toISOString()
+            }
+        });
+        return { deleted: 0, inserted: 0, updated: 1 };
+    }
+
+    // Normal Hücre Yönetimi (Ekleme, Silme, Tekil Güncelleme)
+    return executeCommonCoreEngine(connection, currentBodyTableName, item, userId, loglar, async () => {
+        return ` (Membran [${columnName}] hücresi güncellendi)`;
+    });
+};
+
 const updateAddDeleteMainUnits = async (connection, item, userId, loglar) => {
     return executeCommonCoreEngine(connection, "main_units", item, userId, loglar, async (conn, id, col, val) => {
         if (["bYd", "kapak_fiyati_yd"].includes(col)) {
@@ -277,25 +372,20 @@ const updateAddDeleteMainUnits = async (connection, item, userId, loglar) => {
     });
 };
 
-// 2. Screen Data Bölümü (3 yeni normalize tabloya göre akıllı yönlendirici)
 const updateAddDeleteScreenData = async (connection, item, userId, loglar, currentBodyTableName) => {
-    // Frontend payload'dan gelen gerçek alt tablo adına göre (grease_trap_data vb.) motoru çalıştırır.
     return executeCommonCoreEngine(connection, currentBodyTableName, item, userId, loglar, async () => {
         return ` (${item.columnName} alanı güncellendi)`;
     });
 };
 
-// 3. Lamella Data Bölümü
 const updateAddDeleteLamellaData = async (connection, item, userId, loglar) => {
     return executeCommonCoreEngine(connection, "lamella_data", item, userId, loglar);
 };
 
-// 4. Stainless Steel Data Bölümü
 const updateAddDeleteStainlessSteelData = async (connection, item, userId, loglar) => {
     return executeCommonCoreEngine(connection, "stainless_steel_data", item, userId, loglar);
 };
 
-// 5. Submersible Costs Bölümü
 const updateAddDeleteSbumersibleCosts = async (connection, item, userId, loglar) => {
     return executeCommonCoreEngine(connection, "submersible_pumps", item, userId, loglar, async (conn, id, col, val) => {
         if (col === "yi_katsayi") {
@@ -309,20 +399,13 @@ const updateAddDeleteSbumersibleCosts = async (connection, item, userId, loglar)
     });
 };
 
-// 6. Flow Distribution Bölümü
 const updateAddDeleteFLoeDistribution = async (connection, item, userId, loglar) => {
     return executeCommonCoreEngine(connection, "flow_distribution", item, userId, loglar);
 };
 
-// 7. Filtration Costs Bölümü
-// ====================================================================
-// 🚀 7. FİLTRASYON & KLORLAMA GRUBU TABLO YÖNETİM MOTORU
-// ====================================================================
 const updateAddDeleteFiltrationCosts = async (connection, item, userId, loglar, currentBodyTableName) => {
     const { id, columnName, newValue } = item;
 
-    // --- 🌟 AKILLI TETİKLEYİCİ: GLOBAL ORAN / KATSAYI DEĞİŞİMİ ---
-    // Eğer gelen istek bir oran/katsayı güncellemesiyse, 4 tablonun birden oranlarını toptan günceller!
     if (["yi_oran", "yd_oran", "yi_katsayi", "yd_katsayi"].includes(columnName)) {
         let ekstraBilgi = "";
 
@@ -345,7 +428,6 @@ const updateAddDeleteFiltrationCosts = async (connection, item, userId, loglar, 
             ekstraBilgi = " (Global Yurt Dışı Çarpanı 4 tabloda birden toptan güncellendi)";
         }
 
-        // Loglama için motoru tetikliyoruz
         loglar.push({
             userId,
             payload: {
@@ -363,14 +445,11 @@ const updateAddDeleteFiltrationCosts = async (connection, item, userId, loglar, 
         return { deleted: 0, inserted: 0, updated: 1 };
     }
 
-    // --- 🛠️ NORMAL HÜCRE DEĞİŞİKLİKLERİ (Alış fiyatı, kW, debi, ad vb.) ---
-    // Eğer katsayı değilse, her tablo kendi satırını normal CRUD motorumuz üzerinden yürütür.
     return executeCommonCoreEngine(connection, currentBodyTableName, item, userId, loglar, async () => {
         return ` (${columnName} alanı güncellendi)`;
     });
 };
 
-// 8. Sludge Dewatering Costs Bölümü
 const updateAddDeleteSludgeDewateringCosts = async (connection, item, userId, loglar) => {
     return executeCommonCoreEngine(connection, "sludge_dewatering_costs", item, userId, loglar, async (conn, id, col) => {
         if (col.endsWith("_oran")) return " (Çamur susuzlaştırma katsayıları toptan güncellendi)";
@@ -379,7 +458,6 @@ const updateAddDeleteSludgeDewateringCosts = async (connection, item, userId, lo
     });
 };
 
-// 9. Ileri Aritma Equipments Bölümü
 const updateAddDeleteIleriAritmaEquipments = async (connection, item, userId, loglar) => {
     return executeCommonCoreEngine(connection, "ileri_aritma_ekipmanlari", item, userId, loglar, async (conn, id, col, val) => {
         if (col === "yi_katsayi") {
@@ -393,11 +471,8 @@ const updateAddDeleteIleriAritmaEquipments = async (connection, item, userId, lo
     });
 };
 
-// 9. Ileri Aritma Equipments Bölümü
-// 10. Unit Labor Costs Bölümü
 const updateAddDeleteLaborCosts = async (connection, item, userId, loglar) => {
-    return executeCommonCoreEngine(connection, "unit_labor_costs", item, userId, loglar, async (conn, id, col, val) => {
-        // Hücre güncellendikten sonra istersen log notuna ekstra bilgi ekleyebilirsin
+    return executeCommonCoreEngine(connection, "unit_labor_costs", item, userId, loglar, async (conn, id, col) => {
         return ` (İşçilik maliyet bileşeni [${col}] güncellendi, toplam maliyet otomatik yeniden hesaplandı.)`;
     });
 };
@@ -428,7 +503,6 @@ const updatePriceData = async (req, res) => {
         for (const item of updates) {
             let resObj = { deleted: 0, inserted: 0, updated: 0 };
 
-            // 🔀 Akıllı Yönlendirme Trafiği: Gelen tablo ismine göre ilgili modülü çağırır
             if (tableName === "main_units") {
                 resObj = await updateAddDeleteMainUnits(connection, item, userId, loglar);
             }
@@ -447,13 +521,12 @@ const updatePriceData = async (req, res) => {
             else if (tableName === "flow_distribution") {
                 resObj = await updateAddDeleteFLoeDistribution(connection, item, userId, loglar);
             }
-            else if ([
-                "filtration_equipments",
-                "filtration_feed_pumps",
-                "filtration_backwash_pumps",
-                "on_klorlama_ekipmanlari" // 👈 Listede bu da olmalı
-            ].includes(tableName)) {
+            else if (["filtration_equipments", "filtration_feed_pumps", "filtration_backwash_pumps", "on_klorlama_ekipmanlari"].includes(tableName)) {
                 resObj = await updateAddDeleteFiltrationCosts(connection, item, userId, loglar, tableName);
+            }
+            // 🚀 AKILLI TRAFİK YÖNLENDİRME: Eğer gelen tablo ön eki membrane_ ise ortak MBR motorunu tetikle!
+            else if (tableName.startsWith("membrane_")) {
+                resObj = await updateAddDeleteMembraneCosts(connection, item, userId, loglar, tableName);
             }
             else if (tableName === "sludge_dewatering_costs") {
                 resObj = await updateAddDeleteSludgeDewateringCosts(connection, item, userId, loglar);
@@ -461,7 +534,6 @@ const updatePriceData = async (req, res) => {
             else if (tableName === "ileri_aritma_ekipmanlari") {
                 resObj = await updateAddDeleteIleriAritmaEquipments(connection, item, userId, loglar);
             }
-
             else if (tableName === "unit_labor_costs") {
                 resObj = await updateAddDeleteLaborCosts(connection, item, userId, loglar);
             }
@@ -471,7 +543,6 @@ const updatePriceData = async (req, res) => {
             guncellenenSatir += resObj.updated;
         }
 
-        // Değişiklikleri logla
         if (loglar.length > 0) {
             for (const log of loglar) {
                 await logActivity(log.userId, log.payload);
@@ -504,5 +575,6 @@ module.exports = {
     updatePriceData,
     getFiltrationCosts,
     getSludgeDewateringCosts,
-    getIlerAritmaEquipmentsCosts
+    getIlerAritmaEquipmentsCosts,
+    getMembraneCosts // 🚀 Dışa aktarılan yeni metot
 };

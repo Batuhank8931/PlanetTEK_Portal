@@ -46,6 +46,8 @@ const generateWBSNumbers = (rowsArray) => {
 function CapexTablosu() {
     const formData = useTeklifStore((state) => state.formData);
     const updateSection = useTeklifStore((state) => state.updateSection);
+    const currency = formData?.customerInfo?.currency || "EUR";
+    const exchangeRate = formData?.customerInfo?.exchangeRate || "1";
 
     const teklifDili = formData?.customerInfo?.teklifDili;
 
@@ -190,6 +192,8 @@ function CapexTablosu() {
         const activeRows = storeCapexRows.length > 0 ? storeCapexRows : localRows;
 
         const guncelDil = formData?.customerInfo?.teklifDili || "Yabancı";
+        const currency = formData?.customerInfo?.currency || "EUR";
+        const exchangeRate = formData?.customerInfo?.exchangeRate || "1";
         const opsiyonelMetni = guncelDil === "Yerli" ? "Opsiyonel" : "Optional";
         const yerindeTedarikMetni = guncelDil === "Yerli" ? "Yerinde Tedarik" : "Supply Locally";
 
@@ -275,6 +279,8 @@ function CapexTablosu() {
                     handleUndo={handleUndo}
                     historyLength={history.length}
                     teklifDili={teklifDili}
+                    currency={currency}
+                    exchangeRate={exchangeRate}
                     initialGeneralInfo={initialGeneralInfo}
                 />
             </div>

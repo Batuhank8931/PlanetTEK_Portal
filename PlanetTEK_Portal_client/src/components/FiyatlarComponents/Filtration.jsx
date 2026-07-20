@@ -6,6 +6,7 @@ import AlertModal from "../modals/AlertModal";
 
 function Filtration() {
     // --- 1. STATE YÖNETİMLERİ (4 Ayrı Tablo ve Katsayılar) ---
+    const [activeTableId, setActiveTableId] = useState(null);
     const [equipments, setEquipments] = useState([]);
     const [feedPumps, setFeedPumps] = useState([]);
     const [backwashPumps, setBackwashPumps] = useState([]);
@@ -306,6 +307,7 @@ function Filtration() {
                     <i className="bi bi-gear-fill me-2 text-success" style={{ fontSize: "18px" }}></i>
                     <span className="fw-semibold small fs-6">Filtrasyon & Klorlama Sistemleri Fiyat Yönetimi</span>
                 </div>
+
                 <button className="btn btn-success btn-sm px-4" onClick={handleSaveClick}>
                     <i className="bi bi-file-earmark-excel me-2"></i>Değişiklikleri Kaydet
                 </button>
@@ -319,7 +321,11 @@ function Filtration() {
                 </div>
                 <div className="row">
                     <div className="col-12 col-md-5">
-                        <ExcelGrid headers={oranHeaders} data={sabitOranlar} fields={oranFields} onDataChange={handleOranDataChange} />
+                        <ExcelGrid
+                            tableId="filtrationoranHeaders"
+                            activeTableId={activeTableId}
+                            setActiveTableId={setActiveTableId}
+                            headers={oranHeaders} data={sabitOranlar} fields={oranFields} onDataChange={handleOranDataChange} />
                     </div>
                 </div>
             </div>
@@ -335,7 +341,11 @@ function Filtration() {
                         + Data Ekle
                     </button>
                 </div>
-                <ExcelGrid headers={equipHeaders} data={equipments.filter(i => !i.isDeleted)} fields={equipFields} onDataChange={handleEquipChange} isMainTable={true} />
+                <ExcelGrid
+                    tableId="filtrationequipments"
+                    activeTableId={activeTableId}
+                    setActiveTableId={setActiveTableId}
+                    headers={equipHeaders} data={equipments.filter(i => !i.isDeleted)} fields={equipFields} onDataChange={handleEquipChange} isMainTable={true} />
             </div>
 
             {/* 📊 TABLO 2: BESLEME POMPALARI */}
@@ -349,7 +359,11 @@ function Filtration() {
                         + Data Ekle
                     </button>
                 </div>
-                <ExcelGrid headers={feedHeaders} data={feedPumps.filter(i => !i.isDeleted)} fields={feedFields} onDataChange={handleFeedChange} isMainTable={true} />
+                <ExcelGrid
+                    tableId="filtrationfeedPumps"
+                    activeTableId={activeTableId}
+                    setActiveTableId={setActiveTableId}
+                    headers={feedHeaders} data={feedPumps.filter(i => !i.isDeleted)} fields={feedFields} onDataChange={handleFeedChange} isMainTable={true} />
             </div>
 
             {/* 📊 TABLO 3: GERİ YIKAMA POMPALARI */}
@@ -363,7 +377,12 @@ function Filtration() {
                         + Data Ekle
                     </button>
                 </div>
-                <ExcelGrid headers={backwashHeaders} data={backwashPumps.filter(i => !i.isDeleted)} fields={backwashFields} onDataChange={handleBackwashChange} isMainTable={true} />
+                <ExcelGrid
+                    tableId="filtrationbackwashPumps"
+                    activeTableId={activeTableId}
+                    setActiveTableId={setActiveTableId}
+
+                    headers={backwashHeaders} data={backwashPumps.filter(i => !i.isDeleted)} fields={backwashFields} onDataChange={handleBackwashChange} isMainTable={true} />
             </div>
 
             {/* 📊 TABLO 4: ÖN KLORLAMA SİSTEMİ */}
@@ -377,7 +396,11 @@ function Filtration() {
                         + Data Ekle
                     </button>
                 </div>
-                <ExcelGrid headers={klorlamaHeaders} data={onKlorlama.filter(i => !i.isDeleted)} fields={klorlamaFields} onDataChange={handleKlorlamaChange} isMainTable={true} />
+                <ExcelGrid
+                    tableId="filtrationonKlorlama"
+                    activeTableId={activeTableId}
+                    setActiveTableId={setActiveTableId}
+                    headers={klorlamaHeaders} data={onKlorlama.filter(i => !i.isDeleted)} fields={klorlamaFields} onDataChange={handleKlorlamaChange} isMainTable={true} />
             </div>
 
             <PriceChangeUpdateConfirmationModal

@@ -8,6 +8,7 @@ import FeedPumpDetail from "./EqipmentsColumns/FeedPumpDetail";
 import IleriAritmaDetail from "./EqipmentsColumns/IleriAritmaDetail";
 import FiltrasyonDetail from "./EqipmentsColumns/FiltrasyonDetail";
 import SludgeDewateringDetail from "./EqipmentsColumns/SludgeDewateringDetail";
+import MembranDetail from "./EqipmentsColumns/MembraneDetail";
 
 // Detay component haritası
 const DETAIL_COMPONENTS = {
@@ -16,6 +17,7 @@ const DETAIL_COMPONENTS = {
   ileriAritma: <IleriAritmaDetail />,
   filtrasyon: <FiltrasyonDetail />,
   sludgeDewatering: <SludgeDewateringDetail />,
+  membrane: <MembranDetail />
 };
 
 // Modül ID'leri ile store'daki veri key'lerinin eşleşme haritası
@@ -24,7 +26,8 @@ const MODULE_DATA_KEYS = {
   feedPump: "feedPump",
   ileriAritma: "ileriAritma",
   filtrasyon: "filtrationSystem",
-  sludgeDewatering: "sludgeDewatering"
+  sludgeDewatering: "sludgeDewatering",
+  membrane: "membrane"
 };
 
 const tabContentVariants = {
@@ -56,6 +59,7 @@ function SelectEquiptments() {
     ileriAritma: { id: "ileriAritma", label: "3. İleri Arıtma Ünitesi", checked: false, visited: false, isActiveTab: false },
     filtrasyon: { id: "filtrasyon", label: "4. Filtrasyon Sistemi", checked: false, visited: false, isActiveTab: false },
     sludgeDewatering: { id: "sludgeDewatering", label: "5. Çamur Susuzlaştırma", checked: false, visited: false, isActiveTab: false },
+    membrane: { id: "membrane", label: "6. Memebran Sistemi", checked: false, visited: false, isActiveTab: false }
   };
 
   const activeModule = Object.values(modules).find((m) => m.isActiveTab && m.checked);

@@ -5,6 +5,7 @@ import PriceChangeUpdateConfirmationModal from "../modals/PriceChangeUpdateConfi
 import AlertModal from "../modals/AlertModal";
 
 function AnaUnite() {
+  const [activeTableId, setActiveTableId] = useState(null);
   const [anaUniteler, setAnaUniteler] = useState([]);
   const [sabitBilesenlerbir, setSabitBilesenlerbir] = useState([]);
   const [sabitBilesenleriki, setSabitBilesenleriki] = useState([]);
@@ -321,7 +322,7 @@ function AnaUnite() {
       <div className="d-flex justify-content-between align-items-center mb-3">
         <div className="mb-2 d-flex align-items-center" style={{ color: "#94a3b8" }}>
           <i className="bi bi-gear-fill me-2 text-success"></i>
-          <span className="fw-semibold small">Ana Ünete Yönetimi (Ayrık Hücre Düzeni)</span>
+          <span className="fw-semibold small fs-6">Ana Ünete Yönetimi (Ayrık Hücre Düzeni)</span>
         </div>
         <div className="d-flex gap-2">
           <button className="btn btn-outline-primary btn-sm px-3" onClick={handleAddNewRow}>
@@ -335,6 +336,9 @@ function AnaUnite() {
 
       <div className="mb-4">
         <ExcelGrid
+          tableId="visibleAnaUniteler"
+          activeTableId={activeTableId}
+          setActiveTableId={setActiveTableId}
           headers={headers}
           data={visibleAnaUniteler}
           fields={fields}
@@ -349,6 +353,9 @@ function AnaUnite() {
           <span className="fw-semibold small">MX1 Kapak Fiyatı</span>
         </div>
         <ExcelGrid
+          tableId="kapak"
+          activeTableId={activeTableId}
+          setActiveTableId={setActiveTableId}
           headers={sabitHeaders}
           data={sabitBilesenlerbir}
           fields={sabitFields}
@@ -362,6 +369,9 @@ function AnaUnite() {
           <span className="fw-semibold small">MX1 Şase Fiyatı</span>
         </div>
         <ExcelGrid
+          tableId="sase"
+          activeTableId={activeTableId}
+          setActiveTableId={setActiveTableId}
           headers={sabitHeaders}
           data={sabitBilesenleriki}
           fields={sabitFields}

@@ -17,7 +17,8 @@ const {
     getFiltrationCosts,
     getSubmersibleCosts,
     getSludgeDewateringCosts,
-    getIlerAritmaEquipmentsCosts
+    getIlerAritmaEquipmentsCosts,
+    getMembraneCosts
 } = require("../../models/price_data.js");
 
 // 👥 Kullanıcı CRUD Kontrolleri
@@ -33,10 +34,10 @@ const { getPumpCurve, updatePumpCurve, getAllPumpCurves, getCentrifugePumps } = 
 // ==========================================
 // 👥 KULLANICI CRUD ROTALARI
 // ==========================================
-router.get('/user', verifyToken, getUser);          
-router.post('/user', verifyToken, addUser);         
-router.put('/user/:id', verifyToken, putUser);      
-router.delete('/user/:id', verifyToken, deleteUser); 
+router.get('/user', verifyToken, getUser);
+router.post('/user', verifyToken, addUser);
+router.put('/user/:id', verifyToken, putUser);
+router.delete('/user/:id', verifyToken, deleteUser);
 
 
 // ==========================================
@@ -54,10 +55,11 @@ router.get('/price/submersible-pumps-costs', verifyToken, getSubmersibleCosts);
 router.get('/price/filtration-costs', verifyToken, getFiltrationCosts);
 router.get('/price/sludge-dewatering-costs', verifyToken, getSludgeDewateringCosts);
 router.get('/price/ileri-aritma-costs', verifyToken, getIlerAritmaEquipmentsCosts);
+router.get('/price/membrane-costs', verifyToken, getMembraneCosts);
 
 // 📊 POMPA EĞRİSİ (PUMP CURVE) ROTALARI
-router.get('/price/pump-curve/:pump_id', verifyToken, getPumpCurve);       
-router.put('/price/pump-curve/:pump_id', verifyToken, updatePumpCurve);    
+router.get('/price/pump-curve/:pump_id', verifyToken, getPumpCurve);
+router.put('/price/pump-curve/:pump_id', verifyToken, updatePumpCurve);
 router.get('/price/pumps-with-curves', verifyToken, getAllPumpCurves);
 router.get('/price/centrifuge-pumps', verifyToken, getCentrifugePumps);
 

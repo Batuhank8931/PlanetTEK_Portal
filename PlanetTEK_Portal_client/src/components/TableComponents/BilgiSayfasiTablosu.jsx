@@ -9,6 +9,11 @@ function BilgiSayfasiTablosu() {
   const teklifDili = formData?.customerInfo?.teklifDili;
   const isForeign = teklifDili === "Yabancı";
 
+  // 🌟 Döviz ve Birim Sistemi Parametrelerini Çekiyoruz
+  const currency = formData?.customerInfo?.currency || "EUR";
+  const unitSystem = formData?.customerInfo?.unitSystem || "Metric";
+  const exchangeRate = parseFloat(formData?.customerInfo?.exchangeRate) || 1.0000;
+
   const storeBilgiSayfasi = formData?.tables?.bilgisayfasitablosu;
   const pDetails = formData?.planetDiskDetails?.tasarim?.aritmaParametreleri || {};
   const equipmentsObject = formData.equipments || {};
@@ -16,25 +21,36 @@ function BilgiSayfasiTablosu() {
 
   const isFiltrasyonChecked = modulesState.filtrasyon?.checked || false;
 
+  const activeLocale = isForeign ? "en-US" : "tr-TR";
+
+  const formatNumber = (value, minFraction = 0, maxFraction = 2) => {
+    if (isNaN(value)) return "0";
+    return value.toLocaleString(activeLocale, {
+      minimumFractionDigits: minFraction,
+      maximumFractionDigits: maxFraction
+    });
+  };
+
   const [uniteCapMap, setUniteCapMap] = useState({ MX: 2.05, MINI: 1.30 });
   const [loading, setLoading] = useState(true);
 
   const currentUniteType = pDetails.RBCUnite || "MX";
-  const currentCap = uniteCapMap[currentUniteType] || 2.05;
-  const currentRadius = currentCap / 2;
+  const currentCapMeters = uniteCapMap[currentUniteType] || 2.05;
 
-  // Çap Parametrelerini Backend'den Çekme
+  // 🌟 US modunda çapı feet (ft) cinsine çeviriyoruz (1 m = 3.28084 ft)
+  const displayCap = unitSystem === "US" ? currentCapMeters * 3.28084 : currentCapMeters;
+  const currentRadius = displayCap / 2;
+  const capUnit = unitSystem === "US" ? "ft" : "m";
+
   useEffect(() => {
     const fetchParameters = async () => {
       try {
         const response = await API.getParamteters();
         const apiData = response.data || [];
-
         const paramMap = {};
         apiData.forEach(item => {
           paramMap[item.parametre_key] = parseFloat(item.deger);
         });
-
         setUniteCapMap({
           MX: paramMap["mx1Cap"] || 2.05,
           MINI: paramMap["miniCap"] || 1.30
@@ -48,7 +64,7 @@ function BilgiSayfasiTablosu() {
     fetchParameters();
   }, []);
 
-  // Proje detaylarını ve dinamik metinleri hesaplayan ana motor
+  // 🌟 PROJE DETAYLARI VE DİNAMİK BİRİM MOTORU
   const generateProjectDetails = () => {
     const kaynaklar = pDetails.kaynaklar || [];
     const hesapYontemi = pDetails.hesapYontemi;
@@ -64,15 +80,31 @@ function BilgiSayfasiTablosu() {
       weightedHidrolikYukSum += (kisi * (parseFloat(k.hidrolikYuk) || 0));
     });
 
-    const avgOrganikYuk = totalKisi > 0 ? (weightedOrganikYukSum / totalKisi).toFixed(0) : "0";
-    const avgHidrolikYuk = totalKisi > 0 ? (weightedHidrolikYukSum / totalKisi).toFixed(0) : "0";
+    const avgOrganikYuk = totalKisi > 0 ? (weightedOrganikYukSum / totalKisi) : 0;
+    const avgHidrolikYukMetric = totalKisi > 0 ? (weightedHidrolikYukSum / totalKisi) : 0;
+
+    // 🌟 US modunda kişi başı hidrolik yükü galona çevir (1 litre = 0.264172 galon)
+    const avgHidrolikYuk = unitSystem === "US" ? avgHidrolikYukMetric * 0.264172 : avgHidrolikYukMetric;
+    const hidrolikKisiBirim = unitSystem === "US" ? "gal/PE.day" : (isForeign ? "lt/PE.day" : "lt/kişi.gün");
 
     const debiM3 = pDetails.debi || 0;
+    // 🌟 Ekrandaki debi birimi çevrimi
+    const displayDebi = unitSystem === "US" ? debiM3 * 264.172 : debiM3;
+    const debiBirim = unitSystem === "US" ? "GPD" : (isForeign ? "m³/day" : "m³/gün");
+
     const girisBoi = pDetails.girisBoi || 0;
-    const organikYukKg = ((debiM3 * girisBoi) / 1000).toFixed(2);
+    const organikYukKg = (debiM3 * girisBoi) / 1000;
+
+    // 🌟 US modunda organik yükü lbs cinsine çevir (1 kg = 2.20462 lbs)
+    const displayOrganikYuk = unitSystem === "US" ? organikYukKg * 2.20462 : organikYukKg;
+    const kütleBirim = unitSystem === "US" ? "lbs/day" : (isForeign ? "kg/day" : "kg/gün");
+
     const giderimVerimi = pDetails.giderimVerimi || 33;
-    const giderilenYuk = ((organikYukKg * giderimVerimi) / 100).toFixed(2);
-    const girenYuk = (organikYukKg - giderilenYuk).toFixed(2);
+    const giderilenYuk = (organikYukKg * giderimVerimi) / 100;
+    const displayGiderilenYuk = unitSystem === "US" ? giderilenYuk * 2.20462 : giderilenYuk;
+
+    const girenYuk = organikYukKg - giderilenYuk;
+    const displayGirenYuk = unitSystem === "US" ? girenYuk * 2.20462 : girenYuk;
 
     const yerlesim = formData?.planetDiskDetails?.tasarim?.yerlesimSiralanisi || [];
     const rbcSiralari = yerlesim.filter(y => !y.isLamella);
@@ -86,10 +118,14 @@ function BilgiSayfasiTablosu() {
 
     const beklemeSuresi = rbcSiralari[0]?.beklemeSuresi || 0;
 
-    // LAMELLA VERİLERİNİ ÇEKME ALANI
     const lamellaObj = formData?.planetDiskDetails?.tasarim?.lamella || {};
     const lamellaAdet = parseInt(lamellaObj.lamellaAdet) || 0;
-    const lamellaAlani = parseFloat(lamellaObj.secilenModelAlan) || 0;
+    const lamellaAlaniMetric = parseFloat(lamellaObj.secilenModelAlan) || 0;
+
+    // 🌟 US modunda alanları sq.ft (ft²) cinsine çevir (1 m² = 10.7639 ft²)
+    const displayLamellaAlani = unitSystem === "US" ? lamellaAlaniMetric * 10.7639 : lamellaAlaniMetric;
+    const alanBirim = unitSystem === "US" ? "ft²" : "m²";
+
     const lamellaModeliRaw = lamellaObj.secilenLamellaModeli || "LS 45";
     const lamellaModeli = lamellaModeliRaw.replace("_", " ");
 
@@ -97,85 +133,92 @@ function BilgiSayfasiTablosu() {
 
     if (hesapYontemi === "kisi") {
       rows.push(
-        { 
-          id: "d1", 
-          label: isForeign ? "Capacity" : "Kapasite", 
-          value: isForeign ? `: ${totalKisi.toLocaleString(undefined)} PE` : `: ${totalKisi.toLocaleString(undefined)} Kişi` 
+        {
+          id: "d1",
+          label: isForeign ? "Capacity" : "Kapasite",
+          value: isForeign ? `: ${formatNumber(totalKisi, 0, 0)} PE` : `: ${formatNumber(totalKisi, 0, 0)} Kişi`
         },
-        { 
-          id: "d2", 
-          label: isForeign ? "Hydraulic Load Per Person" : "Kişi Başı Hidrolik Yük", 
-          value: isForeign ? `: ${avgHidrolikYuk} lt/PE.day` : `: ${avgHydrolikYuk} lt/kişi.gün` 
+        {
+          id: "d2",
+          label: isForeign ? "Hydraulic Load Per Person" : "Kişi Başı Hidrolik Yük",
+          value: `: ${formatNumber(avgHidrolikYuk, 0, 1)} ${hidrolikKisiBirim}`
         },
-        { 
-          id: "d3", 
-          label: isForeign ? "Organic Load Per Person" : "Kişi Başı Organik Yük", 
-          value: isForeign ? `: ${avgOrganikYuk} gr/PE.day` : `: ${avgOrganikYuk} gr/kişi.gün` 
+        {
+          id: "d3",
+          label: isForeign ? "Organic Load Per Person" : "Kişi Başı Organik Yük",
+          value: isForeign ? `: ${formatNumber(avgOrganikYuk, 0, 0)} gr/PE.day` : `: ${formatNumber(avgOrganikYuk, 0, 0)} gr/kişi.gün`
         }
       );
     }
 
     rows.push(
-      { 
-        id: "d4", 
-        label: isForeign ? "Hydraulic Load" : "Hidrolik Yük", 
-        value: isForeign ? `: ${debiM3} m³/day` : `: ${debiM3} m³/gün` 
+      {
+        id: "d4",
+        label: isForeign ? "Hydraulic Load" : "Hidrolik Yük",
+        value: `: ${formatNumber(displayDailyUsage, 0, 2)} ${debiBirim}`
       },
-      { 
-        id: "d5", 
-        label: isForeign ? "Organic Load" : "Organik Yük", 
-        value: isForeign ? `: ${organikYukKg} kg/day (${debiM3} m³/day x ${girisBoi} mg/l)` : `: ${organikYukKg} kg/gün (${debiM3} m³/gün x ${girisBoi} mg/l)` 
+      {
+        id: "d5",
+        label: isForeign ? "Organic Load" : "Organik Yük",
+        value: isForeign
+          ? `: ${formatNumber(displayOrganikYuk, 2, 2)} ${kütleBirim} (${formatNumber(displayDailyUsage, 0, 2)} ${debiBirim} x ${formatNumber(girisBoi, 0, 0)} mg/l)`
+          : `: ${formatNumber(displayOrganikYuk, 2, 2)} ${kütleBirim} (${formatNumber(displayDailyUsage, 0, 2)} ${debiBirim} x ${formatNumber(girisBoi, 0, 0)} mg/l)`
       },
-      { 
-        id: "d6", 
-        label: isForeign ? "Elimination of BOD in Pre Treatment" : "Ön Arıtmada Giderilen Organik Yük", 
-        value: isForeign ? `: ${giderilenYuk} kg/day ( ${giderimVerimi}% )` : `: ${giderilenYuk} kg/gün ( ${giderimVerimi}% )` 
+      {
+        id: "d6",
+        label: isForeign ? "Elimination of BOD in Pre Treatment" : "Ön Arıtmada Giderilen Organik Yük",
+        value: isForeign
+          ? `: ${formatNumber(displayGiderilenYuk, 2, 2)} ${kütleBirim} ( ${formatNumber(giderimVerimi, 0, 0)}% )`
+          : `: ${formatNumber(displayGiderilenYuk, 2, 2)} ${kütleBirim} ( ${formatNumber(giderimVerimi, 0, 0)}% )`
       },
-      { 
-        id: "d7", 
-        label: isForeign ? "Treated Organic Load in PlanetDISK® RBC Unit" : "PlanetDISK® Ünitesine Giren Organik Yük", 
-        value: `: ${girenYuk} kg/day` 
+      {
+        id: "d7",
+        label: isForeign ? "Treated Organic Load in PlanetDISK® RBC Unit" : "PlanetDISK® Ünitesine Giren Organik Yük",
+        value: `: ${formatNumber(displayGirenYuk, 2, 2)} ${kütleBirim}`
       },
-      { 
-        id: "d8", 
-        label: isForeign ? "Wastewater Temperature" : "Atıksu Sıcaklığı", 
-        value: isForeign ? `: Min 15°C-Max 32°C` : `: Min 15°C-Maks 32°C` 
+      {
+        id: "d8",
+        label: isForeign ? "Wastewater Temperature" : "Atıksu Sıcaklığı",
+        value: isForeign
+          ? `: Min ${minTemp}${tempUnit}-Max ${maxTemp}${tempUnit}`
+          : `: Min ${minTemp}${tempUnit}-Maks ${maxTemp}${tempUnit}`
       },
-      { 
-        id: "d9", 
-        label: isForeign ? "Accepted Temperature" : "Kabul Edilen Atıksu Sıcaklığı", 
-        value: `: ${pDetails.sicaklik || 19} °C` 
+      {
+        id: "d9",
+        label: isForeign ? "Accepted Temperature" : "Kabul Edilen Atıksu Sıcaklığı",
+        value: `: ${formatNumber(acceptedTemp, 0, 0)} ${tempUnit}`
       },
-      { 
-        id: "d10", 
-        label: isForeign ? "Wastewater Retention Time in PlanetDISK® RBC Unit" : "Atıksuyun PlanetDISK® Ünitesinde Bekleme Süresi", 
-        value: isForeign ? `: ${beklemeSuresi} hours (>45 minutes minimum)` : `: ${beklemeSuresi} saat (>45 dakika minimum)` 
+      {
+        id: "d10",
+        label: isForeign ? "Wastewater Retention Time in PlanetDISK® RBC Unit" : "Atıksuyun PlanetDISK® Ünitesinde Bekleme Süresi",
+        value: isForeign ? `: ${formatNumber(beklemeSuresi, 0, 2)} hours (>45 minutes minimum)` : `: ${formatNumber(beklemeSuresi, 0, 2)} saat (>45 dakika minimum)`
       }
     );
 
-    // DİNAMİK ÖNERİLEN SİSTEM SATIRLARI ÜRETİMİ
     const rbcLines = rbcSiralari.map((item, idx) => {
       const adet = parseInt(item.adet) || 0;
       const milDisk = parseInt(item.milBasinaDisk) || 0;
-      return isForeign 
-        ? `· ${adet} PlanetDISK® ${currentUniteType} 1 units - ${milDisk} disks of ${currentCap.toLocaleString(undefined, { minimumFractionDigits: 2 })} m diameter disks, GRP (fiber glass) housing.`
-        : `· ${adet} adet PlanetDISK® ${currentUniteType} 1 ünitesi (${milDisk} diskli) - Toplam ${adet * milDisk} adet, ${currentCap} m çaplı disk, CTP (fiber) gövde.`;
+      return isForeign
+        ? `· ${formatNumber(adet, 0, 0)} PlanetDISK® ${currentUniteType} 1 units - ${formatNumber(milDisk, 0, 0)} disks of ${formatNumber(displayCap, 2, 2)} ${capUnit} diameter disks, GRP (fiber glass) housing.`
+        : `· ${formatNumber(adet, 0, 0)} adet PlanetDISK® ${currentUniteType} 1 ünitesi (${formatNumber(milDisk, 0, 0)} diskli) - Toplam ${formatNumber(adet * milDisk, 0, 0)} adet, ${formatNumber(displayCap, 2, 2)} ${capUnit} çaplı disk, CTP (fiber) gövde.`;
     });
 
-    const toplamYuzeyAlani = (toplamDiskSayisi * 6.6).toFixed(1);
-    const yuzeyAlaniDetayMetni = rbcSiralari.map(item => `${parseInt(item.milBasinaDisk)} disk x 6.6 m² x ${parseInt(item.adet)} ${isForeign ? "units" : "adet"}`).join(" + ");
+    // Disk Yüzey Alanı Çevrimi (Metric: 6.6 m², US: 6.6 * 10.7639 = ~71.04 sq.ft)
+    const tekDiskAlani = unitSystem === "US" ? 6.6 * 10.7639 : 6.6;
+    const toplamYuzeyAlani = toplamDiskSayisi * tekDiskAlani;
+    const yuzeyAlaniDetayMetni = rbcSiralari.map(item => `${formatNumber(parseInt(item.milBasinaDisk), 0, 0)} disk x ${formatNumber(tekDiskAlani, 1, 2)} ${alanBirim} x ${formatNumber(parseInt(item.adet), 0, 0)} ${isForeign ? "units" : "adet"}`).join(" + ");
 
     const systemLines = [
       ...rbcLines,
-      isForeign 
-        ? `· TOTAL ${toplamDiskSayisi} disks x 6.6 m² x ${toplamMilAdet} units = ${toplamYuzeyAlani} m² surface area.`
-        : `· TOPLAM YÜZEY ALANI: ${yuzeyAlaniDetayMetni} = ${toplamYuzeyAlani} m² yüzey alanı.`,
       isForeign
-        ? `· ${lamellaAdet} ${lamellaModeli} Lamella Separator final sedimentation tank, GRP (fiberglass) body.`
-        : `· ${lamellaAdet} adet ${lamellaModeli} Lamella Seperatör Çökeltim Tankı, CTP (fiber) gövde.`,
+        ? `· TOTAL ${formatNumber(toplamDiskSayisi, 0, 0)} disks x ${formatNumber(tekDiskAlani, 1, 2)} ${alanBirim} x ${formatNumber(toplamMilAdet, 0, 0)} units = ${formatNumber(toplamYuzeyAlani, 1, 1)} ${alanBirim} surface area.`
+        : `· TOPLAM YÜZEY ALANI: ${yuzeyAlaniDetayMetni} = ${formatNumber(toplamYuzeyAlani, 1, 1)} ${alanBirim} yüzey alanı.`,
       isForeign
-        ? `· TOTAL ${lamellaAlani.toFixed(0)} m² x ${lamellaAdet} units = ${(lamellaAlani * lamellaAdet).toFixed(0)} m² lamella surface area.`
-        : `· TOPLAM ${lamellaAlani.toFixed(0)} m² x ${lamellaAdet} adet = ${(lamellaAlani * lamellaAdet).toFixed(0)} m² lamella yüzey alanı.`
+        ? `· ${formatNumber(lamellaAdet, 0, 0)} ${lamellaModeli} Lamella Separator final sedimentation tank, GRP (fiberglass) body.`
+        : `· ${formatNumber(lamellaAdet, 0, 0)} adet ${lamellaModeli} Lamella Seperatör Çökeltim Tankı, CTP (fiber) gövde.`,
+      isForeign
+        ? `· TOTAL ${formatNumber(displayLamellaAlani, 0, 0)} ${alanBirim} x ${formatNumber(lamellaAdet, 0, 0)} units = ${formatNumber(displayLamellaAlani * lamellaAdet, 0, 0)} ${alanBirim} lamella surface area.`
+        : `· TOPLAM ${formatNumber(displayLamellaAlani, 0, 0)} ${alanBirim} x ${formatNumber(lamellaAdet, 0, 0)} adet = ${formatNumber(displayLamellaAlani * lamellaAdet, 0, 0)} ${alanBirim} lamella yüzey alanı.`
     ].join("\n");
 
     return {
@@ -186,6 +229,9 @@ function BilgiSayfasiTablosu() {
     };
   };
 
+  const displayDailyUsage = unitSystem === "US" ? (pDetails.debi || 0) * 264.172 : (pDetails.debi || 0);
+  const debiTopBirim = unitSystem === "US" ? "GPD" : (isForeign ? "m³/day" : "m³/gün");
+
   const [data, setData] = useState({
     title1: "", title2: "", title3: "", detailsHeader: "PROJE DETAYLARI",
     projectDetails: [], noteText: "", sourceHeader: "", sourceText: "",
@@ -194,46 +240,37 @@ function BilgiSayfasiTablosu() {
 
   const [history, setHistory] = useState([]);
 
-  // İlk kurulumda store verisini koruma veya sıfırdan üretme
+  // 🌟 Birim sistemi, döviz veya dil değiştiğinde tüm başlık ve içerikleri dinamik tetikle
   useEffect(() => {
     if (loading) return;
 
-    if (storeBilgiSayfasi && data.projectDetails.length > 0) {
-      return;
-    }
+    const detailsInfo = generateProjectDetails();
+    setData({
+      title1: formData?.customerInfo?.ticariUnvan || (isForeign ? "CUSTOMER COMMERCIAL TITLE" : "MÜŞTERI TİCARİ ÜNVANI"),
+      title2: isForeign
+        ? `${formatNumber(displayDailyUsage, 0, 2)} ${debiTopBirim} (People Equivalent) Capacity  - ${isFiltrasyonChecked ? "Irrigation / Reuse" : "Discharge to Nature"}`
+        : `${formatNumber(displayDailyUsage, 0, 2)} ${debiTopBirim} Kapasiteli - ${isFiltrasyonChecked ? "Sulama/Geri Kazanım" : "Alıcı Ortama Deşarj"}`,
+      title3: isForeign
+        ? "Rotating Biological Contactor (RBC) Sewage Treatment Plant (STP) Offer"
+        : "Dönen Biyolojik Disk Atıksu Arıtma Tesisi Teklifi",
+      detailsHeader: isForeign ? "PROJECT INFO" : "PROJE DETAYLARI",
+      projectDetails: detailsInfo.rows,
+      noteText: isForeign
+        ? "*These parameters are directly given by client. / chosen according to our experiences and literature reviews."
+        : "Bu parametreler müşteri tarafından verilmiştir/ deneyimlerimiz ve literatür değerlerine göre seçilmiştir.",
+      sourceHeader: isForeign ? "Wastewater Source" : "Atıksu Kaynağı",
+      sourceText: isForeign
+        ? "Only domestic wastewater from toilets, sinks, shower, dishwash and laundry.\nWastewater should not contain any chemicals which is harmful for the bacteria inside wastewater.\nRainwater and swimming pool water which may contain chlorine and chemicals should not be allowed into the ST system. Fat, Oil and Grease (FOG) should not be allowed into the system.\nWastewater from kitchens definitely should pass through oil traps in kitchens."
+        : "Tuvaletlerden ve her türlü tüketimden kaynaklanan evsel atıksular alınacaktır.\nTesise yemekhanelerden kaynaklanan yağ içerikli atıksular yağ kapanından geçirilmeden alınmayacaktır. Ayrıca yağmur suyu girişi olmayacaktır.",
+      systemHeader: isForeign ? "Proposed System" : "Önerilen Sistem",
+      systemText: detailsInfo.systemText,
+      calcHeader: isForeign ? "Disk Surface Area Calculation" : "Disk Yüzey Alanı Hesaplaması",
+      calcText: isForeign
+        ? `π x r x r x 2 sides x ${formatNumber(detailsInfo.toplamDiskSayisi, 0, 0)} disks/unit -> 3.14 x ${formatNumber(currentRadius, 3, 3)} x ${formatNumber(currentRadius, 3, 3)} x 2 x ${formatNumber(detailsInfo.toplamDiskSayisi, 0, 0)} = ${formatNumber(3.14 * currentRadius * currentRadius * 2 * detailsInfo.toplamDiskSayisi, 1, 1)} ${unitSystem === "US" ? "ft²" : "m²"}/unit`
+        : `π x r x r x 2 taraf x ${formatNumber(detailsInfo.toplamDiskSayisi, 0, 0)} disk -> 3.14 x ${formatNumber(currentRadius, 3, 3)} x ${formatNumber(currentRadius, 3, 3)} x 2 x ${formatNumber(detailsInfo.toplamDiskSayisi, 0, 0)} = ${formatNumber(3.14 * currentRadius * currentRadius * 2 * detailsInfo.toplamDiskSayisi, 1, 1)} ${unitSystem === "US" ? "ft²" : "m²"}`
+    });
+  }, [loading, unitSystem, currency, exchangeRate, teklifDili, pDetails.debi, isFiltrasyonChecked]);
 
-    if (storeBilgiSayfasi && storeBilgiSayfasi.projectDetails?.length > 0) {
-      setData(storeBilgiSayfasi);
-    } else {
-      const detailsInfo = generateProjectDetails();
-      setData({
-        title1: formData?.customerInfo?.ticariUnvan || (isForeign ? "CUSTOMER COMMERCIAL TITLE" : "MÜŞTERI TİCARİ ÜNVANI"),
-        title2: isForeign 
-          ? `${pDetails.debi || 0} m³/day (People Equivalent) Capacity  - ${isFiltrasyonChecked ? "Irrigation / Reuse" : "Discharge to Nature"}`
-          : `${pDetails.debi || 0} m³/gün Kapasiteli - ${isFiltrasyonChecked ? "Sulama/Geri Kazanım" : "Alıcı Ortama Deşarj"}`,
-        title3: isForeign
-          ? "Rotating Biological Contactor (RBC) Sewage Treatment Plant (STP) Offer"
-          : "Dönen Biyolojik Disk Atıksu Arıtma Tesisi Teklifi",
-        detailsHeader: isForeign ? "PROJECT INFO" : "PROJE DETAYLARI",
-        projectDetails: detailsInfo.rows,
-        noteText: isForeign 
-          ? "*These parameters are directly given by client. / chosen according to our experiences and literature reviews."
-          : "Bu parametreler müşteri tarafından verilmiştir/ deneyimlerimiz ve literatür değerlerine göre seçilmiştir.",
-        sourceHeader: isForeign ? "Wastewater Source" : "Atıksu Kaynağı",
-        sourceText: isForeign
-          ? "Only domestic wastewater from toilets, sinks, shower, dishwash and laundry.\nWastewater should not contain any chemicals which is harmful for the bacteria inside wastewater.\nRainwater and swimming pool water which may contain chlorine and chemicals should not be allowed into the ST system. Fat, Oil and Grease (FOG) should not be allowed into the system.\nWastewater from kitchens definitely should pass through oil traps in kitchens."
-          : "Tuvaletlerden ve her türlü tüketimden kaynaklanan evsel atıksular alınacaktır.\nTesise yemekhanelerden kaynaklanan yağ içerikli atıksular yağ kapanından geçirilmeden alınmayacaktır. Ayrıca yağmur suyu girişi olmayacaktır.",
-        systemHeader: isForeign ? "Proposed System" : "Önerilen Sistem",
-        systemText: detailsInfo.systemText,
-        calcHeader: isForeign ? "Disk Surface Area Calculation" : "Disk Yüzey Alanı Hesaplaması",
-        calcText: isForeign
-          ? `π x r x r x 2 sides x ${detailsInfo.toplamDiskSayisi} disks/unit -> 3,14 x ${currentRadius.toFixed(3)} x ${currentRadius.toFixed(3)} x 2 x ${detailsInfo.toplamDiskSayisi} = ${(3.14 * currentRadius * currentRadius * 2 * detailsInfo.toplamDiskSayisi).toFixed(1)} m²/unit`
-          : `π x r x r x 2 taraf x ${detailsInfo.toplamDiskSayisi} disk -> 3,14 x ${currentRadius.toFixed(3)} x ${currentRadius.toFixed(3)} x 2 x ${detailsInfo.toplamDiskSayisi} = ${(3.14 * currentRadius * currentRadius * 2 * detailsInfo.toplamDiskSayisi).toFixed(1)} m²`
-      });
-    }
-  }, [loading, storeBilgiSayfasi, teklifDili]);
-
-  // Local State değiştikçe store senkronizasyonu
   useEffect(() => {
     if (loading || data.projectDetails.length === 0) return;
     updateSection("tables", {
@@ -252,21 +289,20 @@ function BilgiSayfasiTablosu() {
     setHistory(history.slice(0, -1));
   };
 
-  // REFRESH BUTONU
   const handleRefresh = () => {
     setHistory([]);
     const detailsInfo = generateProjectDetails();
     setData({
       title1: formData?.customerInfo?.ticariUnvan || (isForeign ? "CUSTOMER COMMERCIAL TITLE" : "MÜŞTERI TİCARİ ÜNVANI"),
-      title2: isForeign 
-        ? `${pDetails.debi || 0} m³/day (People Equivalent) Capacity  - ${isFiltrasyonChecked ? "Irrigation / Reuse" : "Discharge to Nature"}`
-        : `${pDetails.debi || 0} m³/gün Kapasiteli - ${isFiltrasyonChecked ? "Sulama/Geri Kazanım" : "Alıcı Ortama Deşarj"}`,
+      title2: isForeign
+        ? `${formatNumber(displayDailyUsage, 0, 2)} ${debiTopBirim} (People Equivalent) Capacity  - ${isFiltrasyonChecked ? "Irrigation / Reuse" : "Discharge to Nature"}`
+        : `${formatNumber(displayDailyUsage, 0, 2)} ${debiTopBirim} Kapasiteli - ${isFiltrasyonChecked ? "Sulama/Geri Kazanım" : "Alıcı Ortama Deşarj"}`,
       title3: isForeign
         ? "Rotating Biological Contactor (RBC) Sewage Treatment Plant (STP) Offer"
         : "Dönen Biyolojik Disk Atıksu Arıtma Tesisi Teklifi",
       detailsHeader: isForeign ? "PROJECT INFO" : "PROJE DETAYLARI",
       projectDetails: detailsInfo.rows,
-      noteText: isForeign 
+      noteText: isForeign
         ? "*These parameters are directly given by client. / chosen according to our experiences and literature reviews."
         : "Bu parametreler müşteri tarafından verilmiştir/ deneyimlerimiz ve literatür değerlerine göre seçilmiştir.",
       sourceHeader: isForeign ? "Wastewater Source" : "Atıksu Kaynağı",
@@ -277,8 +313,8 @@ function BilgiSayfasiTablosu() {
       systemText: detailsInfo.systemText,
       calcHeader: isForeign ? "Disk Surface Area Calculation" : "Disk Yüzey Alanı Hesaplaması",
       calcText: isForeign
-        ? `π x r x r x 2 sides x ${detailsInfo.toplamDiskSayisi} disks/unit -> 3,14 x ${currentRadius.toFixed(3)} x ${currentRadius.toFixed(3)} x 2 x ${detailsInfo.toplamDiskSayisi} = ${(3.14 * currentRadius * currentRadius * 2 * detailsInfo.toplamDiskSayisi).toFixed(1)} m²/unit`
-        : `π x r x r x 2 taraf x ${detailsInfo.toplamDiskSayisi} disk -> 3,14 x ${currentRadius.toFixed(3)} x ${currentRadius.toFixed(3)} x 2 x ${detailsInfo.toplamDiskSayisi} = ${(3.14 * currentRadius * currentRadius * 2 * detailsInfo.toplamDiskSayisi).toFixed(1)} m²`
+        ? `π x r x r x 2 sides x ${formatNumber(detailsInfo.toplamDiskSayisi, 0, 0)} disks/unit -> 3.14 x ${formatNumber(currentRadius, 3, 3)} x ${formatNumber(currentRadius, 3, 3)} x 2 x ${formatNumber(detailsInfo.toplamDiskSayisi, 0, 0)} = ${formatNumber(3.14 * currentRadius * currentRadius * 2 * detailsInfo.toplamDiskSayisi, 1, 1)} ${unitSystem === "US" ? "ft²" : "m²"}/unit`
+        : `π x r x r x 2 taraf x ${formatNumber(detailsInfo.toplamDiskSayisi, 0, 0)} disk -> 3.14 x ${formatNumber(currentRadius, 3, 3)} x ${formatNumber(currentRadius, 3, 3)} x 2 x ${formatNumber(detailsInfo.toplamDiskSayisi, 0, 0)} = ${formatNumber(3.14 * currentRadius * currentRadius * 2 * detailsInfo.toplamDiskSayisi, 1, 1)} ${unitSystem === "US" ? "ft²" : "m²"}`
     });
   };
 
@@ -308,6 +344,16 @@ function BilgiSayfasiTablosu() {
     setData({ ...data, projectDetails: updatedRows });
   };
 
+  const toFahrenheit = (celsius) => Math.round(celsius * 1.8 + 32);
+
+  const tempUnit = unitSystem === "US" ? "°F" : "°C";
+
+  const minTemp = unitSystem === "US" ? toFahrenheit(15) : 15;
+  const maxTemp = unitSystem === "US" ? toFahrenheit(32) : 32;
+
+  const acceptedTempRaw = pDetails.sicaklik || 19;
+  const acceptedTemp = unitSystem === "US" ? toFahrenheit(acceptedTempRaw) : acceptedTempRaw;
+
   if (loading) {
     return (
       <div className="d-flex justify-content-center align-items-center p-5 text-white-50">
@@ -329,13 +375,19 @@ function BilgiSayfasiTablosu() {
         .section-header { font-size: 14px; font-weight: 800; text-decoration: underline; text-align: center; text-underline-offset: 4px; }
       `}</style>
 
-      <div className="d-flex justify-content-end align-items-center gap-2 mb-1">
-        <button onClick={handleRefresh} className="btn btn-sm px-3 fw-semibold text-white border-0" style={{ backgroundColor: "#d97706", fontSize: "11px", borderRadius: "6px" }}>
-          🔄 {isForeign ? "Refresh" : "Yenile"}
-        </button>
-        <button onClick={handleUndo} disabled={history.length === 0} className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0" style={{ backgroundColor: history.length === 0 ? "#334155" : "#1e3a8a", fontSize: "11px", borderRadius: "6px", opacity: history.length === 0 ? 0.4 : 1 }}>
-          ↶
-        </button>
+      {/* ÜST PANEL AKSIYONLARI VE AKTİF MOD BADGE'İ */}
+      <div className="d-flex justify-content-between align-items-center mb-1">
+        <span className="badge fw-bold py-2 px-3" style={{ backgroundColor: "#0f172a", color: "#fbbf24", border: "1px solid #475569", fontSize: "11px" }}>
+          {currency} - {unitSystem} Modu
+        </span>
+        <div className="d-flex align-items-center gap-2">
+          <button onClick={handleRefresh} className="btn btn-sm px-3 fw-semibold text-white border-0" style={{ backgroundColor: "#d97706", fontSize: "11px", borderRadius: "6px" }}>
+            🔄 {isForeign ? "Refresh" : "Yenile"}
+          </button>
+          <button onClick={handleUndo} disabled={history.length === 0} className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center justify-content-center border-0" style={{ backgroundColor: history.length === 0 ? "#334155" : "#1e3a8a", fontSize: "11px", borderRadius: "6px", opacity: history.length === 0 ? 0.4 : 1 }}>
+            ↶
+          </button>
+        </div>
       </div>
 
       <div className="d-flex flex-column p-4 rounded-3 border" style={{ backgroundColor: "#0f172a", borderColor: "#334155" }}>
@@ -377,7 +429,7 @@ function BilgiSayfasiTablosu() {
 
         <div className="mb-4">
           <input type="text" className="info-input section-header mb-2" value={data.systemHeader} onChange={(e) => handleTextChange("systemHeader", e.target.value)} />
-          <textarea className="info-input info-textarea" rows={5} style={{ fontSize: "13px", lineHeight: "1.6", paddingLeft: "5%" }} value={data.systemText} onChange={(e) => handleTextChange("systemText", e.target.value)} />
+          <textarea className="info-input info-textarea" rows={6} style={{ fontSize: "13px", lineHeight: "1.6", paddingLeft: "5%" }} value={data.systemText} onChange={(e) => handleTextChange("systemText", e.target.value)} />
         </div>
 
         <div className="mb-2">

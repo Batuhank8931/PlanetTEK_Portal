@@ -9,6 +9,7 @@ import {
     resolveIleriAritmaPrices,
     resolveFiltrationPrices,
     resolveSusuzlastirmaPrices,
+    resolveMembranePrices,
     resolveOthersPrices,
     resolveMontajPrices
 } from "./equipmentPriceResolvers";
@@ -30,6 +31,8 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
 
     // 1. İndirimler ve Genel Bilgiler
     const customerInfo = formData?.customerInfo;
+    const unitSystem = formData?.customerInfo?.unitSystem || "Metric"; // 'Metric' veya 'US'
+
     const planetTekIndirim = parseFloat(customerInfo?.planetTekIndirim) ?? 5;
     const ekipmanIndirim = parseFloat(customerInfo?.ekipmanIndirim) ?? 10;
 
@@ -42,6 +45,7 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
     const isIleriAritmaChecked = modulesState.ileriAritma?.checked || false;
     const isFiltrasyonChecked = modulesState.filtrasyon?.checked || false;
     const isCamurAktif = modulesState.sludgeDewatering?.checked || false;
+    const isMembraneAktif = modulesState.membrane?.checked || false;
 
     // 2. Alt Ekipman Alt Nesneleri
     const onAritmaObj = equipmentsObject.onAritma || {};
@@ -49,6 +53,7 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
     const ileriAritmaObj = equipmentsObject.ileriAritma || {};
     const filtrationObj = equipmentsObject.filtrationSystem || {};
     const sludgeObj = equipmentsObject.sludgeDewatering || {};
+    const membraneObj = equipmentsObject.membraneSystem || {};
     const camurOpsiyonlari = sludgeObj.opsiyonlar || {};
 
     // 3. Modüllerden Metrik ve Model Hesaplamaları
@@ -58,8 +63,9 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
 
     const planetDiskDetails = formData.planetDiskDetails || {};
     const rbcModeli = planetDiskDetails?.tasarim?.aritmaParametreleri?.RBCUnite || "MX";
+    const rbcRotor = planetDiskDetails?.tasarim?.aritmaParametreleri?.rotorSecimi || false;
     const atiksuType = planetDiskDetails?.tasarim?.aritmaParametreleri?.atiksutype || "evsel";
-    const UniteTipi = planetDiskDetails.tasarim?.aritmaParametreleri?.kasaTipi || "Kapaklı";
+    const UniteTipi = planetDiskDetails.tasarim?.aritmaParametreleri?.kapakSecimi || "Kapaklı";
     const yerlesimListesi = planetDiskDetails?.tasarim?.yerlesimSiralanisi || [];
     const lamellaDetaylar = planetDiskDetails?.tasarim?.lamella || [];
 
@@ -90,16 +96,39 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
 
     // Dil bazlı dinamik ek metinler için küçük bir iç kontrol (rotor / unit kavramı)
     const unitText = lang === "TR"
-        ? (UniteTipi === "Şase" ? "rotor" : "ünite")
-        : (UniteTipi === "Şase" ? "rotor" : "unit");
+        ? (rbcRotor ? "rotor" : "ünite")
+        : (rbcRotor ? "rotor" : "unit");
 
     const uniteBasinaDiskSayisi = grupAnahtarlari.length === 1
         ? `${grupAnahtarlari[0]} disk / ${unitText} `
         : grupAnahtarlari.map(disk => `${disk} disk / ${diskGruplari[disk]} ${unitText}`).join(" , ");
 
+
+    // 1. Sistem ayarlarını doğrudan unitSystem üzerinden tanımlayalım
+    const areaUnit = unitSystem === "Metric" ? "m²" : "ft²";
+    const conversionFactor = unitSystem === "Metric" ? 1 : 10.7639;
+
+    // 🌟 Teklif diline göre doğru lokasyon formatı (EN için en-US, TR için tr-TR)
+    const areaLocale = lang === "EN" ? "en-US" : "tr-TR";
+
+    // 2. Hesaplama ve formatlama yapan temiz yardımcı fonksiyonumuz
+    const formatArea = (disk) => {
+        const baseMetricArea = disk * (UniteTipi === "MINI" ? 2.6 : 6.6);
+        const convertedArea = baseMetricArea * conversionFactor;
+
+        // 🌟 Sadece noktalama işini teklif diline göre toLocaleString ile çözüyoruz
+        const formattedNum = convertedArea.toLocaleString(areaLocale, {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2
+        });
+
+        return `${formattedNum} ${areaUnit}`;
+    };
+
+    // 3. Ana fonksiyonun güncel hali
     const uniteBasinaDiskAlani = grupAnahtarlari.length === 1
-        ? `${(grupAnahtarlari[0] * (UniteTipi === "MINI" ? 2.6 : 6.6)).toFixed(2)} m² / ${unitText}`
-        : grupAnahtarlari.map(disk => `${(disk * (UniteTipi === "MINI" ? 2.6 : 6.6)).toFixed(2)} m² / ${diskGruplari[disk]} ${unitText}`).join(" , ");
+        ? `${formatArea(grupAnahtarlari[0])} / ${unitText}`
+        : grupAnahtarlari.map(disk => `${formatArea(disk)} / ${diskGruplari[disk]} ${unitText}`).join(" , ");
 
     const lamellaAdeti = parseInt(lamellaDetaylar?.lamellaAdet) || 0;
     const lamellaModeli = lamellaDetaylar?.secilenLamellaModeli || "LS 45";
@@ -140,6 +169,7 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
         ileriAritmaPrices,
         filtrationPrices,
         susuzlastirmaPrices,
+        membranPrices,
         othersPrices,
         montajPrices
     ] = await Promise.all([
@@ -152,6 +182,7 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
         resolveIleriAritmaPrices(ileriAritmaObj, priceData),
         resolveFiltrationPrices(filtrationObj, priceData),
         resolveSusuzlastirmaPrices(sludgeObj, priceData),
+        resolveMembranePrices(membraneObj, priceData),
         resolveOthersPrices(formData, priceData),
         resolveMontajPrices(formData, priceData)
     ]);
@@ -243,7 +274,7 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
         {
             id: "2_rbc_kapakli",
             type: 3,
-            piece: UniteTipi === "Kapaklı" ? toplamRbcAdeti : 0,
+            piece: rbcRotor ? 0 : (UniteTipi === "Kapaklı" ? toplamRbcAdeti : 0),
             label: dict.rbc_kapakli(rbcModeli, uniteBasinaDiskSayisi, uniteBasinaDiskAlani),
             unitPrice: rbcPrices.kapakli,
             discount: planetTekIndirim
@@ -251,7 +282,7 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
         {
             id: "2_rbc_sase",
             type: 3,
-            piece: UniteTipi === "Şase" ? toplamRbcAdeti : 0,
+            piece: rbcRotor ? toplamRbcAdeti : 0,
             label: dict.rbc_sase(rbcModeli, uniteBasinaDiskSayisi, uniteBasinaDiskAlani),
             unitPrice: rbcPrices.sase,
             discount: planetTekIndirim
@@ -259,7 +290,7 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
         {
             id: "2_rbc_kapaksiz",
             type: 3,
-            piece: UniteTipi === "Kapaksız" ? toplamRbcAdeti : 0,
+            piece: rbcRotor ? 0 : (UniteTipi === "Kapaksız" ? toplamRbcAdeti : 0),
             label: dict.rbc_kapaksiz(rbcModeli, uniteBasinaDiskSayisi, uniteBasinaDiskAlani),
             unitPrice: rbcPrices.kapaksizUnite,
             discount: planetTekIndirim
@@ -337,7 +368,7 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
             id: "4_pompa_filtrasyon_besleme",
             type: 3,
             piece: isFiltrasyonChecked && beslemePompasi ? sistemAdet : 0,
-            label: dict.pompa_filtrasyon_besleme(beslemePompasi?.debiM3h, beslemePompasi?.kw),
+            label: dict.pompa_filtrasyon_besleme,
             unitPrice: filtrationPrices.beslemePompasi,
             discount: ekipmanIndirim
         },
@@ -345,7 +376,7 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
             id: "4_pompa_filtrasyon_geriyikama",
             type: 3,
             piece: isFiltrasyonChecked && geriYikamaPompasi ? sistemAdet : 0,
-            label: dict.pompa_filtrasyon_geriyikama(geriYikamaPompasi?.debiM3h, geriYikamaPompasi?.kw),
+            label: dict.pompa_filtrasyon_geriyikama,
             unitPrice: filtrationPrices.geriYikamaPompasi || filtrationPrices.geriyikamaPompasi,
             discount: ekipmanIndirim
         },
@@ -353,7 +384,7 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
             id: "4_filtre_separator",
             type: 3,
             piece: isFiltrasyonChecked && separatorFiltre ? sistemAdet : 0,
-            label: dict.filtre_separator(separatorFiltre?.isim, separatorFiltre?.debiM3h),
+            label: dict.filtre_separator,
             unitPrice: filtrationPrices.separatorFiltre,
             discount: ekipmanIndirim
         },
@@ -361,7 +392,7 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
             id: "4_filtre_kum_oto",
             type: 3,
             piece: isFiltrasyonChecked && kumFiltresi ? sistemAdet : 0,
-            label: dict.filtre_kum_oto(kumFiltresi?.isim, kumFiltresi?.debiM3h),
+            label: dict.filtre_kum_oto,
             unitPrice: filtrationPrices.kumFiltresi || filtrationPrices.kumFiltreOto,
             discount: ekipmanIndirim
         },
@@ -369,7 +400,7 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
             id: "4_filtre_karbon_oto",
             type: 3,
             piece: isFiltrasyonChecked && aktifKarbonFiltresi ? sistemAdet : 0,
-            label: dict.filtre_karbon_oto(aktifKarbonFiltresi?.isim, aktifKarbonFiltresi?.debiM3h),
+            label: dict.filtre_karbon_oto,
             unitPrice: filtrationPrices.aktifKarbonFiltresi || filtrationPrices.karbonFiltreOto,
             discount: ekipmanIndirim
         },
@@ -379,7 +410,7 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
             id: "5_pompa_camur_besleme",
             type: 3,
             piece: isCamurAktif && sludgeObj.beslemePompasi ? 1 : 0,
-            label: dict.pompa_camur_besleme(sludgeObj.beslemePompasi?.kapasite_degeri, sludgeObj.beslemePompasi?.kapasite_birimi),
+            label: dict.pompa_camur_besleme,
             unitPrice: susuzlastirmaPrices.camurBeslemePompa,
             discount: ekipmanIndirim
         },
@@ -387,7 +418,7 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
             id: "5_dekantor",
             type: 3,
             piece: isCamurAktif && secilenCamurEkipmanTipi === "Dekantör" ? 1 : 0,
-            label: dict.dekantor(sludgeObj.anaEkipman?.kapasite_degeri, sludgeObj.anaEkipman?.kapasite_birimi),
+            label: dict.dekantor,
             unitPrice: susuzlastirmaPrices.dekantor,
             discount: ekipmanIndirim
         },
@@ -395,7 +426,7 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
             id: "5_filtrepress",
             type: 3,
             piece: isCamurAktif && secilenCamurEkipmanTipi === "Filtrepress" ? 1 : 0,
-            label: dict.filtrepress(sludgeObj.anaEkipman?.kapasite_degeri, sludgeObj.anaEkipman?.kapasite_birimi),
+            label: dict.filtrepress,
             unitPrice: susuzlastirmaPrices.filtrepress,
             discount: ekipmanIndirim
         },
@@ -411,12 +442,21 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
             id: "5_pompa_suzuntu_suyu",
             type: 3,
             piece: isCamurAktif && sludgeObj.suzuntuPompasi ? 1 : 0,
-            label: dict.pompa_suzuntu_suyu(sludgeObj.suzuntuPompasi?.kapasite_degeri, sludgeObj.suzuntuPompasi?.kapasite_birimi),
+            label: dict.pompa_suzuntu_suyu,
             unitPrice: susuzlastirmaPrices.suzuntuSuyuPompa,
             discount: ekipmanIndirim
         },
         ...dinamikOpsiyonKalemleri,
 
+        { id: "1_alt_membran", type: 1, label: dict.membrane_header },
+        {
+            id: "6_membran_sistemi",
+            type: 3,
+            piece: isMembraneAktif ? 1 : 0,
+            label: dict.membrane_system,
+            unitPrice: membranPrices.membransistemininTamami,
+            discount: ekipmanIndirim
+        },
         { id: "1_ana_insaat", type: 0, label: dict.ana_insaat },
         { id: "6_insaat_kanal_izgara", type: 3, piece: isOnAritmaChecked ? 1 : 0, label: dict.insaat_kanal_izgara, unitPrice: 0, unitData: dict.insaat_isleri, discount: 0, isUrgent: true },
         { id: "6_insaat_tank_anoksik", type: 3, piece: isIleriAritmaChecked ? 1 : 0, label: dict.insaat_tank_anoksik, unitPrice: 0, unitData: dict.insaat_isleri, discount: 0, isUrgent: true },

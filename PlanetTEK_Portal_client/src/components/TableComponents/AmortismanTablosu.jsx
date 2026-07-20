@@ -8,15 +8,71 @@ function AmortismanTablosu() {
   const teklifDili = formData?.customerInfo?.teklifDili;
   const isForeign = teklifDili === "Yabancı";
 
-  // Store'dan gerekli parametrelerin güvenli bir şekilde okunması
+  // 🌟 Canlı Döviz, Kur ve Birim Sistemi Bilgileri Store'dan Alınır
+  const currency = formData?.customerInfo?.currency || "EUR";
+  const unitSystem = formData?.customerInfo?.unitSystem || "Metric";
+  const exchangeRate = parseFloat(formData?.customerInfo?.exchangeRate) || 1.0000;
+
+  // Store verileri (Daima ham Euro ve Metric m³ tabanlı varsayılıyor)
   const storeDebi = parseFloat(formData?.planetDiskDetails?.tasarim?.aritmaParametreleri?.debi) || 0;
   const planetCapex = parseFloat(formData?.tables?.capextablosu?.totalNetPrice) || 0;
   const annualOpexGideri = parseFloat(formData?.tables?.sarfmalzemettablosu?.grandTotal) || 0;
 
-  // Store'da önceden kaydedilmiş veri var mı kontrolü
   const storeAmortisman = formData?.tables?.amortisman;
 
-  // İlk açılışta veya yenilemede atanacak başlangıç değerleri
+  // 🌟 Lokasyon bazlı format seçimi
+  const activeLocale = isForeign ? "en-US" : "tr-TR";
+
+  // Sayı Formatlama Fonksiyonu (Düz Metin Hücreleri İçin)
+  const formatNumber = (value, minFraction = 0, maxFraction = 2) => {
+    if (isNaN(value)) return "0";
+    return value.toLocaleString(activeLocale, {
+      minimumFractionDigits: minFraction,
+      maximumFractionDigits: maxFraction
+    });
+  };
+
+  // Input Alanlarında Formatlı Gösterim İçin Yardımcı Fonksiyon
+  const formatInputValue = (val, maxDigits = 2) => {
+    if (val === undefined || val === null || val === "") return "";
+    const num = parseFloat(val);
+    if (isNaN(num)) return val;
+    
+    return num.toLocaleString(activeLocale, {
+      minimumFractionDigits: 0,
+      maximumFractionDigits: maxDigits
+    });
+  };
+
+  // Formatlanmış string girdiyi temiz JS float sayısına çevirme
+  const parseInputValue = (val) => {
+    if (!val) return 0;
+    let cleanVal = val.toString();
+    if (isForeign) {
+      cleanVal = cleanVal.replace(/,/g, "");
+    } else {
+      cleanVal = cleanVal.replace(/\./g, "").replace(",", ".");
+    }
+    return parseFloat(cleanVal) || 0;
+  };
+
+  // 🌟 Dinamik Simge Yardımcı Fonksiyonları
+  const getCurrencySymbol = () => {
+    if (currency === "USD") return "$";
+    if (currency === "TRY") return "₺";
+    return "€";
+  };
+
+  const getFlowUnit = (type) => {
+    if (unitSystem === "US") {
+      if (type === "day") return "GPD";
+      if (type === "month") return "Gallons/month";
+      return "Gallons/year";
+    }
+    return isForeign ? `m³/${type}` : `m³/${type === "day" ? "gün" : type === "month" ? "ay" : "yıl"}`;
+  };
+
+  // İlk açılış şablonu (Store'da daima ham değerler tutulur)
   const getInitialData = () => {
     if (storeAmortisman && Object.keys(storeAmortisman).length > 0 && storeAmortisman.dailyUsage !== undefined) {
       return {
@@ -28,18 +84,20 @@ function AmortismanTablosu() {
       };
     }
     return {
-      dailyUsage: storeDebi > 0 ? storeDebi : 70,
+      dailyUsage: storeDebi > 0 ? storeDebi : 70, // Ham m3/gün
       activeMonths: 7,
-      waterPrice: 1.59,
-      plantCost: planetCapex > 0 ? planetCapex : 327457,
-      annualOpex: annualOpexGideri
+      waterPrice: 1.59, // Ham Euro bazlı su metreküp fiyatı
+      plantCost: planetCapex > 0 ? planetCapex : 327457, // Ham Euro
+      annualOpex: annualOpexGideri // Ham Euro
     };
   };
 
   const [data, setData] = useState(getInitialData);
+  
+  // Girdi odak yönetimi için geçici yerel string stateleri
+  const [editingCell, setEditingCell] = useState(null); // { field: 'string', value: 'string' }
   const [history, setHistory] = useState([]);
 
-  // Bağımlılıklar ilk yüklendiğinde store boşsa tetiklensin
   useEffect(() => {
     if (!storeAmortisman || Object.keys(storeAmortisman).length === 0) {
       const initial = getInitialData();
@@ -48,7 +106,7 @@ function AmortismanTablosu() {
     }
   }, [storeDebi, planetCapex, annualOpexGideri]);
 
-  // Hesaplamaları dinamik yapan ve hem yerel state'i hem store'u güncelleyen yardımcı fonksiyon
+  // Merkezi Store'u daima ham Euro... senkronize tutan fonksiyon
   const syncWithStore = (updatedData) => {
     const monthlyUsage = updatedData.dailyUsage * 30;
     const yearlyUsage = monthlyUsage * updatedData.activeMonths;
@@ -57,7 +115,7 @@ function AmortismanTablosu() {
 
     const roiYears = netAnnualSaving > 0 ? updatedData.plantCost / netAnnualSaving : 0;
     const roiMonths = roiYears * 12;
-    const exactYearRound = Math.ceil(roiYears); // Hep yukarı yuvarlar
+    const exactYearRound = Math.ceil(roiYears);
 
     updateSection("tables", {
       ...formData?.tables,
@@ -86,7 +144,6 @@ function AmortismanTablosu() {
     setHistory(history.slice(0, -1));
   };
 
-  // REFRESH BUTONU - Parametreleri fabrika ayarlarına döndürür ve store'a yazar
   const handleRefresh = () => {
     setHistory([]);
     const freshData = {
@@ -102,57 +159,81 @@ function AmortismanTablosu() {
 
   const handleChange = (field, value) => {
     saveToHistory(data);
-    const updated = { ...data, [field]: parseFloat(value) || 0 };
+    let finalValue = parseInputValue(value);
+
+    // 🌟 KURAL DÜZELTMELERİ: Ekrandan gelen dönüştürülmüş verileri store'a göndermeden önce ham haline geri çeviriyoruz
+    if (field === "dailyUsage" && unitSystem === "US") {
+      finalValue = finalValue / 264.172; // GPD -> m³
+    } else if (field === "waterPrice") {
+      const euroPrice = finalValue / exchangeRate;
+      finalValue = unitSystem === "US" ? euroPrice * 264.172 : euroPrice;
+    } else if (field === "plantCost") {
+      finalValue = finalValue / exchangeRate; // Converted Currency -> Euro
+    }
+
+    const updated = { ...data, [field]: finalValue };
     setData(updated);
     syncWithStore(updated);
   };
 
-  // Render içi anlık hesaplamalar
-  const monthlyUsage = data.dailyUsage * 30;
-  const yearlyUsage = monthlyUsage * data.activeMonths;
-  const yearlyWaterCost = yearlyUsage * data.waterPrice;
-  const netAnnualSaving = yearlyWaterCost - data.annualOpex;
-  const roiYears = netAnnualSaving > 0 ? data.plantCost / netAnnualSaving : 0;
+  // 🌟 HESAPLAMA MOTORU & RENDER DEĞERLERİ (Dinamik Birim Dönüşümlü)
+  const displayDailyUsage = unitSystem === "US" ? data.dailyUsage * 264.172 : data.dailyUsage;
+  const displayMonthlyUsage = displayDailyUsage * 30;
+  const displayYearlyUsage = displayMonthlyUsage * data.activeMonths;
+
+  const displayWaterPrice = unitSystem === "US" 
+    ? (data.waterPrice / 264.172) * exchangeRate 
+    : data.waterPrice * exchangeRate;
+
+  const displayYearlyWaterCost = displayYearlyUsage * displayWaterPrice;
+  const displayPlantCost = data.plantCost * exchangeRate;
+  const displayAnnualOpex = data.annualOpex * exchangeRate;
+
+  const netAnnualSaving = displayYearlyWaterCost - displayAnnualOpex;
+  const roiYears = netAnnualSaving > 0 ? displayPlantCost / netAnnualSaving : 0;
   const roiMonths = roiYears * 12;
-  const exactYearRound = Math.ceil(roiYears); // Hep yukarı yuvarlar
+  const exactYearRound = Math.ceil(roiYears);
+
+  // Dinamik input hücre render metodu
+  const renderManagedInput = (field, rawValue, maxDigits = 2) => {
+    const isCurrent = editingCell?.field === field;
+    
+    let displayValue = "";
+    if (isCurrent) {
+      displayValue = editingCell.value;
+    } else {
+      displayValue = formatInputValue(rawValue, maxDigits);
+    }
+
+    return (
+      <input
+        type="text"
+        className="form-control form-control-sm bg-transparent border-0 opex-input rounded text-center text-white fw-bold p-0 mx-auto amort-input-field"
+        value={displayValue}
+        onChange={(e) => {
+          setEditingCell({ ...editingCell, value: e.target.value });
+        }}
+        onFocus={() => {
+          const cleanString = isForeign ? rawValue.toString() : rawValue.toString().replace(".", ",");
+          setEditingCell({ field, value: cleanString });
+        }}
+        onBlur={(e) => {
+          handleChange(field, e.target.value);
+          setEditingCell(null);
+        }}
+      />
+    );
+  };
 
   return (
     <div className="d-flex flex-column w-100 text-white">
       <style>{`
-        .amort-row-layout {
-          display: flex;
-          align-items: stretch;
-          width: 100%;
-        }
-        .amort-divider-bottom {
-          border-bottom: 1px solid #334155;
-        }
-        .amort-cell-main {
-          border-right: 1px solid #334155;
-          display: flex;
-          align-items: center;
-          justify-content: center;
-          text-align: center;
-          padding: 0.6rem 0.5rem;
-          font-size: 12px;
-        }
-        .amort-cell-main:last-child {
-          border-right: none;
-        }
-        .amort-input-field {
-          font-size: 12px;
-          box-shadow: none;
-          width: 90%;
-          text-align: center;
-          border-bottom: 1px dashed #475569 !important;
-          color: white;
-          font-weight: bold;
-        }
-        .amort-input-field:focus {
-          outline: none;
-          background-color: rgba(255, 255, 255, 0.08) !important;
-          border-bottom: 1px solid #60a5fa !important;
-        }
+        .amort-row-layout { display: flex; align-items: stretch; width: 100%; }
+        .amort-divider-bottom { border-bottom: 1px solid #334155; }
+        .amort-cell-main { border-right: 1px solid #334155; display: flex; align-items: center; justify-content: center; text-align: center; padding: 0.6rem 0.5rem; font-size: 12px; }
+        .amort-cell-main:last-child { border-right: none; }
+        .amort-input-field { font-size: 12px; box-shadow: none; width: 90%; text-align: center; border-bottom: 1px dashed #475569 !important; color: white; font-weight: bold; }
+        .amort-input-field:focus { outline: none; background-color: rgba(255, 255, 255, 0.08) !important; border-bottom: 1px solid #60a5fa !important; }
         .bg-title-dark { background-color: #090d16; color: #94a3b8; font-weight: 600; }
         .bg-unit-gray { background-color: #1e293b; color: #cbd5e1; font-weight: 600; }
         .bg-value-blue { background-color: #151f32; }
@@ -167,41 +248,45 @@ function AmortismanTablosu() {
               {isForeign ? "AMORTIZATION TABLE" : "Yatırımın Geri Dönüş Süresi (Amortisman) Tablosu"}
             </div>
 
-            <div className="d-flex align-items-center gap-2">
-              <button
-                onClick={handleRefresh}
-                className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
-                style={{ backgroundColor: "#d97706", fontSize: "11px", borderRadius: "6px" }}
-                title={isForeign ? "Reset Table to Initial Settings" : "Tabloyu İlk Ayarlarına Döndür"}
-              >
-                🔄 {isForeign ? "Refresh" : "Yenile"}
-              </button>
+            <div className="d-flex align-items-center gap-3">
+              <span className="badge fw-bold py-2 px-3" style={{ backgroundColor: "#090d16", color: "#fbbf24", border: "1px solid #475569", fontSize: "11px" }}>
+                {currency} - {unitSystem} Modu
+              </span>
 
-              <button
-                onClick={handleUndo}
-                disabled={history.length === 0}
-                className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
-                style={{
-                  backgroundColor: history.length === 0 ? "#334155" : "#1e3a8a",
-                  fontSize: "11px",
-                  borderRadius: "6px",
-                  opacity: history.length === 0 ? 0.4 : 1,
-                  cursor: history.length === 0 ? "not-allowed" : "pointer"
-                }}
-              >
-                ↶
-              </button>
+              <div className="d-flex align-items-center gap-2">
+                <button
+                  onClick={handleRefresh}
+                  className="btn btn-sm px-3 py-1.5 fw-semibold text-white d-flex align-items-center gap-1 border-0"
+                  style={{ backgroundColor: "#d97706", fontSize: "11px", borderRadius: "6px" }}
+                  title={isForeign ? "Reset Table to Initial Settings" : "Tabloyu İlk Ayarlarına Döndür"}
+                >
+                  🔄 {isForeign ? "Refresh" : "Yenile"}
+                </button>
+
+                <button
+                  onClick={handleUndo}
+                  disabled={history.length === 0}
+                  className="btn btn-sm px-3 py-1.5 fw-semibold text-white d-flex align-items-center justify-content-center border-0"
+                  style={{
+                    backgroundColor: history.length === 0 ? "#334155" : "#1e3a8a",
+                    fontSize: "11px",
+                    borderRadius: "6px",
+                    opacity: history.length === 0 ? 0.4 : 1,
+                    cursor: history.length === 0 ? "not-allowed" : "pointer"
+                  }}
+                >
+                  ↶
+                </button>
+              </div>
             </div>
           </div>
 
           {/* BÖLÜM 1: SULAMA AMAÇLI ŞEBEKE SUYUNUN ANALİZİ */}
           <div className="d-flex align-items-stretch amort-divider-bottom">
-            {/* Büyük Yan Başlık */}
             <div className="amort-cell-main bg-title-dark text-uppercase fw-bold" style={{ flex: "0 0 30%", fontSize: "11px", letterSpacing: "0.3px" }}>
               {isForeign ? "IF THE IRRIGATION WATER IS SUPPLIED FROM MUNICIPAL WATER" : "Sulama Amaçlı Şebeke Suyu Kullanılırsa"}
             </div>
 
-            {/* Sağdaki Blok */}
             <div className="d-flex flex-column" style={{ flex: "0 0 70%" }}>
               {/* 1. Satır: Başlıklar */}
               <div className="amort-row-layout amort-divider-bottom bg-title-dark" style={{ minHeight: "42px" }}>
@@ -213,37 +298,35 @@ function AmortismanTablosu() {
                 <div className="amort-cell-main" style={{ flex: "0 0 20%" }}>{isForeign ? "Unit Price of Municipal Water" : "Şebeke suyu birim fiyatı"}</div>
                 <div className="amort-cell-main text-warning" style={{ flex: "0 0 20%" }}>{isForeign ? "Yearly Total Water Use Cost" : "Toplam yıllık su bedeli"}</div>
               </div>
-              {/* 2. Satır: Birimler */}
+              {/* 2. Satır: Dinamik Birimler */}
               <div className="amort-row-layout amort-divider-bottom bg-unit-gray" style={{ height: "32px" }}>
-                <div className="amort-cell-main" style={{ flex: "0 0 20%" }}>m³/day</div>
-                <div className="amort-cell-main" style={{ flex: "0 0 20%" }}>m³/month</div>
-                <div className="amort-cell-main" style={{ flex: "0 0 20%" }}>m³/year</div>
-                <div className="amort-cell-main" style={{ flex: "0 0 20%" }}>€</div>
-                <div className="amort-cell-main" style={{ flex: "0 0 20%" }}>{isForeign ? "€ /year" : "€/yıl"}</div>
+                <div className="amort-cell-main" style={{ flex: "0 0 20%" }}>{getFlowUnit("day")}</div>
+                <div className="amort-cell-main" style={{ flex: "0 0 20%" }}>{getFlowUnit("month")}</div>
+                <div className="amort-cell-main" style={{ flex: "0 0 20%" }}>{getFlowUnit("year")}</div>
+                <div className="amort-cell-main" style={{ flex: "0 0 20%" }}>{getCurrencySymbol()}/{unitSystem === "US" ? "gal" : "m³"}</div>
+                <div className="amort-cell-main" style={{ flex: "0 0 20%" }}>{getCurrencySymbol()} / {isForeign ? "year" : "yıl"}</div>
               </div>
-              {/* 3. Satır: Değerler */}
+              {/* 3. Satır: Dinamik Değerler */}
               <div className="amort-row-layout bg-value-blue" style={{ minHeight: "48px" }}>
                 <div className="amort-cell-main" style={{ flex: "0 0 20%" }}>
-                  <input type="number" className="form-control form-control-sm bg-transparent border-0 amort-input-field" value={data.dailyUsage} onChange={(e) => handleChange("dailyUsage", e.target.value)} />
+                  {renderManagedInput("dailyUsage", displayDailyUsage, 2)}
                 </div>
-                <div className="amort-cell-main text-white fw-bold" style={{ flex: "0 0 20%" }}>{monthlyUsage.toLocaleString()}</div>
-                <div className="amort-cell-main text-white fw-bold" style={{ flex: "0 0 20%" }}>{yearlyUsage.toLocaleString()}</div>
+                <div className="amort-cell-main text-white fw-bold" style={{ flex: "0 0 20%" }}>{formatNumber(Math.round(displayMonthlyUsage), 0, 0)}</div>
+                <div className="amort-cell-main text-white fw-bold" style={{ flex: "0 0 20%" }}>{formatNumber(Math.round(displayYearlyUsage), 0, 0)}</div>
                 <div className="amort-cell-main" style={{ flex: "0 0 20%" }}>
-                  <input type="number" step="0.01" className="form-control form-control-sm bg-transparent border-0 amort-input-field" value={data.waterPrice} onChange={(e) => handleChange("waterPrice", e.target.value)} />
+                  {renderManagedInput("waterPrice", displayWaterPrice, 4)}
                 </div>
-                <div className="amort-cell-main text-warning fw-bold" style={{ flex: "0 0 20%" }}>{Math.round(yearlyWaterCost).toLocaleString()}</div>
+                <div className="amort-cell-main text-warning fw-bold" style={{ flex: "0 0 20%" }}>{formatNumber(Math.round(displayYearlyWaterCost), 0, 0)}</div>
               </div>
             </div>
           </div>
 
           {/* BÖLÜM 2: SULAMA AMAÇLI ARITMA TESİSİ ANALİZİ */}
           <div className="d-flex align-items-stretch">
-            {/* Sol Büyük Yan Başlık */}
             <div className="amort-cell-main bg-title-dark text-uppercase fw-bold" style={{ flex: "0 0 30%", fontSize: "11px", letterSpacing: "0.3px" }}>
               {isForeign ? "IF THE IRRIGATION WATER IS SUPPLIED FROM WWTP" : "Sulama Amaçlı Evsel Atıksu Arıtma Tesisinden Çıkan Su Kullanılırsa"}
             </div>
 
-            {/* Sağdaki Blok */}
             <div className="d-flex flex-column" style={{ flex: "0 0 70%" }}>
               {/* Satır 1: Başlıklar */}
               <div className="amort-row-layout amort-divider-bottom" style={{ minHeight: "42px" }}>
@@ -255,29 +338,29 @@ function AmortismanTablosu() {
                 </div>
               </div>
 
-              {/* Satır 2: Birimler */}
+              {/* Satır 2: Dinamik Birimler */}
               <div className="amort-row-layout amort-divider-bottom bg-unit-gray" style={{ height: "32px" }}>
-                <div className="amort-cell-main" style={{ flex: "0 0 30%" }}>€</div>
+                <div className="amort-cell-main" style={{ flex: "0 0 30%" }}>{getCurrencySymbol()}</div>
                 <div className="amort-cell-main" style={{ flex: "0 0 35%" }}>{isForeign ? "Year" : "Yıl"}</div>
                 <div className="amort-cell-main" style={{ flex: "0 0 35%" }}>{isForeign ? "Month" : "Ay"}</div>
               </div>
 
-              {/* Satır 3: Değerler */}
+              {/* Satır 3: Dönüştürülmüş Değerler */}
               <div className="amort-row-layout bg-value-blue" style={{ minHeight: "48px" }}>
                 <div className="amort-cell-main" style={{ flex: "0 0 30%" }}>
-                  <input type="number" className="form-control form-control-sm bg-transparent border-0 amort-input-field text-info" value={data.plantCost} onChange={(e) => handleChange("plantCost", e.target.value)} />
+                  {renderManagedInput("plantCost", displayPlantCost, 0)}
                 </div>
                 <div className="amort-cell-main text-white fw-bold font-monospace" style={{ flex: "0 0 35%", fontSize: "14px" }}>
-                  {roiYears > 0 ? roiYears.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : "0"}
+                  {roiYears > 0 ? formatNumber(roiYears, 2, 2) : "0"}
                 </div>
                 <div className="amort-cell-main text-white fw-bold font-monospace" style={{ flex: "0 0 35%", fontSize: "20px" }}>
-                  {roiMonths > 0 ? Math.round(roiMonths).toLocaleString() : "0"}
+                  {roiMonths > 0 ? formatNumber(Math.round(roiMonths), 0, 0) : "0"}
                 </div>
               </div>
             </div>
           </div>
 
-          {/* BÖLÜM 3: ÖZET PANELİ */}
+          {/* BÖLÜM 3: ÖZET VE NOT PANELİ */}
           <div className="d-flex flex-column value-bg">
             <div className="p-3 text-center border-top" style={{ borderColor: "#334155", backgroundColor: "#111827" }}>
               <div className="mt-1 d-flex align-items-center justify-content-center gap-1 flex-wrap" style={{ fontSize: "14px" }}>
@@ -285,7 +368,7 @@ function AmortismanTablosu() {
                   <>
                     <span className="text-white">In</span>
                     <span className="fw-extrabold px-3 py-0.5 rounded border border-danger text-danger bg-danger-subtle mx-1 font-monospace" style={{ fontSize: "18px" }}>
-                      {roiMonths > 0 ? Math.round(roiMonths).toLocaleString() : "0"}
+                      {roiMonths > 0 ? formatNumber(Math.round(roiMonths), 0, 0) : "0"}
                     </span>
                     <span className="text-danger fw-bold">Months</span>
                     <span className="text-white">, the WWTP is amortizing itself.</span>
@@ -294,7 +377,7 @@ function AmortismanTablosu() {
                   <>
                     <span className="text-white">Sistem kendisini ancak tam</span>
                     <span className="fw-bold px-2 py-0.5 rounded border border-danger text-danger bg-danger-subtle mx-1">
-                      {exactYearRound >= 0 ? exactYearRound : 0}
+                      {exactYearRound >= 0 ? formatNumber(exactYearRound, 0, 0) : 0}
                     </span>
                     <span className="text-white fw-bold">YILDA</span>
                     <span className="text-white">geri döndürebilmektedir.</span>
@@ -305,8 +388,8 @@ function AmortismanTablosu() {
             <div className="p-2 text-center border-top" style={{ backgroundColor: "#0f172a", borderColor: "#1e293b" }}>
               <i className="fw-semibold" style={{ fontSize: "11px", color: "#94a3b8" }}>
                 {isForeign 
-                  ? `*** "Unit Price of Municipal Water = ${data.waterPrice} € cent" is the rate in TURKEY & given for comparison purposes.`
-                  : `⚠️ Not: Bu süreye her yıl güncellenen amortisman tablosundaki işletme giderleri (${data.annualOpex.toLocaleString()} €/yıl) dahil edilerek hesaplama yapılmıştır.`
+                  ? `*** "Unit Price of Municipal Water = ${formatNumber(displayWaterPrice, 4, 4)} ${getCurrencySymbol()}/${unitSystem === "US" ? "gal" : "m³"}" is given for comparison purposes.`
+                  : `⚠️ Not: Bu süreye her yıl güncellenen amortisman tablosundaki işletme giderleri (${formatNumber(Math.round(displayAnnualOpex), 0, 0)} ${getCurrencySymbol()}/yıl) dahil edilerek hesaplama yapılmıştır.`
                 }
               </i>
             </div>

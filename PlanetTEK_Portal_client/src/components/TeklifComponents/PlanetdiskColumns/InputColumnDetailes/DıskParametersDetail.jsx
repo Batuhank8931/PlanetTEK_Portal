@@ -15,7 +15,14 @@ function DiskParameters() {
 
     const currentRBCUnite = aritmaParametreleri.RBCUnite || "MX";
     const currentAtiksutype = aritmaParametreleri.atiksutype || "evsel";
-    const currentKasaTipi = aritmaParametreleri.kasaTipi || "Kapaklı"; // Default değer koruması
+    const currentKapakSecimi = aritmaParametreleri.kapakSecimi || "Kapaklı";
+    const currentRotorSecimi = aritmaParametreleri.rotorSecimi || false; // Rotor kontrolü burada
+
+    // Arayüzdeki dropdown'ın o an hangi seçenekte duracağını belirleyen fonksiyon
+    const getUIAktifModel = () => {
+        if (currentRotorSecimi) return "MX_ROTOR";
+        return currentRBCUnite; // "MX" veya "MINI" döndürür
+    };
 
     const getDiskSinirlari = (uniteType, wastewaterType, matris) => {
         const aktifMatris = matris || diskSinirlariMatrisi;
@@ -67,8 +74,8 @@ function DiskParameters() {
                                 minDisk: sinirlar.minDisk,
                                 maxDisk: sinirlar.maxDisk,
                                 isDiskCountsManual: false,
-                                // İlk kurulumda MX ise varsayılan kasayı ekle
-                                kasaTipi: currentRBCUnite === "MX" ? "Kapaklı" : undefined
+                                kapakSecimi: currentRBCUnite === "MX" && !currentRotorSecimi ? "Kapaklı" : undefined,
+                                rotorSecimi: currentRotorSecimi
                             }
                         }
                     });
@@ -153,29 +160,37 @@ function DiskParameters() {
 
     const handleModelChange = (e) => {
         const { value } = e.target;
-        const yeniSinirlar = getDiskSinirlari(value, currentAtiksutype);
+        
+        // Eğer MX_ROTOR seçildiyse arka planda RBCUnite "MX" olmalı
+        const gercekRBCUnite = value === "MX_ROTOR" ? "MX" : value;
+        const isRotor = value === "MX_ROTOR";
+
+        const yeniSinirlar = getDiskSinirlari(gercekRBCUnite, currentAtiksutype);
 
         updateStore({
             ...aritmaParametreleri,
-            RBCUnite: value,
+            RBCUnite: gercekRBCUnite,
             minDisk: yeniSinirlar.minDisk,
             maxDisk: yeniSinirlar.maxDisk,
             isDiskCountsManual: false,
-            // MX seçildiyse varsayılan "Kapaklı" ata, değilse parametreyi kaldır
-            kasaTipi: value === "MX" ? "Kapaklı" : undefined 
+            rotorSecimi: isRotor, // İstediğin true/false flag ataması
+            // MX Rotor ise kapakSecimi temizleniyor, MX veya MINI serisiyse varsayılan Kapaklı atanıyor
+            kapakSecimi: isRotor ? undefined : "Kapaklı"
         });
     };
 
-    const handleKasaTipiChange = (e) => {
+    const handleKapakSecimiChange = (e) => {
         const { value } = e.target;
         updateStore({
             ...aritmaParametreleri,
-            kasaTipi: value
+            kapakSecimi: value
         });
     };
 
-    // MX seçildiyse sütun genişliklerini dinamik ayarlamak için bootstrap class'ı
-    const columnClass = safeDiskData.RBCUnite === "MX" ? "col-3" : "col-4";
+    // UI Görünüm Koşulları
+    const uiAktifModel = getUIAktifModel();
+    const showKapakDropdown = uiAktifModel !== "MX_ROTOR"; // MX Rotor seçilirse Kapak Seçimi Gizlenir
+    const columnClass = showKapakDropdown ? "col-3" : "col-4";
 
     return (
         <div className="card-body p-0 px-4">
@@ -193,30 +208,30 @@ function DiskParameters() {
                         <label className="text-white-50 mb-1 d-block text-truncate" style={{ fontSize: "11px" }}>Model / Tipi</label>
                         <select
                             name="RBCUnite"
-                            value={safeDiskData.RBCUnite}
+                            value={uiAktifModel}
                             onChange={handleModelChange}
                             className="form-select form-select-sm bg-dark text-white border-0"
                             style={{ fontSize: "12px", height: "31px" }}
                         >
                             <option value="MX">MX Serisi</option>
                             <option value="MINI">MINI Serisi</option>
+                            <option value="MX_ROTOR">MX Rotor</option>
                         </select>
                     </div>
 
-                    {/* Koşullu Kasa Tipi Dropdown (Yalnızca MX ise görünür) */}
-                    {safeDiskData.RBCUnite === "MX" && (
+                    {/* Koşullu Kapak Seçimi Dropdown */}
+                    {showKapakDropdown && (
                         <div className={columnClass}>
-                            <label className="text-white-50 mb-1 d-block text-truncate" style={{ fontSize: "11px" }}>Kasa Yapısı</label>
+                            <label className="text-white-50 mb-1 d-block text-truncate" style={{ fontSize: "11px" }}>Kapak Seçimi</label>
                             <select
-                                name="kasaTipi"
-                                value={currentKasaTipi}
-                                onChange={handleKasaTipiChange}
+                                name="kapakSecimi"
+                                value={currentKapakSecimi}
+                                onChange={handleKapakSecimiChange}
                                 className="form-select form-select-sm bg-dark text-white border-0"
                                 style={{ fontSize: "12px", height: "31px" }}
                             >
                                 <option value="Kapaklı">Kapaklı</option>
                                 <option value="Kapaksız">Kapaksız</option>
-                                <option value="Şase">Şase</option>
                             </select>
                         </div>
                     )}
