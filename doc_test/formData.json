@@ -1,0 +1,1562 @@
+{
+  "tables": {
+    "parametretablosu": [
+      {
+        "id": "design_hidrolikYuk_0",
+        "label": "Toplam Atıksu Miktarı (max) – Hidrolik Yük",
+        "unit": "m³/gün",
+        "giriş": "70",
+        "çıkış": "-",
+        "isUrgent": false
+      },
+      {
+        "id": "design_organikYuk_1",
+        "label": "Toplam Kirlilik (max) – Organik Yük",
+        "unit": "kg/gün",
+        "giriş": "24,5",
+        "çıkış": "-",
+        "isUrgent": false
+      },
+      {
+        "id": "design_dizaynDebisi_2",
+        "label": "Tesis Dizayn Debisi",
+        "unit": "m³/saat",
+        "giriş": "2,92",
+        "çıkış": "-",
+        "isUrgent": false
+      },
+      {
+        "id": "design_boi_3",
+        "label": "Biyolojik Oksijen İhtiyacı (BOİ₅)",
+        "unit": "mg/L",
+        "giriş": "350",
+        "çıkış": "40",
+        "isUrgent": false
+      },
+      {
+        "id": "design_koi_4",
+        "label": "Kimyasal Oksijen İhtiyacı (KOİ)",
+        "unit": "mg/L",
+        "giriş": "630",
+        "çıkış": "72",
+        "isUrgent": false
+      },
+      {
+        "id": "design_akm_5",
+        "label": "Askıda Katı Madde (AKM)",
+        "unit": "mg/L",
+        "giriş": "350",
+        "çıkış": "<40",
+        "isUrgent": false
+      },
+      {
+        "id": "design_yagGres_6",
+        "label": "Yağ ve Gres",
+        "unit": "mg/L",
+        "giriş": "≤25",
+        "çıkış": "<20",
+        "isUrgent": false
+      },
+      {
+        "id": "design_ph_7",
+        "label": "pH",
+        "unit": "-",
+        "giriş": "6 – 9",
+        "çıkış": "6 – 9",
+        "isUrgent": false
+      },
+      {
+        "id": "design_sicaklikAralik_8",
+        "label": "Atıksu Sıcaklığı",
+        "unit": "°C",
+        "giriş": "15 - 32",
+        "çıkış": "15 - 32",
+        "isUrgent": false
+      },
+      {
+        "id": "design_kabulEdilenSicaklik_9",
+        "label": "Kabul Edilen Sıcaklık",
+        "unit": "°C",
+        "giriş": "19",
+        "çıkış": "-",
+        "isUrgent": false
+      }
+    ],
+    "capextablosu": {
+      "rows": [
+        {
+          "id": "1_ana_mekanik",
+          "type": 0,
+          "label": "MEKANİK EKİPMANLAR",
+          "piece": 0,
+          "unitPrice": 0,
+          "discount": 0,
+          "rawTotal": 0,
+          "netTotal": 0,
+          "no": "1.",
+          "computedNo": "1.",
+          "isPrice": false
+        },
+        {
+          "id": "1_alt_fiziksel",
+          "type": 1,
+          "label": "Fiziksel Arıtma Üniteleri (Birincil Arıtma)",
+          "piece": 0,
+          "unitPrice": 0,
+          "discount": 0,
+          "rawTotal": 0,
+          "netTotal": 0,
+          "no": "1.1.",
+          "computedNo": "1.1.",
+          "isPrice": false
+        },
+        {
+          "id": "1_alt_izgara",
+          "type": 2,
+          "label": "Kaba ve İnce Izgara Seçenekleri",
+          "piece": 0,
+          "unitPrice": 0,
+          "discount": 0,
+          "rawTotal": 0,
+          "netTotal": 0,
+          "no": "1.1.1.",
+          "computedNo": "1.1.1.",
+          "isPrice": false
+        },
+        {
+          "id": "1_izgara_kaba_manuel",
+          "type": 3,
+          "piece": 1,
+          "label": "Elle Temizlemeli Kaba Izgara",
+          "unitPrice": 999,
+          "discount": 12,
+          "rawTotal": 999,
+          "netTotal": 879.12,
+          "no": "1.1.1.1.",
+          "computedNo": "1.1.1.1.",
+          "isPrice": true
+        },
+        {
+          "id": "1_izgara_ince_manuel",
+          "type": 3,
+          "piece": 1,
+          "label": "Elle Temizlemeli İnce Izgara",
+          "unitPrice": 910,
+          "discount": 12,
+          "rawTotal": 910,
+          "netTotal": 800.8,
+          "no": "1.1.1.2.",
+          "computedNo": "1.1.1.2.",
+          "isPrice": true
+        },
+        {
+          "id": "1_plaka_kum_yag",
+          "type": 3,
+          "piece": 4,
+          "label": "Kum-Yağ Tutucu Plakaları",
+          "unitPrice": 108,
+          "discount": 12,
+          "rawTotal": 432,
+          "netTotal": 380.16,
+          "no": "1.1.2.",
+          "computedNo": "1.1.2.",
+          "isPrice": true
+        },
+        {
+          "id": "1_pompa_terfi",
+          "type": 3,
+          "piece": 2,
+          "label": "Terfi Pompası (1 asil + 1 yedek) - City Pumps Ranger 10 35",
+          "unitPrice": 493.68,
+          "discount": 12,
+          "rawTotal": 987.36,
+          "netTotal": 868.88,
+          "no": "1.1.3.",
+          "computedNo": "1.1.3.",
+          "isPrice": true
+        },
+        {
+          "id": "1_alt_biyolojik",
+          "type": 1,
+          "label": "Biyolojik Arıtma Üniteleri (İkincil Arıtma)",
+          "piece": 0,
+          "unitPrice": 0,
+          "discount": 0,
+          "rawTotal": 0,
+          "netTotal": 0,
+          "no": "1.2.",
+          "computedNo": "1.2.",
+          "isPrice": false
+        },
+        {
+          "id": "2_rbc_kapakli",
+          "type": 3,
+          "piece": 1,
+          "label": "PlanetDISK® MX 1 DBD Ünitesi;\n- Epoksi Boyalı AISI 1045 (C45) Karbon Çelik Dolu Mil,\n- Islak Parçalar SS304 Paslanmaz ve Galvaniz Kaplı Çelik,\n- Mil Başına 109 disk / ünite ,\n- Disk Yüzey Alanı 719,40 m² / ünite",
+          "unitPrice": 29625,
+          "discount": 20,
+          "rawTotal": 29625,
+          "netTotal": 23700,
+          "no": "1.2.1.",
+          "computedNo": "1.2.1.",
+          "isPrice": true
+        },
+        {
+          "id": "2_lamella_seperator",
+          "type": 3,
+          "piece": 1,
+          "label": "LS_15 Lamella Seperatör Son Çöktürme Tankı",
+          "unitPrice": 6570,
+          "discount": 20,
+          "rawTotal": 6570,
+          "netTotal": 5256,
+          "no": "1.2.2.",
+          "computedNo": "1.2.2.",
+          "isPrice": true
+        },
+        {
+          "id": "2_pompa_camur_son_cokturme",
+          "type": 3,
+          "piece": 1,
+          "label": "smt 100A Son Çöktürme Tankı Çamur Pompası",
+          "unitPrice": 360.36,
+          "discount": 12,
+          "rawTotal": 360.36,
+          "netTotal": 317.12,
+          "no": "1.2.3.",
+          "computedNo": "1.2.3.",
+          "isPrice": true
+        },
+        {
+          "id": "1_ana_insaat",
+          "type": 0,
+          "label": "İNŞAAT İŞLERİ",
+          "piece": 0,
+          "unitPrice": 0,
+          "discount": 0,
+          "rawTotal": 0,
+          "netTotal": 0,
+          "no": "2.",
+          "computedNo": "2.",
+          "isPrice": false
+        },
+        {
+          "id": "6_insaat_kanal_izgara",
+          "type": 3,
+          "piece": 1,
+          "label": "Izgara ve Kum-Yağ Tutucu Kanalı",
+          "unitPrice": 0,
+          "unitData": "TÜM İNŞAAT İŞLERİ İŞVEREN TARAFINDAN YAPILACAKTIR.",
+          "discount": 0,
+          "isUrgent": true,
+          "rawTotal": 0,
+          "netTotal": 0,
+          "no": "2.0.1.",
+          "computedNo": "2.0.1.",
+          "isPrice": true
+        },
+        {
+          "id": "6_insaat_tank_oncokturme_1",
+          "type": 3,
+          "piece": 1,
+          "label": "Birinci Ön Çöktürme Tankı",
+          "unitPrice": 0,
+          "unitData": "TÜM İNŞAAT İŞLERİ İŞVEREN TARAFINDAN YAPILACAKTIR.",
+          "discount": 0,
+          "isUrgent": true,
+          "rawTotal": 0,
+          "netTotal": 0,
+          "no": "2.0.2.",
+          "computedNo": "2.0.2.",
+          "isPrice": true
+        },
+        {
+          "id": "6_insaat_tank_oncokturme_2",
+          "type": 3,
+          "piece": 1,
+          "label": "İkinci Ön Çöktürme Tankı",
+          "unitPrice": 0,
+          "unitData": "TÜM İNŞAAT İŞLERİ İŞVEREN TARAFINDAN YAPILACAKTIR.",
+          "discount": 0,
+          "isUrgent": true,
+          "rawTotal": 0,
+          "netTotal": 0,
+          "no": "2.0.3.",
+          "computedNo": "2.0.3.",
+          "isPrice": true
+        },
+        {
+          "id": "6_insaat_tank_dengeleme",
+          "type": 3,
+          "piece": 1,
+          "label": "Dengeleme Tankı",
+          "unitPrice": 0,
+          "unitData": "TÜM İNŞAAT İŞLERİ İŞVEREN TARAFINDAN YAPILACAKTIR.",
+          "discount": 0,
+          "isUrgent": true,
+          "rawTotal": 0,
+          "netTotal": 0,
+          "no": "2.0.4.",
+          "computedNo": "2.0.4.",
+          "isPrice": true
+        },
+        {
+          "id": "1_ana_montaj",
+          "type": 0,
+          "label": "MONTAJ EKİPMANLARI",
+          "piece": 0,
+          "unitPrice": 0,
+          "discount": 0,
+          "rawTotal": 0,
+          "netTotal": 0,
+          "no": "3.",
+          "computedNo": "3.",
+          "isPrice": false
+        },
+        {
+          "id": "7_montaj_borulama_tesisat",
+          "type": 3,
+          "piece": 1,
+          "label": "Bütün borulama ve elektrik tesisatı",
+          "unitPrice": 3626,
+          "discount": 12,
+          "rawTotal": 3626,
+          "netTotal": 3190.88,
+          "no": "3.0.1.",
+          "computedNo": "3.0.1.",
+          "isPrice": true
+        },
+        {
+          "id": "1_ana_elektrik",
+          "type": 0,
+          "label": "ELEKTRİK İŞLERİ",
+          "piece": 0,
+          "unitPrice": 0,
+          "discount": 0,
+          "rawTotal": 0,
+          "netTotal": 0,
+          "no": "4.",
+          "computedNo": "4.",
+          "isPrice": false
+        },
+        {
+          "id": "7_elektrik_kontrol_panosu",
+          "type": 3,
+          "piece": 1,
+          "label": "PlanetDISK® Kontrol Panosu",
+          "unitPrice": 4897,
+          "discount": 12,
+          "rawTotal": 4897,
+          "netTotal": 4309.36,
+          "no": "4.0.1.",
+          "computedNo": "4.0.1.",
+          "isPrice": true
+        },
+        {
+          "id": "1_ana_nakliye",
+          "type": 0,
+          "label": "NAKLİYE",
+          "piece": 0,
+          "unitPrice": 0,
+          "discount": 0,
+          "rawTotal": 0,
+          "netTotal": 0,
+          "no": "5.",
+          "computedNo": "5.",
+          "isPrice": false
+        },
+        {
+          "id": "7_konteyner",
+          "type": 3,
+          "piece": 1,
+          "label": "40' HC konteyner",
+          "unitPrice": 13027,
+          "discount": 0,
+          "isOptional": true,
+          "rawTotal": 13027,
+          "netTotal": "Opsiyonel",
+          "no": "5.0.1.",
+          "computedNo": "5.0.1.",
+          "isPrice": true
+        },
+        {
+          "id": "7_nakliye_tir",
+          "type": 3,
+          "piece": 1,
+          "label": "Tır",
+          "unitPrice": 0,
+          "discount": 0,
+          "isOptional": false,
+          "rawTotal": 0,
+          "netTotal": "Yerinde Tedarik",
+          "no": "5.0.2.",
+          "computedNo": "5.0.2.",
+          "isPrice": true,
+          "isLocalSupply": true
+        },
+        {
+          "id": "1_ana_muhendislik",
+          "type": 0,
+          "label": "PROJE, MONTAJ, DEVREYE ALMA, EĞİTİM ve MÜHENDİSLİK",
+          "piece": 0,
+          "unitPrice": 0,
+          "discount": 0,
+          "rawTotal": 0,
+          "netTotal": 0,
+          "no": "6.",
+          "computedNo": "6.",
+          "isPrice": false
+        },
+        {
+          "id": "7_muhendislik_genel_paket",
+          "type": 3,
+          "piece": 1,
+          "label": "Mühendislik Hizmetleri Genel Paketi",
+          "unitPrice": 1800,
+          "discount": 12,
+          "rawTotal": 1800,
+          "netTotal": 1584,
+          "no": "6.0.1.",
+          "computedNo": "6.0.1.",
+          "isPrice": true
+        },
+        {
+          "id": "1_ana_pod",
+          "type": 0,
+          "label": "POD HAZIRLANMASI ve ONAYININ ALINMASI-Harçlar Hariç",
+          "piece": 0,
+          "unitPrice": 0,
+          "discount": 0,
+          "rawTotal": 0,
+          "netTotal": 0,
+          "no": "7.",
+          "computedNo": "7.",
+          "isPrice": false
+        },
+        {
+          "id": "7_pod_resmi_onay_yonetimi",
+          "type": 3,
+          "piece": 1,
+          "label": "Resmi Onay Süreçleri Yönetimi",
+          "unitPrice": 2300,
+          "discount": 0,
+          "rawTotal": 2300,
+          "netTotal": 2300,
+          "no": "7.0.1.",
+          "computedNo": "7.0.1.",
+          "isPrice": true
+        }
+      ],
+      "totalNetPrice": 43586.32
+    },
+    "enerjiisletmettablosu": {
+      "rows": [
+        {
+          "id": "h1",
+          "label": "MEKANİK EKİPMANLAR",
+          "isHeader": true
+        },
+        {
+          "id": "s1",
+          "label": "Fiziksel Arıtma Üniteleri (Birincil Arıtma)",
+          "isSubHeader": true
+        },
+        {
+          "id": "r3",
+          "label": "Dengeleme Tankı Terfi Pompası",
+          "qty": 1,
+          "power": 0.8,
+          "consumed": 90,
+          "hours": 24
+        },
+        {
+          "id": "s2",
+          "label": "Biyolojik Arıtma Üniteleri (İkincil Arıtma)",
+          "isSubHeader": true
+        },
+        {
+          "id": "r4",
+          "label": "PlanetDISK® MX RBC Ünitesi",
+          "qty": 1,
+          "power": 0.37,
+          "consumed": 90,
+          "hours": 24
+        },
+        {
+          "id": "r6",
+          "label": "Son Çöktürme Tankı Çamur Pompası",
+          "qty": 1,
+          "power": "0.8",
+          "consumed": 90,
+          "hours": 1
+        }
+      ],
+      "yearlyCostEuro": 1233.3204
+    },
+    "sarfmalzemettablosu": {
+      "rows": [
+        {
+          "id": "h1",
+          "label": "SARF MALZEME VE BAKIM GİDERLERİ",
+          "isHeader": true
+        },
+        {
+          "id": "s1",
+          "label": "Biyolojik Arıtma Üniteleri (İkincil Arıtma)",
+          "isSubHeader": true
+        },
+        {
+          "id": "s1_sub",
+          "label": "PlanetDISK® MX DBD Ünitesi",
+          "isSubHeader": true,
+          "isLight": true
+        },
+        {
+          "id": "r1",
+          "label": "Rulman Gres Yağı",
+          "qty": 2,
+          "qtyUnit": "rulman",
+          "consumption": 0.5,
+          "consumptionUnit": "kg/yıl.rulman",
+          "unitPrice": 6,
+          "priceUnit": "€/kg"
+        },
+        {
+          "id": "r2",
+          "label": "Redüktör Yağı",
+          "qty": 1,
+          "qtyUnit": "redüktör",
+          "consumption": 7.4,
+          "consumptionUnit": "lt/yıl.redüktör",
+          "unitPrice": 4,
+          "priceUnit": "€/lt"
+        }
+      ],
+      "grandTotal": 35.6,
+      "RBCYillikSarfMalzeme": 35.6
+    },
+    "opextablosu": {
+      "rows": [
+        {
+          "id": "enerji_gideri",
+          "label": "Enerji Giderleri",
+          "value": 1233.3204,
+          "isDynamic": true
+        },
+        {
+          "id": "sarf_gideri",
+          "label": "Sarf Malzemesi ve Bakım Giderleri",
+          "value": 35.6,
+          "isDynamic": true
+        }
+      ],
+      "totalOpex": 1268.9204
+    },
+    "enerjikarsilastirmatablosu": {
+      "data": {
+        "planet": {
+          "qty": 1,
+          "power": 0.37,
+          "consumptionFactor": 90,
+          "price": 0.13,
+          "dailyHours": 24,
+          "yearlyDays": 365
+        },
+        "blower": {
+          "qty": 1,
+          "power": 2,
+          "consumptionFactor": 90,
+          "price": 0.13,
+          "dailyHours": 24,
+          "yearlyDays": 365
+        },
+        "pump": {
+          "qty": 1,
+          "power": 2.2,
+          "consumptionFactor": 90,
+          "price": 0.13,
+          "dailyHours": 4,
+          "yearlyDays": 365
+        },
+        "maintenanceSaving": 494
+      },
+      "selectedSystem": "aktif_camur",
+      "yearlySaving": 2046.4236,
+      "tenYearsSaving": 20464.236,
+      "totalGainWithMaintenance": 20958.236
+    },
+    "karbonayakizitablosu": {
+      "data": {
+        "co2Factor": 0.43
+      },
+      "savedCo2": 6.768939600000002,
+      "equivalentTrees": 300,
+      "unitSystemUsed": "Metric"
+    },
+    "onyillikmaliyettablosu": {
+      "data": {
+        "inflationRate": 5,
+        "planet": {
+          "capex": 43586.32,
+          "energy": 379.22040000000004,
+          "operator": 1219,
+          "maintenance": 35.6
+        },
+        "aktif_camur": {
+          "capex": 32689.739999999998,
+          "energy": 2425.6440000000002,
+          "operator": 4876,
+          "maintenance": 106.80000000000001
+        },
+        "mbbr": {
+          "capex": 43586.32,
+          "energy": 2061.7974,
+          "operator": 4876,
+          "maintenance": 106.80000000000001
+        }
+      },
+      "selectedSystem": "aktif_camur",
+      "totalSavings10Y": 60000
+    },
+    "amortisman": {
+      "dailyUsage": 70,
+      "activeMonths": 7,
+      "waterPrice": 1.59,
+      "plantCost": 43586.32,
+      "annualOpex": 35.6,
+      "monthlyUsage": 2100,
+      "yearlyUsage": 14700,
+      "yearlyWaterCost": 23373,
+      "netAnnualSaving": 23337.4,
+      "roiYears": 1.867659636463359,
+      "roiMonths": 22.41191563756031,
+      "exactYearRound": 2
+    },
+    "bilgisayfasitablosu": {
+      "title1": "Acme Endüstri A.Ş.",
+      "title2": "70 m³/gün Kapasiteli - Alıcı Ortama Deşarj",
+      "title3": "Dönen Biyolojik Disk Atıksu Arıtma Tesisi Teklifi",
+      "detailsHeader": "PROJE DETAYLARI",
+      "projectDetails": [
+        {
+          "id": "d4",
+          "label": "Hidrolik Yük",
+          "value": ": 70 m³/gün"
+        },
+        {
+          "id": "d5",
+          "label": "Organik Yük",
+          "value": ": 24,50 kg/gün (70 m³/gün x 350 mg/l)"
+        },
+        {
+          "id": "d6",
+          "label": "Ön Arıtmada Giderilen Organik Yük",
+          "value": ": 8,09 kg/gün ( 33% )"
+        },
+        {
+          "id": "d7",
+          "label": "PlanetDISK® Ünitesine Giren Organik Yük",
+          "value": ": 16,42 kg/gün"
+        },
+        {
+          "id": "d8",
+          "label": "Atıksu Sıcaklığı",
+          "value": ": Min 15°C-Maks 32°C"
+        },
+        {
+          "id": "d9",
+          "label": "Kabul Edilen Atıksu Sıcaklığı",
+          "value": ": 19 °C"
+        },
+        {
+          "id": "d10",
+          "label": "Atıksuyun PlanetDISK® Ünitesinde Bekleme Süresi",
+          "value": ": 1,54 saat (>45 dakika minimum)"
+        }
+      ],
+      "noteText": "Bu parametreler müşteri tarafından verilmiştir/ deneyimlerimiz ve literatür değerlerine göre seçilmiştir.",
+      "sourceHeader": "Atıksu Kaynağı",
+      "sourceText": "Tuvaletlerden ve her türlü tüketimden kaynaklanan evsel atıksular alınacaktır.\nTesise yemekhanelerden kaynaklanan yağ içerikli atıksular yağ kapanından geçirilmeden alınmayacaktır. Ayrıca yağmur suyu girişi olmayacaktır.",
+      "systemHeader": "Önerilen Sistem",
+      "systemText": "· 1 adet PlanetDISK® MX 1 ünitesi (109 diskli) - Toplam 109 adet, 2,05 m çaplı disk, CTP (fiber) gövde.\n· TOPLAM YÜZEY ALANI: 109 disk x 6,6 m² x 1 adet = 719,4 m² yüzey alanı.\n· 1 adet LS 15 Lamella Seperatör Çökeltim Tankı, CTP (fiber) gövde.\n· TOPLAM 15 m² x 1 adet = 15 m² lamella yüzey alanı.",
+      "calcHeader": "Disk Yüzey Alanı Hesaplaması",
+      "calcText": "π x r x r x 2 taraf x 109 disk -> 3.14 x 1,025 x 1,025 x 2 x 109 = 719,2 m²"
+    },
+    "ozettablosu": {
+      "generalInfo": {
+        "offerNo": "2026 / 0346 ",
+        "refNo": "YDD R0 20 07 2026 1 MX 1 70 25 109",
+        "clientName": "Acme Endüstri A.Ş."
+      },
+      "params": [
+        {
+          "id": 1,
+          "label": "- Atıksu Kaynağı",
+          "value": "Yalnızca kişisel kullanımdan kaynaklanan evsel atıksulara göre tasarım yapılmış olup, hayvanlardan kaynaklanan atıksular, klorlu havuz suları ve yağmur suları hesaba dahil edilmemiştir.",
+          "unit": "",
+          "isLongText": true
+        },
+        {
+          "id": 2,
+          "label": "- Nihai Kullanım Amacı",
+          "value": "Deşarj",
+          "unit": ""
+        },
+        {
+          "id": 3,
+          "label": "- Hidrolik Yük",
+          "value": "70.00",
+          "unit": "m³/gün"
+        },
+        {
+          "id": 4,
+          "label": "- Saatlik Debi",
+          "value": "2.92",
+          "unit": "m³/saat"
+        },
+        {
+          "id": 5,
+          "label": "- Pik Debi",
+          "value": "5.83",
+          "unit": "m³/saat"
+        },
+        {
+          "id": 6,
+          "label": "- Organik Yük",
+          "value": "25",
+          "unit": "kg/gün"
+        },
+        {
+          "id": 7,
+          "label": "- Atıksu Sıcaklığı",
+          "value": "19",
+          "unit": "°C"
+        },
+        {
+          "id": 8,
+          "label": "- PlanetDISK® Ünitesi Alıkonma Süresi",
+          "value": "1.54",
+          "unit": "saat"
+        },
+        {
+          "id": 9,
+          "label": "- PlanetDISK® MX 1 DBD Ünitesi Sayısı",
+          "value": "1",
+          "unit": "adet"
+        },
+        {
+          "id": 10,
+          "label": "- Disk Adedi",
+          "value": "109",
+          "unit": "adet/ünite"
+        },
+        {
+          "id": 11,
+          "label": "- Disk Çapı",
+          "value": "2.05",
+          "unit": "m"
+        },
+        {
+          "id": 12,
+          "label": "- 1 Diskin Yüzey Alanı",
+          "value": "6.60",
+          "unit": "m²/disk"
+        },
+        {
+          "id": 13,
+          "label": "- PlanetDISK® MX 1 DBD Ünitesi Yüzey Alanı",
+          "value": "719.40",
+          "unit": "m²/ünite"
+        },
+        {
+          "id": 14,
+          "label": "- Bu Projedeki Toplam Disk Yüzey Alanı",
+          "value": "719.40",
+          "unit": "m²"
+        },
+        {
+          "id": 15,
+          "label": "- Lamella Seperatör LS 15 Son Çöktürme Tankı",
+          "value": "1",
+          "unit": "adet"
+        },
+        {
+          "id": 16,
+          "label": "- 1 Adet Lamella Seperatör LS 15 Son Çöktürme Tankı",
+          "value": "15",
+          "unit": "m²/ünite"
+        },
+        {
+          "id": 17,
+          "label": "- Lamella Seperatör LS 15 Son Çöktürme Tankı Toplam Yüzey Alanı",
+          "value": "15",
+          "unit": "m²"
+        }
+      ],
+      "content": [
+        {
+          "id": 1,
+          "isChecked": true,
+          "qty": "1",
+          "unit": "set",
+          "desc": "Elle Temizlemeli Kaba Izgara"
+        },
+        {
+          "id": 2,
+          "isChecked": true,
+          "qty": "1",
+          "unit": "set",
+          "desc": "Elle Temizlemeli İnce Izgara"
+        },
+        {
+          "id": 3,
+          "isChecked": true,
+          "qty": "4",
+          "unit": "adet",
+          "desc": "Kum-Yağ Tutucu Plakaları"
+        },
+        {
+          "id": 4,
+          "isChecked": true,
+          "qty": 2,
+          "unit": "adet",
+          "desc": "Dengeleme Tankı Terfi Pompaları"
+        },
+        {
+          "id": 5,
+          "isChecked": true,
+          "qty": "1",
+          "unit": "adet",
+          "desc": "PlanetDISK® MX 1 DBD Ünitesi"
+        },
+        {
+          "id": 6,
+          "isChecked": true,
+          "qty": "1",
+          "unit": "adet",
+          "desc": "PlanetDISK® MX 1 DBD Ünitesi Kapağı"
+        },
+        {
+          "id": 7,
+          "isChecked": true,
+          "qty": "1",
+          "unit": "adet",
+          "desc": "LS 15 Lamella Seperatör Son Çöktürme Tankı"
+        },
+        {
+          "id": 8,
+          "isChecked": true,
+          "qty": "1",
+          "unit": "adet",
+          "desc": "LS 15 Lamella Seperatör Son Çöktürme Tankı Çamur Pompası"
+        },
+        {
+          "id": 22,
+          "isChecked": false,
+          "qty": "",
+          "unit": "",
+          "desc": "İnşaat İşleri – idare tarafından yapılacaktır",
+          "isHeaderStyle": true
+        },
+        {
+          "id": 23,
+          "isChecked": true,
+          "qty": "1",
+          "unit": "set",
+          "desc": "Borulama & Elektrik İşleri"
+        },
+        {
+          "id": 24,
+          "isChecked": true,
+          "qty": "1",
+          "unit": "adet",
+          "desc": "PlanetDISK® Kontrol Panosu"
+        },
+        {
+          "id": 25,
+          "isChecked": true,
+          "qty": "1",
+          "unit": "set",
+          "desc": "Proje Onay Dosyasının Hazırlanması ve Onayının Alınması (Harçlar Hariç)"
+        },
+        {
+          "id": 26,
+          "isChecked": true,
+          "qty": "",
+          "unit": "-",
+          "desc": "Proje ve Mühendislik, Devreye Alma ve Eğitim Verilmesi"
+        }
+      ]
+    },
+    "ekipantablosu": {
+      "content": [
+        {
+          "id": "m1",
+          "type": "main",
+          "label": "MEKANİK EKİPMANLAR"
+        },
+        {
+          "id": "e1",
+          "type": "equip",
+          "label": "Elle Temizlemeli Kaba Izgara",
+          "isUrgent": false
+        },
+        {
+          "id": "s1_1",
+          "type": "spec",
+          "label": "Miktar",
+          "value": "1 Adet"
+        },
+        {
+          "id": "s1_2",
+          "type": "spec",
+          "label": "Elek Aralığı",
+          "value": "30 mm"
+        },
+        {
+          "id": "s1_3",
+          "type": "spec",
+          "label": "Malzeme",
+          "value": "Galvaniz Kaplı ST37 Karbon Çelik"
+        },
+        {
+          "id": "s1_4",
+          "type": "spec",
+          "label": "tip",
+          "value": "Çubuk veya perfore tip ızgara"
+        },
+        {
+          "id": "e2",
+          "type": "equip",
+          "label": "Elle Temizlemeli İnce Izgara",
+          "isUrgent": false
+        },
+        {
+          "id": "s2_1",
+          "type": "spec",
+          "label": "Miktar",
+          "value": "1 Adet"
+        },
+        {
+          "id": "s2_2",
+          "type": "spec",
+          "label": "Elek Aralığı",
+          "value": "10 mm"
+        },
+        {
+          "id": "s2_3",
+          "type": "spec",
+          "label": "Malzeme",
+          "value": "Galvaniz Kaplı ST37 Karbon Çelik"
+        },
+        {
+          "id": "s2_4",
+          "type": "spec",
+          "label": "tip",
+          "value": "Çubuk veya perfore tip ızgara"
+        },
+        {
+          "id": "e3",
+          "type": "equip",
+          "label": "Kum-Yağ Tutucu Plakaları",
+          "isUrgent": false
+        },
+        {
+          "id": "s3_1",
+          "type": "spec",
+          "label": "Miktar",
+          "value": "4 Adet"
+        },
+        {
+          "id": "s3_2",
+          "type": "spec",
+          "label": "Malzeme",
+          "value": "Fiber (CTP) veya Polipropilen veya Kompozit"
+        },
+        {
+          "id": "s3_3",
+          "type": "spec",
+          "label": "Boyut",
+          "value": "1000 x 1000 mm"
+        },
+        {
+          "id": "e4",
+          "type": "equip",
+          "label": "Dengeleme Tankı Terfi Pompaları",
+          "isUrgent": false
+        },
+        {
+          "id": "s4_1",
+          "type": "spec",
+          "label": "Miktar",
+          "value": "1  asil + 1 yedek"
+        },
+        {
+          "id": "s4_2",
+          "type": "spec",
+          "label": "Kapasite",
+          "value": "2,9 m³/sa @ 5,9 mSS"
+        },
+        {
+          "id": "s4_3",
+          "type": "spec",
+          "label": "Motor",
+          "value": "0.8 kW"
+        },
+        {
+          "id": "s4_4",
+          "type": "spec",
+          "label": "Tip",
+          "value": "Dalgıç"
+        },
+        {
+          "id": "s4_5",
+          "type": "spec",
+          "label": "Marka",
+          "value": "City Pumps Ranger 10 35"
+        },
+        {
+          "id": "s4_6",
+          "type": "spec",
+          "label": "Malzeme",
+          "value": "Döküm Gövde"
+        },
+        {
+          "id": "e5",
+          "type": "equip",
+          "label": "PlanetDISK® MX DBD Unitesi - Kapaklı",
+          "isUrgent": false
+        },
+        {
+          "id": "s5_1",
+          "type": "spec",
+          "label": "Miktar",
+          "value": " 1 Adet"
+        },
+        {
+          "id": "s5_2",
+          "type": "spec",
+          "label": "Disk Çapı",
+          "value": "2,05 m"
+        },
+        {
+          "id": "s5_3",
+          "type": "spec",
+          "label": "Motor Gücü",
+          "value": "1 x 0,37  kW"
+        },
+        {
+          "id": "s5_4",
+          "type": "spec",
+          "label": "Her bir Diskin Alanı",
+          "value": "6,6 m² / disc"
+        },
+        {
+          "id": "s5_5",
+          "type": "spec",
+          "label": "Her bir Ünitedeki Disk Sayısı",
+          "value": "109 disk / ünite "
+        },
+        {
+          "id": "s5_6",
+          "type": "spec",
+          "label": "Minimum Toplam Disk Alanı",
+          "value": " 719,4 m²"
+        },
+        {
+          "id": "s5_7",
+          "type": "spec",
+          "label": "Devir",
+          "value": "3 – 4 devir/dakika"
+        },
+        {
+          "id": "s5_8",
+          "type": "spec",
+          "label": "Ünite Boyutları [Boy x En x Yük.]",
+          "value": "3.350 x 2.370 x 2.650 mm"
+        },
+        {
+          "id": "s5_9",
+          "type": "spec",
+          "label": "Diskler",
+          "value": "PP (Polipropilen), Sıfır Malzeme, Tek Parça Disk, Kalınlık: 1,5 mm - 2 mm"
+        },
+        {
+          "id": "s5_10",
+          "type": "spec",
+          "label": "Dolu Mil",
+          "value": "Epoksi Boyalı AISI 1045 (C45) Karbon Çelik, çap: 85 mm"
+        },
+        {
+          "id": "s5_11",
+          "type": "spec",
+          "label": "Gövde",
+          "value": "Fiberglass (GRP)"
+        },
+        {
+          "id": "s5_12",
+          "type": "spec",
+          "label": "Şase",
+          "value": "Toz Boyalı Karbon Çelik"
+        },
+        {
+          "id": "s5_13",
+          "type": "spec",
+          "label": "Suya Temas Eden Parçalar",
+          "value": "AISI 304 Stainless Steel"
+        },
+        {
+          "id": "s5_14",
+          "type": "spec",
+          "label": "RBC Ünitesi İmalatçısı",
+          "value": "PlanetTEK Environmental and Water Wastewater Treatment Technologies Inc."
+        },
+        {
+          "id": "s5_15",
+          "type": "spec",
+          "label": "Motor İmalatçısı",
+          "value": "WAT veya muadili"
+        },
+        {
+          "id": "s5_16",
+          "type": "spec",
+          "label": "Redüktör İmalatçısı",
+          "value": "PGR veya muadili"
+        },
+        {
+          "id": "e5.1",
+          "type": "equip",
+          "label": "Blower",
+          "isUrgent": false
+        },
+        {
+          "id": "s5.1_1",
+          "type": "spec",
+          "label": "Miktar",
+          "value": " 1 Adet"
+        },
+        {
+          "id": "s5.1_2",
+          "type": "spec",
+          "label": "Kapasite",
+          "value": "15 m³/sa @ 200 mbar"
+        },
+        {
+          "id": "e6",
+          "type": "equip",
+          "label": "LS 15 Lamella Seperatör Son Çöktürme Tankı",
+          "isUrgent": false
+        },
+        {
+          "id": "s6_1",
+          "type": "spec",
+          "label": "Miktar",
+          "value": " 1 Adet"
+        },
+        {
+          "id": "s6_2",
+          "type": "spec",
+          "label": "İmalat Malzemesi",
+          "value": "Fiber Gövde & Toz Boyalı Karbon Çelik Şase"
+        },
+        {
+          "id": "s6_3",
+          "type": "spec",
+          "label": "Lamella Plaka Alanı",
+          "value": "15 m²/tank"
+        },
+        {
+          "id": "s6_4",
+          "type": "spec",
+          "label": "Tank Hacmi",
+          "value": "2 m³/tank"
+        },
+        {
+          "id": "s6_5",
+          "type": "spec",
+          "label": "İmalatçı",
+          "value": "PlanetTEK Inc."
+        },
+        {
+          "id": "s6_6",
+          "type": "spec",
+          "label": "Temizleme",
+          "value": "Alta biriken çamur otomatik olarak çamur pompası aracılığı ile çekilir. Gerektiğinde lamella yüzeyleri basınçlı su ile manuel olarak yıkanır."
+        },
+        {
+          "id": "e7",
+          "type": "equip",
+          "label": "Son Çöktürme Tankı Çamur Pompası",
+          "isUrgent": false
+        },
+        {
+          "id": "s7_1",
+          "type": "spec",
+          "label": "Miktar",
+          "value": " 1 Adet"
+        },
+        {
+          "id": "s7_2",
+          "type": "spec",
+          "label": "İmalatçı",
+          "value": "Sumak veya Muadili"
+        },
+        {
+          "id": "s7_3",
+          "type": "spec",
+          "label": "Kapasite",
+          "value": "10 m³/saat @ 8,1 mSS"
+        },
+        {
+          "id": "s7_4",
+          "type": "spec",
+          "label": "Motor",
+          "value": "0.8 kW"
+        },
+        {
+          "id": "s7_5",
+          "type": "spec",
+          "label": "Tip",
+          "value": "Santrifüj Tip"
+        },
+        {
+          "id": "m2",
+          "type": "main",
+          "label": "İNŞAAT İŞLERİ"
+        },
+        {
+          "id": "e01",
+          "type": "equip",
+          "label": "Izgara Kanalı",
+          "isUrgent": true
+        },
+        {
+          "id": "s01_1",
+          "type": "spec",
+          "label": "Miktar",
+          "value": "1 Adet"
+        },
+        {
+          "id": "s01_2",
+          "type": "spec",
+          "label": "Kapasite",
+          "value": "3 m³ ıslak hacim"
+        },
+        {
+          "id": "s01_3",
+          "type": "spec",
+          "label": "Malzeme",
+          "value": "Betonarme"
+        },
+        {
+          "id": "s01_4",
+          "type": "spec",
+          "label": "Bekleme Süresi",
+          "value": "5,8 m³/sa pik debide 30 dakika"
+        },
+        {
+          "id": "e03",
+          "type": "equip",
+          "label": "Birinci Çöktürme Tankı",
+          "isUrgent": true
+        },
+        {
+          "id": "s03_1",
+          "type": "spec",
+          "label": "Miktar",
+          "value": "1 Adet"
+        },
+        {
+          "id": "s03_2",
+          "type": "spec",
+          "label": "Kapasite",
+          "value": "15 m³ ıslak hacim"
+        },
+        {
+          "id": "s03_3",
+          "type": "spec",
+          "label": "Malzeme",
+          "value": "Betonarme"
+        },
+        {
+          "id": "s03_4",
+          "type": "spec",
+          "label": "Bekleme Süresi",
+          "value": "5,8 m³/sa pik debide 2,5 saat"
+        },
+        {
+          "id": "e04",
+          "type": "equip",
+          "label": "İkinci Çöktürme Tankı",
+          "isUrgent": true
+        },
+        {
+          "id": "s04_1",
+          "type": "spec",
+          "label": "Miktar",
+          "value": "1 Adet"
+        },
+        {
+          "id": "s04_2",
+          "type": "spec",
+          "label": "Kapasite",
+          "value": "12 m³ ıslak hacim"
+        },
+        {
+          "id": "s04_3",
+          "type": "spec",
+          "label": "Malzeme",
+          "value": "Betonarme"
+        },
+        {
+          "id": "s04_4",
+          "type": "spec",
+          "label": "Bekleme Süresi",
+          "value": "5,8 m³/sa pik debide 2 saat"
+        },
+        {
+          "id": "e05",
+          "type": "equip",
+          "label": "Dengeleme Tankı",
+          "isUrgent": true
+        },
+        {
+          "id": "s05_1",
+          "type": "spec",
+          "label": "Miktar",
+          "value": "1 Adet"
+        },
+        {
+          "id": "s05_2",
+          "type": "spec",
+          "label": "Kapasite",
+          "value": "12 m³ ıslak hacim"
+        },
+        {
+          "id": "s05_3",
+          "type": "spec",
+          "label": "Malzeme",
+          "value": "Betonarme"
+        },
+        {
+          "id": "s05_4",
+          "type": "spec",
+          "label": "Bekleme Süresi",
+          "value": "5,8 m³/sa pik debide 2 saat"
+        }
+      ]
+    },
+    "kapaktablosu": [
+      {
+        "id": "design_debi_0",
+        "label": "Debi",
+        "value": "70",
+        "isNumeric": true,
+        "unit": "m³/gün",
+        "isUrgent": false
+      },
+      {
+        "id": "design_girisBoi_1",
+        "label": "Giriş BOİ₅",
+        "value": "350",
+        "isNumeric": true,
+        "unit": "mg/l",
+        "isUrgent": false
+      },
+      {
+        "id": "design_cikisBoi_2",
+        "label": "Çıkış BOİ₅",
+        "value": "40",
+        "isNumeric": true,
+        "unit": "mg/l",
+        "isUrgent": false
+      },
+      {
+        "id": "design_sicaklik_3",
+        "label": "Atıksu Sıcaklığı",
+        "value": "19",
+        "isNumeric": true,
+        "unit": "°C",
+        "isUrgent": false
+      }
+    ]
+  },
+  "customerInfo": {
+    "teklifNo": "0346",
+    "revizyonNo": "R0",
+    "unitSystem": "Metric",
+    "currency": "EUR",
+    "exchangeRate": "1.0000",
+    "ticariUnvan": "Acme Endüstri A.Ş.",
+    "teklifDili": "Yerli",
+    "planetTekIndirim": 20,
+    "ekipmanIndirim": 12,
+    "ilgiliKisi": "Ahmet Yılmaz (Satın Alma Müdürü)",
+    "offer_number": "YDD R0 20 07 2026 1 MX 1 70 25 109"
+  },
+  "planetDiskDetails": {
+    "debi": 70,
+    "tasarim": {
+      "aritmaParametreleri": {
+        "hesapYontemi": "hidrolik",
+        "atiksutype": "evsel",
+        "RBCUnite": "MX",
+        "girisBoi": 350,
+        "debi": 70,
+        "cikisBoi": 40,
+        "sicaklik": 19,
+        "giderimVerimi": 33,
+        "emperik": 23,
+        "maksimumEmperik": 23,
+        "nitrifikasyon": "nitrifikasyonYok",
+        "girisAmonyum": 48,
+        "cikisAmonyum": 8,
+        "nitrifikasyonEmperik": 1.4,
+        "isEmperikManual": false,
+        "kaynaklar": [
+          {
+            "id": 1784544276054,
+            "ad": "1. KAYNAK",
+            "kisiSayisi": 3000,
+            "organikYuk": 60,
+            "hidrolikYuk": 200
+          }
+        ],
+        "minDisk": 100,
+        "maxDisk": 131
+      },
+      "finalMetrekare": [
+        {
+          "kademeAdi": "Genel Kademe",
+          "alan": "713.7",
+          "girisBoi": "350",
+          "cikisBoi": "40",
+          "emperik": "23"
+        }
+      ],
+      "secilenUnite": 1,
+      "secilenSira": 1,
+      "yerlesimDuzeni": [],
+      "yerlesimSiralanisi": [
+        {
+          "isLamella": false,
+          "genelSiraNo": 1,
+          "siraTipi": 0,
+          "adet": 1,
+          "milBasinaDisk": 109,
+          "OrginalDiskAdedi": 109,
+          "beklemeSuresi": 1.54,
+          "color": "#15803d",
+          "borderColor": "#16a34a",
+          "textColor": "#4ade80"
+        },
+        {
+          "isLamella": true,
+          "genelSiraNo": 2,
+          "kademeNo": "Çökeltim",
+          "adet": 1,
+          "model": "LS_15",
+          "alan": "1.17",
+          "hacim": "1.46",
+          "color": "#0f766e",
+          "borderColor": "#14b8a6",
+          "textColor": "#2dd4bf"
+        }
+      ],
+      "minimumBeklemeSuresi": 1.28,
+      "lastCalculatedFinalMetrekare": [
+        {
+          "kademeAdi": "Genel Kademe",
+          "alan": "713.7",
+          "girisBoi": "350",
+          "cikisBoi": "40",
+          "emperik": "23"
+        }
+      ],
+      "lamella": {
+        "secilenLamellaDebisi": 70,
+        "secilenLamellaModeli": "LS_15",
+        "gerekliLamellaAlani": "1.17",
+        "gerekliLamellaHacmi": "1.46",
+        "lamellaAdet": 1,
+        "camurPompasi": {
+          "id": 9,
+          "name": "smt 100A",
+          "pompa_tipi": "centrifuge",
+          "kw": "0.8"
+        },
+        "camurPompasiAdet": 1,
+        "secilenModelAlan": 15,
+        "secilenModelHacim": 1.5
+      }
+    }
+  },
+  "equipments": {
+    "modulesState": {
+      "onAritma": {
+        "id": "onAritma",
+        "label": "1. Ön Arıtma Sistemi",
+        "checked": true,
+        "visited": true,
+        "isActiveTab": true
+      },
+      "feedPump": {
+        "id": "feedPump",
+        "label": "2. Terfi Pompası",
+        "checked": true,
+        "visited": true,
+        "isActiveTab": false
+      },
+      "ileriAritma": {
+        "id": "ileriAritma",
+        "label": "3. İleri Arıtma Ünitesi",
+        "checked": false,
+        "visited": false,
+        "isActiveTab": false
+      },
+      "filtrasyon": {
+        "id": "filtrasyon",
+        "label": "4. Filtrasyon Sistemi",
+        "checked": false,
+        "visited": false,
+        "isActiveTab": false
+      },
+      "sludgeDewatering": {
+        "id": "sludgeDewatering",
+        "label": "5. Çamur Susuzlaştırma",
+        "checked": false,
+        "visited": false,
+        "isActiveTab": false
+      },
+      "membrane": {
+        "id": "membrane",
+        "label": "6. Memebran Sistemi",
+        "checked": false,
+        "visited": false,
+        "isActiveTab": false
+      }
+    },
+    "feedPump": {
+      "manualHourlyFlow": "2.92",
+      "manualMinMss": "5.9",
+      "pumpOffset": 0,
+      "pompaAdeti": 1,
+      "secilenPompaMetni": "City Pumps Ranger 10 35",
+      "pumpkW": 0.8,
+      "isManualUserControl": false,
+      "calculatedMainDebi": 70,
+      "hasDistributionStructure": false,
+      "distributionGirisAdet": 0,
+      "distributionCikisAdet": 0
+    },
+    "onAritma": {
+      "izgaraOffset": 0,
+      "yagTutucuOffset": 0,
+      "izgaraTipi": "Manuel Izgara",
+      "yagTutucuBoyut": "1000 x 1000 mm",
+      "onAritmaKapasite": 200,
+      "isManualUserControl": false,
+      "calculatedMainDebi": 70
+    }
+  }
+}

@@ -43,6 +43,31 @@ const generateWBSNumbers = (rowsArray) => {
     });
 };
 
+// Opsiyonel / Yerinde Tedarik durumlarına göre netTotal alanını senkronize eden yardımcı fonksiyon
+const syncNetTotalWithFlags = (rowsArray, dil) => {
+    const opsiyonelMetni = dil === "Yerli" ? "Opsiyonel" : "Optional";
+    const yerindeTedarikMetni = dil === "Yerli" ? "Yerinde Tedarik" : "Supply Locally";
+
+    return rowsArray.map((row) => {
+        if (row.isOptional) {
+            return { ...row, netTotal: opsiyonelMetni };
+        }
+        if (row.isLocalSupply) {
+            return { ...row, netTotal: yerindeTedarikMetni };
+        }
+        // Eğer her iki flag de false ise ve netTotal string bir ifade kaldıysa tekrar sayısal değere çek
+        if (typeof row.netTotal === "string" && !row.isOptional && !row.isLocalSupply) {
+            const piece = parseFloat(row.piece) || 0;
+            const unitPrice = parseFloat(row.unitPrice) || 0;
+            const discount = parseFloat(row.discount) || 0;
+            const rawTotal = parseFloat((piece * unitPrice).toFixed(2));
+            const netTotal = parseFloat((rawTotal * (1 - discount / 100)).toFixed(2));
+            return { ...row, rawTotal, netTotal };
+        }
+        return row;
+    });
+};
+
 function CapexTablosu() {
     const formData = useTeklifStore((state) => state.formData);
     const updateSection = useTeklifStore((state) => state.updateSection);
@@ -52,8 +77,8 @@ function CapexTablosu() {
     const teklifDili = formData?.customerInfo?.teklifDili;
 
     const customerInfo = formData?.customerInfo;
-    const teklifNo = formData.customerInfo.teklifNo;
-    const refNO = formData.customerInfo.offer_number;
+    const teklifNo = formData?.customerInfo?.teklifNo;
+    const refNO = formData?.customerInfo?.offer_number;
 
     const formatDate = () => {
         return new Intl.DateTimeFormat('tr-TR', {
@@ -82,29 +107,37 @@ function CapexTablosu() {
         };
     }, [teklifDili]);
 
+    // Toplam tutar hesaplarken netTotal'in string olabilme ihtimalini güvenli yönetiyoruz
     const calculateTotalNetPrice = (rowsArray) => {
         return rowsArray.reduce((sum, row) => {
-            // isOptional veya isLocalSupply true ise genel toplama dahil etme
             if (row.isPrice && !row.isUrgent && !row.isOptional && !row.isLocalSupply && row.piece > 0) {
-                return sum + (row.netTotal || 0);
+                const rowNet = typeof row.netTotal === "number" ? row.netTotal : parseFloat(row.netTotal) || 0;
+                return sum + rowNet;
             }
             return sum;
         }, 0);
     };
+
     const updateStore = useCallback((updatedRows) => {
+        // 1. WBS Numaralarını Oluştur
         const finalRowsWithNumbers = generateWBSNumbers(updatedRows);
-        setLocalRows(finalRowsWithNumbers);
+        
+        // 2. netTotal alanlarını flag'lere göre senkronize et
+        const syncedRows = syncNetTotalWithFlags(finalRowsWithNumbers, teklifDili);
 
-        const currentNetTotal = calculateTotalNetPrice(finalRowsWithNumbers);
+        setLocalRows(syncedRows);
 
+        const currentNetTotal = calculateTotalNetPrice(syncedRows);
+
+        // 3. Store (formData) Güncelle
         updateSection("tables", {
             ...formData?.tables,
             capextablosu: {
-                rows: finalRowsWithNumbers,
+                rows: syncedRows,
                 totalNetPrice: currentNetTotal
             }
         });
-    }, [formData?.tables, updateSection]);
+    }, [formData?.tables, updateSection, teklifDili]);
 
     const handleUndo = useCallback(() => {
         if (history.length === 0) return;
@@ -112,17 +145,8 @@ function CapexTablosu() {
         const previousState = history[history.length - 1];
         setHistory(prev => prev.slice(0, -1));
 
-        setLocalRows(previousState);
-        const currentNetTotal = calculateTotalNetPrice(previousState);
-
-        updateSection("tables", {
-            ...formData?.tables,
-            capextablosu: {
-                rows: previousState,
-                totalNetPrice: currentNetTotal
-            }
-        });
-    }, [history, formData?.tables, updateSection]);
+        updateStore(previousState);
+    }, [history, updateStore]);
 
     const saveToHistory = useCallback(() => {
         const activeRows = storeCapexRows.length > 0 ? storeCapexRows : localRows;
@@ -130,24 +154,43 @@ function CapexTablosu() {
     }, [storeCapexRows, localRows]);
 
     useEffect(() => {
+        // Eğer store'da önceden kaydedilmiş veri varsa
         if (storeCapexRows && storeCapexRows.length > 0) {
-            setLocalRows(storeCapexRows);
+            const syncedRows = syncNetTotalWithFlags(storeCapexRows, teklifDili);
+            
+            // Eğer store'da isOptional true olduğu halde netTotal string'e çevrilmemiş satır varsa derhal store'u düzelt
+            const isOutdated = storeCapexRows.some((r, idx) => r.netTotal !== syncedRows[idx]?.netTotal);
+
+            if (isOutdated) {
+                const currentNetTotal = calculateTotalNetPrice(syncedRows);
+                updateSection("tables", {
+                    ...formData?.tables,
+                    capextablosu: {
+                        rows: syncedRows,
+                        totalNetPrice: currentNetTotal
+                    }
+                });
+            }
+
+            setLocalRows(syncedRows);
             return;
         }
 
+        // İlk kez hesaplanacaksa
         async function fetchAndCalculateCapex() {
             setLoading(true);
             try {
                 const rawInitialData = await capexHesapFonksiyonu(formData, priceData);
                 const initialDataWithNo = generateWBSNumbers(rawInitialData);
+                const finalData = syncNetTotalWithFlags(initialDataWithNo, teklifDili);
 
-                setLocalRows(initialDataWithNo);
-                const currentNetTotal = calculateTotalNetPrice(initialDataWithNo);
+                setLocalRows(finalData);
+                const currentNetTotal = calculateTotalNetPrice(finalData);
 
                 updateSection("tables", {
                     ...formData?.tables,
                     capextablosu: {
-                        rows: initialDataWithNo,
+                        rows: finalData,
                         totalNetPrice: currentNetTotal
                     }
                 });
@@ -159,26 +202,27 @@ function CapexTablosu() {
         }
 
         fetchAndCalculateCapex();
-    }, [storeCapexRows, priceData]);
+    }, [storeCapexRows, priceData, teklifDili]);
 
     const handleRefresh = async () => {
         setLoading(true);
         try {
             const rawFreshData = await capexHesapFonksiyonu(formData, priceData);
             const freshDataWithNo = generateWBSNumbers(rawFreshData);
+            const syncedData = syncNetTotalWithFlags(freshDataWithNo, teklifDili);
 
             saveToHistory();
 
-            const currentNetTotal = calculateTotalNetPrice(freshDataWithNo);
+            const currentNetTotal = calculateTotalNetPrice(syncedData);
 
             updateSection("tables", {
                 ...formData?.tables,
                 capextablosu: {
-                    rows: freshDataWithNo,
+                    rows: syncedData,
                     totalNetPrice: currentNetTotal
                 }
             });
-            setLocalRows(freshDataWithNo);
+            setLocalRows(syncedData);
         } catch (error) {
             console.error("Yenileme sırasında hata:", error);
         } finally {
@@ -191,18 +235,10 @@ function CapexTablosu() {
 
         const activeRows = storeCapexRows.length > 0 ? storeCapexRows : localRows;
 
-        const guncelDil = formData?.customerInfo?.teklifDili || "Yabancı";
-        const currency = formData?.customerInfo?.currency || "EUR";
-        const exchangeRate = formData?.customerInfo?.exchangeRate || "1";
-        const opsiyonelMetni = guncelDil === "Yerli" ? "Opsiyonel" : "Optional";
-        const yerindeTedarikMetni = guncelDil === "Yerli" ? "Yerinde Tedarik" : "Supply Locally";
-
         const updated = activeRows.map(row => {
             if (row.id === id) {
-                // Yeni değeri ata
                 const updatedRow = { ...row, [field]: val };
 
-                // Eğer biri aktif edildiyse diğer boncuğu söndürelim (çakışmasınlar diye)
                 if (field === "isOptional" && val === true) updatedRow.isLocalSupply = false;
                 if (field === "isLocalSupply" && val === true) updatedRow.isOptional = false;
 
@@ -211,22 +247,16 @@ function CapexTablosu() {
                     const unitPrice = parseFloat(updatedRow.unitPrice) || 0;
                     const discount = parseFloat(updatedRow.discount) || 0;
 
-                    // rawTotal her koşulda sayısal kalıyor
                     updatedRow.rawTotal = parseFloat((piece * unitPrice).toFixed(2));
-
-                    if (updatedRow.isOptional) {
-                        updatedRow.netTotal = opsiyonelMetni;
-                    } else if (updatedRow.isLocalSupply) {
-                        updatedRow.netTotal = yerindeTedarikMetni;
-                    } else {
-                        // İkisi de kapalıysa normal indirimli fiyat hesaplansın
-                        updatedRow.netTotal = parseFloat((updatedRow.rawTotal * (1 - discount / 100)).toFixed(2));
-                    }
+                    
+                    // Hesaplama anında normal fiyata çekiyoruz, updateStore içindeki syncNetTotalWithFlags flag'lere göre metne çevirecek
+                    updatedRow.netTotal = parseFloat((updatedRow.rawTotal * (1 - discount / 100)).toFixed(2));
                 }
                 return updatedRow;
             }
             return row;
         });
+        
         updateStore(updated);
     };
 
@@ -239,7 +269,7 @@ function CapexTablosu() {
             type: selectedType,
             isPrice: selectedType === 3,
             isOptional: false,
-            isLocalSupply: false, // Yeni alan default false
+            isLocalSupply: false,
             label: selectedType === 3 ? "Yeni Ekipman Kalemi" : `Yeni Başlık Lvl ${selectedType + 1}`,
             piece: selectedType === 3 ? 1 : 1,
             unitPrice: 0,
