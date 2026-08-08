@@ -1,11 +1,11 @@
 import React, { useState, useEffect } from "react";
 import { useTeklifStore } from "../../utils/teklifStore";
-import { hesaplaKlasikSistemEkipmanlari } from "../../utils/kıyaslamaHesap";
+import { hesaplaKlasikSistemEkipmanlari } from "../../utils/kiyaslamaHesap";
 
 function EnerjiKarsilastirmaTablosu() {
   const formData = useTeklifStore((state) => state.formData);
   const updateSection = useTeklifStore((state) => state.updateSection);
-  
+
   const teklifDili = formData?.customerInfo?.teklifDili;
   const isForeign = teklifDili === "Yabancı";
 
@@ -105,7 +105,7 @@ function EnerjiKarsilastirmaTablosu() {
   });
 
   // İnput odak yönetimi için geçici yerel string stateleri
-  const [editingCell, setEditingCell] = useState(null); // { system: 'planet'|'blower'|'pump', field: 'qty'|'power'|..., value: 'string' }
+  const [editingCell, setEditingCell] = useState(null); 
   const [history, setHistory] = useState([]);
 
   useEffect(() => {
@@ -138,18 +138,139 @@ function EnerjiKarsilastirmaTablosu() {
   const tenYearsSavingConverted = tenYearsSaving * exchangeRate;
   const totalGainWithMaintenanceConverted = totalGainWithMaintenance * exchangeRate;
 
+  const altSystemName = selectedSystem === "aktif_camur" 
+    ? (isForeign ? "ACTIVATED SLUDGE SYSTEM" : "Klasik Aktif Çamur Sistemi") 
+    : (isForeign ? "MBBR SYSTEM" : "MBBR Sistemi");
+
+  // 🌟 EKRANDA RENDER EDİLEN BÜTÜN METİNLERİ VE BAŞLIKLARI KAPSAYAN YARDIMCI TANIMLAR
+  const unitPiecePlanet = isForeign ? (data.planet.qty > 1 ? "pieces" : "piece") : "Adet";
+  const unitPieceBlower = isForeign ? (data.blower.qty > 1 ? "pieces" : "piece") : "Adet";
+  const unitPiecePump = isForeign ? (data.pump.qty > 1 ? "pieces" : "piece") : "Adet";
+  const unitTimeLabel = isForeign ? "hour" : "saat";
+  const unitYearLabel = isForeign ? "/year" : "/ yıl";
+
+  // 🌟 EKRANDA RENDER EDİLEN HER ŞEYİ KAPSAYAN STORE GÜNCELLEMESİ
   useEffect(() => {
     updateSection("tables", {
       ...formData?.tables,
       enerjikarsilastirmatablosu: {
         data: data,
         selectedSystem: selectedSystem,
+        altSystemName: altSystemName,
+        currency: currency,
+        exchangeRate: exchangeRate,
+        
+        // 🌟 1. EKRANDAKİ TÜM BAŞLIKLAR, ETİKETLER VE BUTON YAZILARI
+        headersAndLabels: {
+          panelTitle: isForeign ? "Energy and Operational Cost Comparison Analysis" : "Enerji ve İşletme Maliyeti Karşılaştırma Analizi",
+          currencyModeBadge: `${currency} Modu`,
+          systemToggleBtnActivated: isForeign ? "Compare with Activated Sludge (6x)" : "Aktif Çamur ile Kıyasla (6x)",
+          systemToggleBtnMBBR: isForeign ? "Compare with MBBR (5x)" : "MBBR ile Kıyasla (5x)",
+          colHeaderSystemComponents: isForeign ? "SYSTEM COMPONENTS" : "SİSTEM BİLEŞENLERİ",
+          colHeaderPlanetDisk: isForeign ? "PlanetDISK® Unit" : "PlanetDISK® Ünitesi",
+          colHeaderAltSystem: altSystemName,
+          colHeaderTechParams: isForeign ? "Technical Parameters" : "Teknik Parametreler",
+          colHeaderMotorReducer: isForeign ? "Motor Reduction Gear" : "Motor Redüktörü",
+          colHeaderBlower: "Blower",
+          colHeaderPump: isForeign ? "Sludge Feed Pump" : "Çamur Geri Devir Pompası",
+          rowLabelQty: isForeign ? "Unit / Equipment Number" : "Ünite / Ekipman Adedi",
+          rowLabelPower: isForeign ? "Unit Motor Power" : "Birim Motor Gücü (kW)",
+          rowLabelTotalPower: isForeign ? "Total Power" : "Toplam Kurulu Güç",
+          rowLabelConsumptionFactor: isForeign ? "Power Consumption (%)" : "Anlık Güç Tüketim Oranı (%)",
+          rowLabelActualPower: isForeign ? "Total Actual Power to be used" : "Kullanılacak Gerçek Net Güç",
+          rowLabelPrice: isForeign ? `Electricity Price (${getCurrencySymbol()}/kWh)` : `Elektrik Birim Fiyatı (${getCurrencySymbol()}/kWh)`,
+          rowLabelDailyHours: isForeign ? "Daily Working Time (hour/day)" : "Günlük Çalışma Süresi (saat)",
+          rowLabelYearlyCost: isForeign ? "Yearly Energy Consumption Cost" : "Yıllık Tüketim Maliyeti",
+          card1Title: isForeign ? "Comparing PlanetDISK® Unit with other systems yearly, electric power saving is" : `"${altSystemName}"'ne Kıyasla Yıllık Enerji Tasarrufu:`,
+          card2Title: isForeign ? "For 10 years electric power saving price is equal to" : "Sistem Ömrü Boyunca 10 Yıllık Elektrik Kazancı:",
+          card3Title: isForeign ? "and together with blower and diffusers maintenance cost, it will be approx" : "Blower, Difüzör Yenileme ve Bakım Maliyetleri Dahil Yaklaşık Toplam Tasarruf (10 Yıl)"
+        },
+
+        // 🌟 2. RENDER EDİLEN HAM SAYISAL METRİKLER
+        planetMetrics: {
+          totalPower: planetMetrics.totalPower,
+          actualPower: planetMetrics.actualPower,
+          yearlyCostConverted: Math.round(planetYearlyCostConverted)
+        },
+        blowerMetrics: {
+          totalPower: blowerMetrics.totalPower,
+          actualPower: blowerMetrics.actualPower,
+          yearlyCostConverted: Math.round(blowerYearlyCostConverted)
+        },
+        pumpMetrics: {
+          totalPower: pumpMetrics.totalPower,
+          actualPower: pumpMetrics.actualPower,
+          yearlyCostConverted: Math.round(pumpYearlyCostConverted)
+        },
+
+        // 🌟 3. RENDER EDİLEN TASARRUF DEĞERLERİ
         yearlySaving: yearlySaving, 
         tenYearsSaving: tenYearsSaving,
-        totalGainWithMaintenance: totalGainWithMaintenance
+        totalGainWithMaintenance: totalGainWithMaintenance,
+        yearlySavingConverted: Math.round(yearlySavingConverted),
+        tenYearsSavingConverted: Math.round(tenYearsSavingConverted),
+        totalGainWithMaintenanceConverted: Math.round(totalGainWithMaintenanceConverted / 1000) * 1000,
+
+        // 🌟 4. EKRANDA HÜCRE HÜCRE BİÇİMLENDİRİLMİŞ (FORMATTED) RENDER EDİLEN BÜTÜN YAZILAR
+        renderedTableContent: {
+          qtyRow: {
+            planet: `${formatInputValue(data.planet.qty)} ${unitPiecePlanet}`,
+            blower: `${formatInputValue(data.blower.qty)} ${unitPieceBlower}`,
+            pump: `${formatInputValue(data.pump.qty)} ${unitPiecePump}`
+          },
+          powerRow: {
+            planet: `${formatInputValue(data.planet.power, 2)} kW`,
+            blower: `${formatInputValue(data.blower.power, 2)} kW`,
+            pump: `${formatInputValue(data.pump.power, 2)} kW`
+          },
+          totalPowerRow: {
+            planet: `${formatNumber(planetMetrics.totalPower, 2, 2)} kW`,
+            blower: `${formatNumber(blowerMetrics.totalPower, 2, 2)} kW`,
+            pump: `${formatNumber(pumpMetrics.totalPower, 2, 2)} kW`
+          },
+          consumptionFactorRow: {
+            planet: `${formatInputValue(data.planet.consumptionFactor)} %`,
+            blower: `${formatInputValue(data.blower.consumptionFactor)} %`,
+            pump: `${formatInputValue(data.pump.consumptionFactor)} %`
+          },
+          actualPowerRow: {
+            planet: `${formatNumber(planetMetrics.actualPower, 2, 2)} kW`,
+            blower: `${formatNumber(blowerMetrics.actualPower, 2, 2)} kW`,
+            pump: `${formatNumber(pumpMetrics.actualPower, 2, 2)} kW`
+          },
+          priceRow: {
+            planet: `${formatInputValue(data.planet.price * exchangeRate, 2)} ${getCurrencySymbol()}/kWh`,
+            blower: `${formatInputValue(data.blower.price * exchangeRate, 2)} ${getCurrencySymbol()}/kWh`,
+            pump: `${formatInputValue(data.pump.price * exchangeRate, 2)} ${getCurrencySymbol()}/kWh`
+          },
+          dailyHoursRow: {
+            planet: `${formatInputValue(data.planet.dailyHours)} ${unitTimeLabel}`,
+            blower: `${formatInputValue(data.blower.dailyHours)} ${unitTimeLabel}`,
+            pump: `${formatInputValue(data.pump.dailyHours)} ${unitTimeLabel}`
+          },
+          yearlyCostRow: {
+            planet: `${formatNumber(Math.round(planetYearlyCostConverted), 0, 0)} ${getCurrencySymbol()} ${unitYearLabel}`,
+            blower: `${formatNumber(Math.round(blowerYearlyCostConverted), 0, 0)} ${getCurrencySymbol()} ${unitYearLabel}`,
+            pump: `${formatNumber(Math.round(pumpYearlyCostConverted), 0, 0)} ${getCurrencySymbol()} ${unitYearLabel}`
+          },
+          summaryCards: {
+            yearlySavingFormatted: `${formatNumber(Math.round(yearlySavingConverted), 0, 0)} ${getCurrencyUnitLabel()}`,
+            tenYearsSavingFormatted: `${formatNumber(Math.round(tenYearsSavingConverted), 0, 0)} ${getTenYearsUnitLabel()}`,
+            totalGainWithMaintenanceFormatted: `${formatNumber(Math.round(totalGainWithMaintenanceConverted / 1000) * 1000, 0, 0)} ${getCurrencySymbol()}`
+          }
+        }
       }
     });
-  }, [data, selectedSystem, yearlySaving, tenYearsSaving, totalGainWithMaintenance]);
+  }, [
+    data, 
+    selectedSystem, 
+    yearlySaving, 
+    tenYearsSaving, 
+    totalGainWithMaintenance, 
+    exchangeRate, 
+    currency, 
+    teklifDili
+  ]);
 
   const updateStoreWithNewData = (newData) => {
     setData(newData);
@@ -220,10 +341,6 @@ function EnerjiKarsilastirmaTablosu() {
       />
     );
   };
-
-  const altSystemName = selectedSystem === "aktif_camur" 
-    ? (isForeign ? "ACTIVATED SLUDGE SYSTEM" : "Klasik Aktif Çamur Sistemi") 
-    : (isForeign ? "MBBR SYSTEM" : "MBBR Sistemi");
 
   const headerThemeClass = selectedSystem === "aktif_camur" ? "text-success" : "text-info";
   const headerBgStyle = selectedSystem === "aktif_camur" ? "rgba(22, 163, 74, 0.1)" : "rgba(6, 182, 212, 0.1)";
@@ -345,17 +462,17 @@ function EnerjiKarsilastirmaTablosu() {
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2 d-flex justify-content-center align-items-center gap-1 bg-planet-column" style={{ width: "23%" }}>
               {renderManagedInput("planet", "qty", data.planet.qty)}
-              <span className="text-white-50" style={{ fontSize: "11px" }}>{isForeign ? (data.planet.qty > 1 ? "pieces" : "piece") : "Adet"}</span>
+              <span className="text-white-50" style={{ fontSize: "11px" }}>{unitPiecePlanet}</span>
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2 d-flex justify-content-center align-items-center gap-1 bg-activated-column" style={{ width: "23%" }}>
               {renderManagedInput("blower", "qty", data.blower.qty)}
-              <span className="text-white-50" style={{ fontSize: "11px" }}>{isForeign ? (data.blower.qty > 1 ? "pieces" : "piece") : "Adet"}</span>
+              <span className="text-white-50" style={{ fontSize: "11px" }}>{unitPieceBlower}</span>
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2 d-flex justify-content-center align-items-center gap-1 bg-activated-column" style={{ width: "23%" }}>
               {renderManagedInput("pump", "qty", data.pump.qty)}
-              <span className="text-white-50" style={{ fontSize: "11px" }}>{isForeign ? (data.pump.qty > 1 ? "pieces" : "piece") : "Adet"}</span>
+              <span className="text-white-50" style={{ fontSize: "11px" }}>{unitPiecePump}</span>
             </div>
           </div>
 
@@ -459,17 +576,17 @@ function EnerjiKarsilastirmaTablosu() {
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2 d-flex justify-content-center align-items-center gap-1 bg-planet-column" style={{ width: "23%" }}>
               {renderManagedInput("planet", "dailyHours", data.planet.dailyHours)}
-              <span className="text-white-50" style={{ fontSize: "11px" }}>{isForeign ? "hour" : "saat"}</span>
+              <span className="text-white-50" style={{ fontSize: "11px" }}>{unitTimeLabel}</span>
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2 d-flex justify-content-center align-items-center gap-1 bg-activated-column" style={{ width: "23%" }}>
               {renderManagedInput("blower", "dailyHours", data.blower.dailyHours)}
-              <span className="text-white-50" style={{ fontSize: "11px" }}>{isForeign ? "hour" : "saat"}</span>
+              <span className="text-white-50" style={{ fontSize: "11px" }}>{unitTimeLabel}</span>
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2 d-flex justify-content-center align-items-center gap-1 bg-activated-column" style={{ width: "23%" }}>
               {renderManagedInput("pump", "dailyHours", data.pump.dailyHours)}
-              <span className="text-white-50" style={{ fontSize: "11px" }}>{isForeign ? "hour" : "saat"}</span>
+              <span className="text-white-50" style={{ fontSize: "11px" }}>{unitTimeLabel}</span>
             </div>
           </div>
 
@@ -480,15 +597,15 @@ function EnerjiKarsilastirmaTablosu() {
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2.5 text-center bg-planet-column fw-bold text-warning d-flex align-items-center justify-content-center" style={{ width: "23%", fontSize: "13px" }}>
-              {formatNumber(Math.round(planetYearlyCostConverted), 0, 0)} {getCurrencySymbol()} <span style={{ fontSize: "10px" }} className="text-white-50 ms-1">{isForeign ? "/year" : "/ yıl"}</span>
+              {formatNumber(Math.round(planetYearlyCostConverted), 0, 0)} {getCurrencySymbol()} <span style={{ fontSize: "10px" }} className="text-white-50 ms-1">{unitYearLabel}</span>
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2.5 text-center bg-activated-column fw-bold text-danger d-flex align-items-center justify-content-center" style={{ width: "23%", fontSize: "13px" }}>
-              {formatNumber(Math.round(blowerYearlyCostConverted), 0, 0)} {getCurrencySymbol()} <span style={{ fontSize: "10px" }} className="text-white-50 ms-1">{isForeign ? "/year" : "/ yıl"}</span>
+              {formatNumber(Math.round(blowerYearlyCostConverted), 0, 0)} {getCurrencySymbol()} <span style={{ fontSize: "10px" }} className="text-white-50 ms-1">{unitYearLabel}</span>
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
             <div className="p-2.5 text-center bg-activated-column fw-bold text-danger d-flex align-items-center justify-content-center" style={{ width: "23%", fontSize: "13px" }}>
-              {formatNumber(Math.round(pumpYearlyCostConverted), 0, 0)} {getCurrencySymbol()} <span style={{ fontSize: "10px" }} className="text-white-50 ms-1">{isForeign ? "/year" : "/ yıl"}</span>
+              {formatNumber(Math.round(pumpYearlyCostConverted), 0, 0)} {getCurrencySymbol()} <span style={{ fontSize: "10px" }} className="text-white-50 ms-1">{unitYearLabel}</span>
             </div>
           </div>
 

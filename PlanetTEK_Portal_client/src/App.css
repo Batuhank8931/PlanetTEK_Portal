@@ -211,6 +211,12 @@ input[type="range"].custom-range::-moz-range-thumb {
 }
 
 .big-checkbox {
-    transform: scale(1.6);
-    cursor: pointer;
+  transform: scale(1.6);
+  cursor: pointer;
+}
+
+.custom-dark-input::placeholder {
+  color: #94a3b8 !important;
+  /* veya tam opaklık için rgba(255, 255, 255, 0.6) */
+  opacity: 1;
 }

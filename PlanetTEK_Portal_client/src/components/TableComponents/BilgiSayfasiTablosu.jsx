@@ -246,7 +246,7 @@ function BilgiSayfasiTablosu() {
 
     const detailsInfo = generateProjectDetails();
     setData({
-      title1: formData?.customerInfo?.ticariUnvan || (isForeign ? "CUSTOMER COMMERCIAL TITLE" : "MÜŞTERI TİCARİ ÜNVANI"),
+      title1: formData?.customerInfo?.ticari_unvan || (isForeign ? "CUSTOMER COMMERCIAL TITLE" : "MÜŞTERI TİCARİ ÜNVANI"),
       title2: isForeign
         ? `${formatNumber(displayDailyUsage, 0, 2)} ${debiTopBirim} (People Equivalent) Capacity  - ${isFiltrasyonChecked ? "Irrigation / Reuse" : "Discharge to Nature"}`
         : `${formatNumber(displayDailyUsage, 0, 2)} ${debiTopBirim} Kapasiteli - ${isFiltrasyonChecked ? "Sulama/Geri Kazanım" : "Alıcı Ortama Deşarj"}`,
@@ -293,7 +293,7 @@ function BilgiSayfasiTablosu() {
     setHistory([]);
     const detailsInfo = generateProjectDetails();
     setData({
-      title1: formData?.customerInfo?.ticariUnvan || (isForeign ? "CUSTOMER COMMERCIAL TITLE" : "MÜŞTERI TİCARİ ÜNVANI"),
+      title1: formData?.customerInfo?.ticari_unvan || (isForeign ? "CUSTOMER COMMERCIAL TITLE" : "MÜŞTERI TİCARİ ÜNVANI"),
       title2: isForeign
         ? `${formatNumber(displayDailyUsage, 0, 2)} ${debiTopBirim} (People Equivalent) Capacity  - ${isFiltrasyonChecked ? "Irrigation / Reuse" : "Discharge to Nature"}`
         : `${formatNumber(displayDailyUsage, 0, 2)} ${debiTopBirim} Kapasiteli - ${isFiltrasyonChecked ? "Sulama/Geri Kazanım" : "Alıcı Ortama Deşarj"}`,

@@ -13,6 +13,7 @@
     "dotenv": "^16.6.1",
     "express": "^4.21.1",
     "express-rate-limit": "^8.5.2",
+    "fs-extra": "^11.4.0",
     "helmet": "^8.2.0",
     "http-errors": "~1.6.3",
     "jade": "^0.29.0",

@@ -1,72 +1,12 @@
-import React, { useState, useMemo } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import AddPutMusteri from "./MusteriComponents/AddPutMusteri";
 import { AnimatePresence } from "framer-motion";
 import AlertModal from "./modals/AlertModal";
-
-const INITIAL_CUSTOMERS = [
-  {
-    id: 1,
-    ticariUnvan: "Acme Endüstri Teknolojileri A.Ş.",
-    mensei: "Yerli",
-    ulke: "Türkiye",
-    adres: "İkitelli OSB, Depo Sk. No:12, Başakşehir, İstanbul",
-    vergiDairesi: "İkitelli V.D.",
-    vergiNo: "1234567890",
-    yetkililer: [
-      { isim: "Ahmet Yılmaz", mail: "ahmet@acme.com", telefon: "+90 555 000 1122" },
-      { isim: "Elif Kaya", mail: "elif.kaya@acme.com", telefon: "+90 555 000 1123" }
-    ],
-    teklifAdedi: 4,
-    teklifDetay: "2 Aktif, 1 Onaylandı, 1 Reddedildi",
-    yetkiliSatisci: "Caner Aydın"
-  },
-  {
-    id: 2,
-    ticariUnvan: "Global Logistics GmbH",
-    mensei: "Yabancı",
-    ulke: "Almanya",
-    adres: "Kaiserstraße 44, 60311 Frankfurt am Main",
-    vergiDairesi: "Frankfurt Central",
-    vergiNo: "DE812345678",
-    yetkililer: [
-      { isim: "Hans Müller", mail: "hans.m@globallog.de", telefon: "+49 69 123456" }
-    ],
-    teklifAdedi: 2,
-    teklifDetay: "1 Aktif, 1 Beklemede",
-    yetkiliSatisci: "Selin Demir"
-  },
-  {
-    id: 3,
-    ticariUnvan: "Asya Enerji Sistemleri Ltd. Şti.",
-    mensei: "Yerli",
-    ulke: "Türkiye",
-    adres: "GOP Mahallesi, Çankaya Cd. No:45, Ankara",
-    vergiDairesi: "Kızılbey V.D.",
-    vergiNo: "9876543210",
-    yetkililer: [
-      { isim: "Murat Özkan", mail: "mozkan@asyaenerji.com", telefon: "+90 532 111 2233" }
-    ],
-    teklifAdedi: 0,
-    teklifDetay: "Teklif gönderilmedi",
-    yetkiliSatisci: "Caner Aydın"
-  },
-  ...Array.from({ length: 9 }, (_, i) => ({
-    id: i + 4,
-    ticariUnvan: `Kardeşler İmalat Sanayi Ltd. #${i + 1}`,
-    mensei: i % 3 === 0 ? "Yabancı" : "Yerli",
-    ulke: i % 3 === 0 ? "İtalya" : "Türkiye",
-    adres: "Organize Sanayi Bölgesi 3. Cadde, Bursa",
-    vergiDairesi: "Nilüfer V.D.",
-    vergiNo: `45612378${i}`,
-    yetkililer: [{ isim: "Mehmet Demir", mail: "mehmet@kardesler.com", telefon: "+90 544 333 2211" }],
-    teklifAdedi: i,
-    teklifDetay: `${i} Adet Geçmiş Teklif Kaydı`,
-    yetkiliSatisci: i % 2 === 0 ? "Selin Demir" : "Caner Aydın"
-  }))
-];
+import API from "../utils/utilRequest";
 
 function MusterilerPage() {
-  const [customers, setCustomers] = useState(INITIAL_CUSTOMERS);
+  const [customers, setCustomers] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [menseiFilter, setMenseiFilter] = useState("Hepsi");
   const [currentPage, setCurrentPage] = useState(1);
@@ -75,12 +15,48 @@ function MusterilerPage() {
   const [isPanelOpen, setIsPanelOpen] = useState(false);
   const [selectedCustomer, setSelectedCustomer] = useState(null);
 
+  // Alert Modal State'i
+  const [alertConfig, setAlertConfig] = useState({
+    show: false,
+    title: "",
+    message: "",
+    type: "info",
+    showCancel: false,
+    action: null
+  });
+
+  // 📥 1. Müşteri Verilerini Backend'den Çekme
+  const fetchCustomers = async () => {
+    try {
+      setLoading(true);
+      const res = await API.getCustomers();
+      // API'den dönen veri yapısına göre (örn: res.data veya doğrudan res) ayarlıyoruz
+      setCustomers(res.data || res || []);
+    } catch (err) {
+      console.error("Müşteriler yüklenirken hata:", err);
+      setAlertConfig({
+        show: true,
+        title: "Hata",
+        message: "Müşteri listesi sunucudan alınamadı.",
+        type: "danger",
+        showCancel: false,
+        action: () => setAlertConfig(prev => ({ ...prev, show: false }))
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchCustomers();
+  }, []);
+
   const filteredCustomers = useMemo(() => {
     return customers.filter((c) => {
       const matchesSearch =
-        c.ticariUnvan.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.yetkiliSatisci.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.ulke.toLowerCase().includes(searchQuery.toLowerCase());
+        (c.ticari_unvan && c.ticari_unvan.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (c.yetkiliSatisci && c.yetkiliSatisci.toLowerCase().includes(searchQuery.toLowerCase())) ||
+        (c.ulke && c.ulke.toLowerCase().includes(searchQuery.toLowerCase()));
       const matchesMensei = menseiFilter === "Hepsi" || c.mensei === menseiFilter;
       return matchesSearch && matchesMensei;
     });
@@ -97,52 +73,62 @@ function MusterilerPage() {
     setIsPanelOpen(true);
   };
 
-  const openEditPanel = (customer) => {
-    setSelectedCustomer(customer);
-    setIsPanelOpen(true);
-  };
-
-  const handleSaveCustomer = (incomingData) => {
-    if (incomingData.id) {
-      setCustomers((prev) =>
-        prev.map((c) => (c.id === incomingData.id ? { ...incomingData } : c))
-      );
-    } else {
-      const newCustomer = {
-        ...incomingData,
-        id: Date.now(),
-        teklifAdedi: 0,
-        teklifDetay: "Yeni oluşturuldu"
-      };
-      setCustomers((prev) => [newCustomer, ...prev]);
+  const openEditPanel = async (customer) => {
+    try {
+      // Düzenleme modalı açılırken backend'den güncel ve detaylı (kontaklı) halini çekiyoruz
+      const res = await API.getCustomerById(customer.id);
+      setSelectedCustomer(res.data || res);
+      setIsPanelOpen(true);
+    } catch (err) {
+      console.error("Müşteri detayı alınamadı:", err);
+      // Hata olursa eldeki tablo verisiyle açmayı dene
+      setSelectedCustomer(customer);
+      setIsPanelOpen(true);
     }
-    setIsPanelOpen(false);
   };
 
+  // 💾 Kaydetme / Güncelleme Sonrası Listeyi Yenile
+  const handleSaveCustomer = async (incomingData) => {
+    // AddPutMusteri bileşeni içeride API isteklerini (addCustomer / putCustomer) zaten yönetiyorsa
+    // burada direkt listeyi tazeleyebiliriz:
+    setIsPanelOpen(false);
+    await fetchCustomers();
+  };
+
+  // ❌ Silme İşlemi
   const handleDelete = (id) => {
-    // window.confirm yerine şık onay modalımız 🚀
     setAlertConfig({
       show: true,
       title: "Müşteriyi Sil",
-      message: "Bu müşteriyi silmek istediğinize emin misiniz? Bu işlem geri alınamaz.",
+      message: "Bu müşteriyi ve bağlı tüm yetkili kayıtlarını silmek istediğinize emin misiniz? Bu işlem geri alınamaz.",
       type: "warning",
-      showCancel: true, // İptal/Vazgeç butonu aktif
-      action: () => {
-        // Kullanıcı "Evet, Eminim" butonuna bastığında çalışacak kısım:
-        setCustomers((prev) => prev.filter((c) => c.id !== id));
+      showCancel: true,
+      action: async () => {
+        try {
+          await API.deleteCustomer(id);
+          
+          // Listeden state düzeyinde düşür veya yeniden fetch et
+          setCustomers((prev) => prev.filter((c) => c.id !== id));
 
-        // Modalı kapatıyoruz
-        setAlertConfig((prev) => ({ ...prev, show: false }));
-
-        // İsteğe bağlı: Silme işleminden sonra küçük bir başarı bildirimi fırlatmak istersen:
-        setAlertConfig({
-          show: true,
-          title: "Müşteri Silindi",
-          message: "Müşteri kaydı yerel listeden başarıyla kaldırıldı.",
-          type: "success",
-          showCancel: false,
-          action: null
-        });
+          setAlertConfig({
+            show: true,
+            title: "Müşteri Silindi",
+            message: "Müşteri kaydı sistemden başarıyla kaldırıldı.",
+            type: "success",
+            showCancel: false,
+            action: () => setAlertConfig(prev => ({ ...prev, show: false }))
+          });
+        } catch (err) {
+          console.error("Silme hatası:", err);
+          setAlertConfig({
+            show: true,
+            title: "İşlem Başarısız",
+            message: "Müşteri silinirken teknik bir hata oluştu.",
+            type: "danger",
+            showCancel: false,
+            action: () => setAlertConfig(prev => ({ ...prev, show: false }))
+          });
+        }
       }
     });
   };
@@ -154,18 +140,16 @@ function MusterilerPage() {
         fontSize: "14px",
         fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif",
         backgroundColor: "#1a2d3a",
-        // Mobilde navbar arkasında kalmasın diye 70px (veya navbar yüksekliğin kadar) boşluk, masaüstünde 0
         paddingTop: window.innerWidth < 768 ? "75px" : "20px"
       }}
     >
-      {/* ÜST BAŞLIK - Mobilde alt alta, md ekranda yan yana */}
+      {/* ÜST BAŞLIK */}
       <div className="d-flex flex-column flex-md-row justify-content-between align-items-start align-items-md-center mb-4 pb-3 border-bottom gap-3" style={{ borderColor: "#dee2e6" }}>
         <div>
           <h5 className="mb-1 fw-semibold tracking-tight" style={{ color: "#94a3b8" }}>
             <i className="bi bi-building me-2" style={{ color: "#00874e" }}></i>Müşteri Portföyü
           </h5>
         </div>
-
       </div>
 
       {/* FİLTRELEME ALANI */}
@@ -206,7 +190,6 @@ function MusterilerPage() {
             <div className="col-12 col-md-2 d-flex align-items-center justify-content-start justify-content-md-end" style={{ fontSize: "12px", color: "#94a3b8" }}>
               Toplam: <span className="fw-semibold ms-1" style={{ color: "#f8fafc" }}>{filteredCustomers.length} Müşteri</span>
             </div>
-            {/* Buton d-flex ve justify-content-end ile en sağa yaslandı */}
             <div className="col-12 col-md-3 d-flex justify-content-start justify-content-md-end">
               <button
                 onClick={openAddPanel}
@@ -223,7 +206,6 @@ function MusterilerPage() {
       {/* TABLO */}
       <div className="card shadow-sm border-0" style={{ borderRadius: "8px", overflow: "hidden", backgroundColor: "#1e293b" }}>
         <div className="table-responsive">
-          {/* Bootstrap'in beyaz arka planı ezmesi için table-dark sınıfı eklendi */}
           <table className="table table-dark table-hover align-middle mb-0" style={{ fontSize: "13px", minWidth: "800px", backgroundColor: "#1e293b" }}>
             <thead className="text-muted border-bottom" style={{ fontSize: "11px", letterSpacing: "0.5px", borderColor: "#334155" }}>
               <tr>
@@ -236,11 +218,17 @@ function MusterilerPage() {
               </tr>
             </thead>
             <tbody>
-              {displayedCustomers.length > 0 ? (
+              {loading ? (
+                <tr>
+                  <td colSpan="6" className="text-center py-5 text-muted" style={{ fontSize: "13px", color: "#94a3b8", backgroundColor: "#1e293b" }}>
+                    Yükleniyor...
+                  </td>
+                </tr>
+              ) : displayedCustomers.length > 0 ? (
                 displayedCustomers.map((customer) => (
                   <tr key={customer.id} style={{ borderColor: "#334155" }}>
                     <td className="px-4 py-3" style={{ backgroundColor: "#1e293b" }}>
-                      <div className="fw-semibold" style={{ color: "#f8fafc" }}>{customer.ticariUnvan}</div>
+                      <div className="fw-semibold" style={{ color: "#f8fafc" }}>{customer.ticari_unvan}</div>
                       <div className="d-flex align-items-center mt-1 gap-2" style={{ fontSize: "11px" }}>
                         <span
                           className="badge px-2 py-0.5 fw-medium"
@@ -255,8 +243,8 @@ function MusterilerPage() {
                       </div>
                     </td>
                     <td style={{ backgroundColor: "#1e293b" }}>
-                      <div className="fw-medium" style={{ color: "#e2e8f0" }}>{customer.vergiDairesi}</div>
-                      <div style={{ fontSize: "11px", color: "#94a3b8" }}>No: {customer.vergiNo}</div>
+                      <div className="fw-medium" style={{ color: "#e2e8f0" }}>{customer.vergiDairesi || "-"}</div>
+                      <div style={{ fontSize: "11px", color: "#94a3b8" }}>No: {customer.vergiNo || "-"}</div>
                     </td>
                     <td style={{ backgroundColor: "#1e293b" }}>
                       {customer.yetkililer && customer.yetkililer[0] ? (
@@ -264,7 +252,7 @@ function MusterilerPage() {
                           <div className="fw-medium" style={{ color: "#e2e8f0" }}>{customer.yetkililer[0].isim}</div>
                           <div className="d-flex align-items-center gap-1" style={{ fontSize: "11px", color: "#94a3b8" }}>
                             <i className="bi bi-envelope" style={{ fontSize: "10px", color: "#94a3b8" }}></i>
-                            {customer.yetkililer[0].mail}
+                            {customer.yetkililer[0].mail || "-"}
                             {customer.yetkililer.length > 1 && (
                               <span className="badge border px-1.5 py-0.5 fw-normal" style={{ fontSize: "9px", borderColor: "#475569", backgroundColor: "#334155", color: "#cbd5e1" }}>
                                 +{customer.yetkililer.length - 1} Diğer
@@ -284,7 +272,7 @@ function MusterilerPage() {
                           : { backgroundColor: "transparent", color: "#64748b", border: "1px dashed #475569" }
                         }
                       >
-                        {customer.teklifAdedi} Teklif
+                        {customer.teklifAdedi || 0} Teklif
                       </span>
                       {customer.teklifAdedi > 0 && (
                         <div className="mt-1 text-truncate mx-auto" style={{ maxWidth: "150px", fontSize: "11px", color: "#94a3b8" }}>
@@ -370,8 +358,7 @@ function MusterilerPage() {
         </div>
       )}
 
-
-      {/* DIŞARIYA ALINAN PENCERE BİLEŞENİ */}
+      {/* MODAL & SLIDE-OVER PANELS */}
       <AnimatePresence>
         {isPanelOpen && (
           <AddPutMusteri
@@ -382,6 +369,11 @@ function MusterilerPage() {
           />
         )}
       </AnimatePresence>
+
+      <AlertModal
+        {...alertConfig}
+        onClose={() => setAlertConfig(prev => ({ ...prev, show: false }))}
+      />
     </div>
   );
 }

@@ -102,8 +102,7 @@ function KarbonAyakiziTablosu() {
     savedCo2 = savedCo2 * tonToUsTon;
   }
 
-  // Ağaç eşdeğeri hesabı: Bir ağaç yılda ~22 kg (yada US sisteminde ~48.5 lbs) CO2 emer.
-  // Çevrilmiş savedCo2 değerini kg veya lbs bazına geri döndürüp ağaç sayısını buluyoruz.
+  // Ağaç eşdeğeri hesabı
   const rawEquivalentTrees = isUS
     ? (savedCo2 * 2000) / 48.5  // Ton -> lbs ve 48.5 lbs/ağaç emilimi
     : (savedCo2 * 1000) / 22;   // Metrik ton -> kg ve 22 kg/ağaç emilimi
@@ -112,17 +111,64 @@ function KarbonAyakiziTablosu() {
     ? Math.round(rawEquivalentTrees / 1000) * 1000
     : Math.round(rawEquivalentTrees / 100) * 100;
 
+  const altSystemName = selectedSystem === "aktif_camur"
+    ? (isForeign ? "Activated Sludge System" : "Klasik Aktif Çamur Sistemi")
+    : (isForeign ? "MBBR System" : "MBBR Sistemi");
+
+  const headerThemeClass = selectedSystem === "aktif_camur" ? "text-success" : "text-info";
+  const headerBgStyle = selectedSystem === "aktif_camur" ? "rgba(22, 163, 74, 0.1)" : "rgba(6, 182, 212, 0.1)";
+
+  // CO2 Emisyon Faktörü Input Değeri Yönetimi
+  const isEditingFactor = editingCell?.field === "co2Factor";
+  const factorDisplayValue = isEditingFactor ? editingCell.value : formatInputValue(data.co2Factor, 2);
+
+  // Dinamik Birim Etiketleri
+  const tonLabel = isUS 
+    ? "Ton" 
+    : (isForeign ? "ton" : "ton CO₂");
+
+  const tonYearLabel = isUS
+    ? "Ton/year"
+    : (isForeign ? "ton/year" : "ton CO₂/yıl");
+
+  // 🌟 EXCEL EXPORT İÇİN TÜM RENDER VERİLERİNİ FORMDATA'YA YAZAN EFFECT
   useEffect(() => {
     updateSection("tables", {
       ...formData?.tables,
       karbonayakizitablosu: {
         data: data,
+        selectedSystem: selectedSystem,
+        altSystemName: altSystemName,
+        unitSystemUsed: unitSystem,
+        
+        // 🌟 Sayısal Ham Değerler
+        co2Factor: data.co2Factor,
+        currentPlanetDailyKwh: currentPlanetDailyKwh,
+        currentAltDailyKwh: currentAltDailyKwh,
+        planetYearlyKwh: planetYearlyKwh,
+        altYearlyKwh: altYearlyKwh,
+        planetCo2: planetCo2,
+        altCo2: altCo2,
         savedCo2: savedCo2,
         equivalentTrees: Number(equivalentTrees),
-        unitSystemUsed: unitSystem // İleride rapor üretirken hangi sistemle basıldığını bilmek için
+
+        // 🌟 Ekranda Birebir Render Edilen Formatlı Metinler
+        renderedSummary: {
+          planetDailyKwhFormatted: `${formatNumber(currentPlanetDailyKwh, 1, 1)} ${isForeign ? "kw/day" : "kWh/gün"}`,
+          altDailyKwhFormatted: `${formatNumber(currentAltDailyKwh, 1, 1)} ${isForeign ? "kw/day" : "kWh/gün"}`,
+          planetYearlyKwhFormatted: `${formatNumber(Math.round(planetYearlyKwh), 0, 0)} ${isForeign ? "kW/year" : "kWh/yıl"}`,
+          altYearlyKwhFormatted: `${formatNumber(Math.round(altYearlyKwh), 0, 0)} ${isForeign ? "kW/year" : "kWh/yıl"}`,
+          co2FactorFormatted: `${formatInputValue(data.co2Factor, 2)} ${isUS || isForeign ? "kg/eMWh" : "kg CO₂ / kWh"}`,
+          planetCo2Formatted: `${formatNumber(planetCo2, 1, 1)} ${tonYearLabel}`,
+          altCo2Formatted: `${formatNumber(altCo2, 1, 1)} ${tonYearLabel}`,
+          savedCo2Formatted: `${savedCo2 > 0 ? `+${formatNumber(savedCo2, 1, 1)}` : formatNumber(savedCo2, 1, 1)} ${tonLabel}`,
+          treesFormatted: isUS || isForeign 
+            ? `~ ${formatNumber(equivalentTrees, 0, 0)} trees to nature / year` 
+            : `~ ${formatNumber(equivalentTrees, 0, 0)} Ağaç / yıl`
+        }
       }
     });
-  }, [data, savedCo2, equivalentTrees, unitSystem]);
+  }, [data, savedCo2, equivalentTrees, unitSystem, selectedSystem, isForeign, isUS, currentPlanetDailyKwh, currentAltDailyKwh]);
 
   const handleRefresh = () => {
     setHistory([]);
@@ -144,26 +190,6 @@ function KarbonAyakiziTablosu() {
     const parsedVal = parseInputValue(value);
     setData({ ...data, [field]: parsedVal });
   };
-
-  const altSystemName = selectedSystem === "aktif_camur"
-    ? (isForeign ? "Activated Sludge System" : "Klasik Aktif Çamur Sistemi")
-    : (isForeign ? "MBBR System" : "MBBR Sistemi");
-
-  const headerThemeClass = selectedSystem === "aktif_camur" ? "text-success" : "text-info";
-  const headerBgStyle = selectedSystem === "aktif_camur" ? "rgba(22, 163, 74, 0.1)" : "rgba(6, 182, 212, 0.1)";
-
-  // CO2 Emisyon Faktörü Input Değeri Yönetimi
-  const isEditingFactor = editingCell?.field === "co2Factor";
-  const factorDisplayValue = isEditingFactor ? editingCell.value : formatInputValue(data.co2Factor, 2);
-
-  // Dinamik Birim Etiketleri
-  const tonLabel = isUS 
-    ? "Ton" 
-    : (isForeign ? "ton" : "ton CO₂");
-
-  const tonYearLabel = isUS
-    ? "Ton/year"
-    : (isForeign ? "ton/year" : "ton CO₂/yıl");
 
   return (
     <div className="d-flex flex-column gap-3 w-100 text-white">

@@ -209,8 +209,79 @@ const API = {
             });
             throw err;
         }
-    }
+    },
+    // 📝 Teklif Oluşturma ve Kaydetme
+    sendFormData: async (formData) => {
+        return crudClient.post("/api/sendFormData", formData);
+    },
 
+    // 🔍 Teklife Ait Dosyaları (Word, PDF, Excel) Listeleme
+    getTeklifData: async (offerNumber, customerId = null) => {
+        return crudClient.post("/api/getTeklifData", {
+            offer_number: offerNumber,
+            customer_id: customerId, // 👈 customer_id eklendi
+        });
+    },
+
+    // 📄 Teklif Dosyasını İndirme (Blob)
+    getDocData: async (offerNumber, fileType = "docx", customerId = null) => {
+        return crudClient.post(
+            "/api/getDocData",
+            { offer_number: offerNumber, file_type: fileType, customer_id: customerId },
+            { responseType: "blob" } // ⚠️ Dosya indirme (binary) işlemleri için gereklidir
+        );
+    },
+    getAllOffers: async (params = {}) => {
+        return crudClient.get("/api/getAllOffers", { params });
+    },
+    // ==========================================
+    // 🏢 MÜŞTERİ CRUD İSTEKLERİ
+    // ==========================================
+
+    // 🔍 1. Müşteri Listesi Getirme (POST api/getCustomers)
+    getCustomers: async (filterData = {}) => {
+        try {
+            const res = await crudClient.post("api/getCustomers", filterData);
+            return res;
+        } catch (err) {
+            console.error("❌ [API.getCustomers] HATA bloğuna düştü! Detay:", {
+                status: err.response?.status,
+                message: err.message,
+                responseData: err.response?.data
+            });
+            throw err;
+        }
+    },
+
+    // 🎯 2. Tek Müşteri Detayı Getirme - Modal için (GET api/getCustomer/:id)
+    getCustomerById: async (customerId) => {
+        try {
+            const res = await crudClient.get(`api/getCustomer/${customerId}`);
+            return res;
+        } catch (err) {
+            console.error("❌ [API.getCustomerById] HATA bloğuna düştü! Detay:", {
+                status: err.response?.status,
+                message: err.message,
+                responseData: err.response?.data
+            });
+            throw err;
+        }
+    },
+
+    // ➕ 3. Yeni Müşteri Ekleme (POST api/addCustomer)
+    addCustomer: async (customerData) => {
+        return crudClient.post("api/addCustomer", customerData);
+    },
+
+    // 🔄 4. Müşteri Güncelleme (PUT api/putCustomer/:id)
+    putCustomer: async (customerId, updateData) => {
+        return crudClient.put(`api/putCustomer/${customerId}`, updateData);
+    },
+
+    // ❌ 5. Müşteri Silme (DELETE api/deleteCustomer/:id)
+    deleteCustomer: async (customerId) => {
+        return crudClient.delete(`api/deleteCustomer/${customerId}`);
+    }
 };
 
 export default API;

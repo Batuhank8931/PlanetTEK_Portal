@@ -98,39 +98,97 @@ function AmortismanTablosu() {
   const [editingCell, setEditingCell] = useState(null); // { field: 'string', value: 'string' }
   const [history, setHistory] = useState([]);
 
-  useEffect(() => {
-    if (!storeAmortisman || Object.keys(storeAmortisman).length === 0) {
-      const initial = getInitialData();
-      setData(initial);
-      syncWithStore(initial);
-    }
-  }, [storeDebi, planetCapex, annualOpexGideri]);
+  // 🌟 HESAPLAMA MOTORU & RENDER DEĞERLERİ (Dinamik Birim Dönüşümlü)
+  const displayDailyUsage = unitSystem === "US" ? data.dailyUsage * 264.172 : data.dailyUsage;
+  const displayMonthlyUsage = displayDailyUsage * 30;
+  const displayYearlyUsage = displayMonthlyUsage * data.activeMonths;
 
-  // Merkezi Store'u daima ham Euro... senkronize tutan fonksiyon
+  const displayWaterPrice = unitSystem === "US" 
+    ? (data.waterPrice / 264.172) * exchangeRate 
+    : data.waterPrice * exchangeRate;
+
+  const displayYearlyWaterCost = displayYearlyUsage * displayWaterPrice;
+  const displayPlantCost = data.plantCost * exchangeRate;
+  const displayAnnualOpex = data.annualOpex * exchangeRate;
+
+  const netAnnualSaving = displayYearlyWaterCost - displayAnnualOpex;
+  const roiYears = netAnnualSaving > 0 ? displayPlantCost / netAnnualSaving : 0;
+  const roiMonths = roiYears * 12;
+  const exactYearRound = Math.ceil(roiYears);
+
+  // 🌟 MERKEZİ STORE'A HEM HAM HEM DE RENDER EDİLEN BÜTÜN DATALARI KAYDEDEN FONKSİYON
   const syncWithStore = (updatedData) => {
-    const monthlyUsage = updatedData.dailyUsage * 30;
-    const yearlyUsage = monthlyUsage * updatedData.activeMonths;
-    const yearlyWaterCost = yearlyUsage * updatedData.waterPrice;
-    const netAnnualSaving = yearlyWaterCost - updatedData.annualOpex;
+    const calcDailyUsage = unitSystem === "US" ? updatedData.dailyUsage * 264.172 : updatedData.dailyUsage;
+    const calcMonthlyUsage = calcDailyUsage * 30;
+    const calcYearlyUsage = calcMonthlyUsage * updatedData.activeMonths;
 
-    const roiYears = netAnnualSaving > 0 ? updatedData.plantCost / netAnnualSaving : 0;
-    const roiMonths = roiYears * 12;
-    const exactYearRound = Math.ceil(roiYears);
+    const calcWaterPrice = unitSystem === "US" 
+      ? (updatedData.waterPrice / 264.172) * exchangeRate 
+      : updatedData.waterPrice * exchangeRate;
+
+    const calcYearlyWaterCost = calcYearlyUsage * calcWaterPrice;
+    const calcPlantCost = updatedData.plantCost * exchangeRate;
+    const calcAnnualOpex = updatedData.annualOpex * exchangeRate;
+
+    const calcNetAnnualSaving = calcYearlyWaterCost - calcAnnualOpex;
+    const calcRoiYears = calcNetAnnualSaving > 0 ? calcPlantCost / calcNetAnnualSaving : 0;
+    const calcRoiMonths = calcRoiYears * 12;
+    const calcExactYearRound = Math.ceil(calcRoiYears);
 
     updateSection("tables", {
       ...formData?.tables,
       amortisman: {
         ...updatedData,
-        monthlyUsage,
-        yearlyUsage,
-        yearlyWaterCost,
-        netAnnualSaving,
-        roiYears,
-        roiMonths,
-        exactYearRound
+        currency,
+        unitSystem,
+        exchangeRate,
+        
+        // 🌟 Sayısal Kur/Birim Dönüştürülmüş Render Değerleri
+        renderedMetrics: {
+          dailyUsage: calcDailyUsage,
+          monthlyUsage: calcMonthlyUsage,
+          yearlyUsage: calcYearlyUsage,
+          waterPrice: calcWaterPrice,
+          yearlyWaterCost: calcYearlyWaterCost,
+          plantCost: calcPlantCost,
+          annualOpex: calcAnnualOpex,
+          netAnnualSaving: calcNetAnnualSaving,
+          roiYears: calcRoiYears,
+          roiMonths: calcRoiMonths,
+          exactYearRound: calcExactYearRound
+        },
+
+        // 🌟 Excel ve Raporlarda Birebir Kullanılabilecek Formatlanmış Metinler
+        renderedSummary: {
+          dailyUsageFormatted: `${formatInputValue(calcDailyUsage, 2)}${getFlowUnit("day")}`,
+          monthlyUsageFormatted: `${formatNumber(Math.round(calcMonthlyUsage), 0, 0)}${getFlowUnit("month")}`,
+          yearlyUsageFormatted: `${formatNumber(Math.round(calcYearlyUsage), 0, 0)}${getFlowUnit("year")}`,
+          waterPriceFormatted: `${formatInputValue(calcWaterPrice, 4)} ${getCurrencySymbol()}/${unitSystem === "US" ? "gal" : "m³"}`,
+          yearlyWaterCostFormatted: `${formatNumber(Math.round(calcYearlyWaterCost), 0, 0)}${getCurrencySymbol()}`,
+          plantCostFormatted: `${formatNumber(Math.round(calcPlantCost), 0, 0)}${getCurrencySymbol()}`,
+          annualOpexFormatted: `${formatNumber(Math.round(calcAnnualOpex), 0, 0)}${getCurrencySymbol()}`,
+          roiYearsFormatted: calcRoiYears > 0 ? formatNumber(calcRoiYears, 2, 2) : "0",
+          roiMonthsFormatted: calcRoiMonths > 0 ? formatNumber(Math.round(calcRoiMonths), 0, 0) : "0",
+          exactYearRoundFormatted: `${calcExactYearRound >= 0 ? formatNumber(calcExactYearRound, 0, 0) : 0}`,
+          
+          // Pazarlama Özet Cümlesi
+          summaryBannerText: isForeign 
+            ? `In ${calcRoiMonths > 0 ? formatNumber(Math.round(calcRoiMonths), 0, 0) : "0"} Months, the WWTP is amortizing itself.`
+            : `Sistem kendisini ancak tam ${calcExactYearRound >= 0 ? formatNumber(calcExactYearRound, 0, 0) : 0} YILDA geri döndürebilmektedir.`
+        }
       }
     });
   };
+
+  useEffect(() => {
+    if (!storeAmortisman || Object.keys(storeAmortisman).length === 0) {
+      const initial = getInitialData();
+      setData(initial);
+      syncWithStore(initial);
+    } else {
+      syncWithStore(data);
+    }
+  }, [storeDebi, planetCapex, annualOpexGideri, exchangeRate, currency, unitSystem, teklifDili]);
 
   const saveToHistory = (currentState) => {
     setHistory([...history, JSON.stringify(currentState)]);
@@ -175,24 +233,6 @@ function AmortismanTablosu() {
     setData(updated);
     syncWithStore(updated);
   };
-
-  // 🌟 HESAPLAMA MOTORU & RENDER DEĞERLERİ (Dinamik Birim Dönüşümlü)
-  const displayDailyUsage = unitSystem === "US" ? data.dailyUsage * 264.172 : data.dailyUsage;
-  const displayMonthlyUsage = displayDailyUsage * 30;
-  const displayYearlyUsage = displayMonthlyUsage * data.activeMonths;
-
-  const displayWaterPrice = unitSystem === "US" 
-    ? (data.waterPrice / 264.172) * exchangeRate 
-    : data.waterPrice * exchangeRate;
-
-  const displayYearlyWaterCost = displayYearlyUsage * displayWaterPrice;
-  const displayPlantCost = data.plantCost * exchangeRate;
-  const displayAnnualOpex = data.annualOpex * exchangeRate;
-
-  const netAnnualSaving = displayYearlyWaterCost - displayAnnualOpex;
-  const roiYears = netAnnualSaving > 0 ? displayPlantCost / netAnnualSaving : 0;
-  const roiMonths = roiYears * 12;
-  const exactYearRound = Math.ceil(roiYears);
 
   // Dinamik input hücre render metodu
   const renderManagedInput = (field, rawValue, maxDigits = 2) => {
@@ -389,7 +429,7 @@ function AmortismanTablosu() {
               <i className="fw-semibold" style={{ fontSize: "11px", color: "#94a3b8" }}>
                 {isForeign 
                   ? `*** "Unit Price of Municipal Water = ${formatNumber(displayWaterPrice, 4, 4)} ${getCurrencySymbol()}/${unitSystem === "US" ? "gal" : "m³"}" is given for comparison purposes.`
-                  : `⚠️ Not: Bu süreye her yıl güncellenen amortisman tablosundaki işletme giderleri (${formatNumber(Math.round(displayAnnualOpex), 0, 0)} ${getCurrencySymbol()}/yıl) dahil edilerek hesaplama yapılmıştır.`
+                  : `⚠️ Not: Bu süreye her yıl güncellenen amortisman tablosundaki işletme giderleri (${formatNumber(Math.round(displayAnnualOpex), 0, 0)}${getCurrencySymbol()}/yıl) dahil edilerek hesaplama yapılmıştır.`
                 }
               </i>
             </div>

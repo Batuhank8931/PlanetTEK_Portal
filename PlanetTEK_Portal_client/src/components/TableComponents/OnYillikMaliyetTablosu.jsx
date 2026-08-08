@@ -35,7 +35,7 @@ function OnYillikMaliyetTablosu() {
     if (val === undefined || val === null || val === "") return "";
     const num = parseFloat(val);
     if (isNaN(num)) return val;
-    
+
     return num.toLocaleString(activeLocale, {
       minimumFractionDigits: 0,
       maximumFractionDigits: maxDigits
@@ -145,18 +145,67 @@ function OnYillikMaliyetTablosu() {
   const altRes = calculateTCO(altSystemData);
   const totalSavings10Y = altRes.totalTCO - planetRes.totalTCO;
   const roundedSavings10Y = Math.round(totalSavings10Y / 10000) * 10000;
+  const convertedSavings10Y = Math.round(roundedSavings10Y * exchangeRate);
 
-  // Değişiklikler yapıldıkçe store'u güncel tut (Store Euro kalmalı)
+  // 🌟 DİNAMİK TASARRUF YAZI ŞABLONU
+  const formattedSavingsVal = formatNumber(convertedSavings10Y, 0, 0);
+  const dynamicSavingsText = isForeign
+    ? `PlanetDISK system will save ${formattedSavingsVal}${getCurrencySymbol()} after 10 years`
+    : `PlanetDISK® DBD sistemin 10 yıl sonundaki toplam kazancı ${formattedSavingsVal} ${currency === "EUR" ? "EURO" : getCurrencySymbol()}'dur`;
+
+  // 🌟 RENDER EDİLEN BÜTÜN DATALARI FORMDATA'YA STRING FORMATINDA KAYDEDEN EFFECT
   useEffect(() => {
+    const sym = getCurrencySymbol();
+
     updateSection("tables", {
       ...formData?.tables,
       onyillikmaliyettablosu: {
         data: data,
         selectedSystem: selectedSystem,
-        totalSavings10Y: roundedSavings10Y
+        altSystemName: altSystemName,
+        currency: currency,
+        exchangeRate: exchangeRate,
+        inflationRate: formatNumber(data.inflationRate, 0, 2),
+        tenYearMultiplier: tenYearMultiplier.toString(),
+
+        // 🌟 Render Edilen Noktalı ve Para Birimli String Değerler
+        planetRendered: {
+          capex: `${formatNumber(Math.round(data.planet.capex * exchangeRate), 0, 0)} ${sym}`,
+          energy: `${formatNumber(Math.round(data.planet.energy * exchangeRate), 0, 0)} ${sym}`,
+          operator: `${formatNumber(Math.round(data.planet.operator * exchangeRate), 0, 0)} ${sym}`,
+          maintenance: `${formatNumber(Math.round(data.planet.maintenance * exchangeRate), 0, 0)} ${sym}`,
+          totalTCO: `${formatNumber(Math.round(planetRes.totalTCO * exchangeRate), 0, 0)} ${sym}`
+        },
+        altSystemRendered: {
+          capex: `${formatNumber(Math.round(altSystemData.capex * exchangeRate), 0, 0)} ${sym}`,
+          energy: `${formatNumber(Math.round(altSystemData.energy * exchangeRate), 0, 0)} ${sym}`,
+          operator: `${formatNumber(Math.round(altSystemData.operator * exchangeRate), 0, 0)} ${sym}`,
+          maintenance: `${formatNumber(Math.round(altSystemData.maintenance * exchangeRate), 0, 0)} ${sym}`,
+          totalTCO: `${formatNumber(Math.round(altRes.totalTCO * exchangeRate), 0, 0)} ${sym}`
+        },
+        totalSavings10Y: `${formatNumber(roundedSavings10Y, 0, 0)} ${sym}`,
+        totalSavings10YConverted: `${formatNumber(convertedSavings10Y, 0, 0)} ${sym}`,
+
+        // 🌟 Ekranda Birebir Görünün Formatlanmış Metinler
+        renderedSummary: {
+          planetCapexFormatted: `${formatNumber(Math.round(data.planet.capex * exchangeRate), 0, 0)} ${sym}`,
+          planetEnergyFormatted: `${formatNumber(Math.round(data.planet.energy * exchangeRate), 0, 0)} ${sym} ${isForeign ? "/ year" : "/ yıl"}`,
+          planetOperatorFormatted: `${formatNumber(Math.round(data.planet.operator * exchangeRate), 0, 0)} ${sym} ${isForeign ? "/ year" : "/ yıl"}`,
+          planetMaintenanceFormatted: `${formatNumber(Math.round(data.planet.maintenance * exchangeRate), 0, 0)} ${sym}`,
+          planetTcoFormatted: `${formatNumber(Math.round(planetRes.totalTCO * exchangeRate), 0, 0)} ${sym}`,
+
+          altCapexFormatted: `${formatNumber(Math.round(altSystemData.capex * exchangeRate), 0, 0)} ${sym}`,
+          altEnergyFormatted: `${formatNumber(Math.round(altSystemData.energy * exchangeRate), 0, 0)} ${sym} ${isForeign ? "/ year" : "/ yıl"}`,
+          altOperatorFormatted: `${formatNumber(Math.round(altSystemData.operator * exchangeRate), 0, 0)} ${sym} ${isForeign ? "/ year" : "/ yıl"}`,
+          altMaintenanceFormatted: `${formatNumber(Math.round(altSystemData.maintenance * exchangeRate), 0, 0)} ${sym}`,
+          altTcoFormatted: `${formatNumber(Math.round(altRes.totalTCO * exchangeRate), 0, 0)} ${sym}`,
+
+          totalSavings10YFormatted: `~ ${formattedSavingsVal} ${sym}`,
+          excelSavingsText: dynamicSavingsText
+        }
       }
     });
-  }, [data, selectedSystem, roundedSavings10Y]);
+  }, [data, selectedSystem, roundedSavings10Y, exchangeRate, currency, teklifDili, planetRes.totalTCO, altRes.totalTCO, convertedSavings10Y, dynamicSavingsText]);
 
   const handleGeneralChange = (field, value) => {
     setHistory([...history, JSON.stringify(data)]);
@@ -168,8 +217,8 @@ function OnYillikMaliyetTablosu() {
     setHistory([...history, JSON.stringify(data)]);
     let parsedVal = parseInputValue(value);
 
-    // 🌟 KURAL DÜZELTMESİ: Kullanıcı ekrandan döviz bazlı bakım maliyeti girdiğinde, store'a kaydetmeden önce Euro'ya geri çeviriyoruz.
-    if (field === "maintenance") {
+    // Maintenance ve Operator alanları döviz kuru çevrimine tabidir
+    if (field === "maintenance" || field === "operator") {
       parsedVal = parsedVal / exchangeRate;
     }
 
@@ -190,11 +239,9 @@ function OnYillikMaliyetTablosu() {
     setData(defaultInitialState);
   };
 
-  // Dinamik input hücre render metodu (Ekrandaki para birimine göre dönüştürülmüş basılır)
   const renderManagedInput = (system, field, rawValue, maxDigits = 0) => {
     const isCurrent = editingCell?.system === system && editingCell?.field === field;
-    
-    // 🌟 Ekranda para birimine göre çarparak gösteriyoruz (Enflasyon hariç)
+
     const convertedValue = field === "inflationRate" ? rawValue : rawValue * exchangeRate;
 
     let displayValue = "";
@@ -270,7 +317,7 @@ function OnYillikMaliyetTablosu() {
             <div className="fw-semibold text-white" style={{ fontSize: "14px", textTransform: isForeign ? "uppercase" : "none", letterSpacing: isForeign ? "0.5px" : "normal" }}>
               {isForeign ? "10-Year Life Cycle Cost & Total Cost of Ownership (TCO) Analysis" : "10 Yıllık Ekonomik Ömür ve Yatırım Geri Dönüşüm (TCO) Analizi"}
             </div>
-            
+
             <div className="d-flex align-items-center gap-3">
               <span className="badge fw-bold py-2 px-3" style={{ backgroundColor: "#090d16", color: "#fbbf24", border: "1px solid #475569", fontSize: "11px" }}>
                 {currency} - {unitSystem} Modu
@@ -300,7 +347,7 @@ function OnYillikMaliyetTablosu() {
             </div>
           </div>
 
-          {/* CAPEX ROW (Kurla Çarpılmış) */}
+          {/* CAPEX ROW */}
           <div className="d-flex align-items-stretch comp-row">
             <div className="p-2.5 ps-3 fw-medium text-white-50 d-flex align-items-center" style={{ width: "34%", fontSize: "12px" }}>
               {isForeign ? "Initial Investment Cost (CAPEX - Civil Works Excluded)" : "İlk Yatırım Maliyeti (CAPEX - İnşaat Hariç)"}
@@ -315,7 +362,7 @@ function OnYillikMaliyetTablosu() {
             </div>
           </div>
 
-          {/* ENERJİ ROW (Kurla Çarpılmış) */}
+          {/* ENERJİ ROW */}
           <div className="d-flex align-items-stretch comp-row">
             <div className="p-2.5 ps-3 fw-medium text-white-50 d-flex align-items-center" style={{ width: "34%", fontSize: "12px" }}>
               {isForeign ? "Annual Energy Cost" : "Yıllık Enerji Maliyeti (Dinamik)"}
@@ -330,22 +377,24 @@ function OnYillikMaliyetTablosu() {
             </div>
           </div>
 
-          {/* OPERATÖR ROW (Kurla Çarpılmış) */}
+          {/* OPERATÖR ROW (Dinamik ve Düzenlenebilir Input) */}
           <div className="d-flex align-items-stretch comp-row">
             <div className="p-2.5 ps-3 fw-medium text-white-50 d-flex align-items-center" style={{ width: "34%", fontSize: "12px" }}>
               {isForeign ? "Annual Operator Cost" : "Yıllık Operatör Maliyeti"}
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-            <div className="p-2 text-center bg-planet-column fw-bold text-white d-flex align-items-center justify-content-center font-monospace" style={{ width: "33%" }}>
-              {formatNumber(Math.round(data.planet.operator * exchangeRate), 0, 0)} {getCurrencySymbol()} <span className="text-white-50 font-sans-serif fw-normal ms-1" style={{ fontSize: "11px" }}>{isForeign ? "/ year" : "/ yıl"}</span>
+            <div className="p-2 d-flex justify-content-center align-items-center gap-1 bg-planet-column" style={{ width: "33%" }}>
+              {renderManagedInput("planet", "operator", data.planet.operator)}
+              <span className="text-white-50" style={{ fontSize: "11px" }}>{getCurrencySymbol()} {isForeign ? "/ year" : "/ yıl"}</span>
             </div>
             <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-            <div className="p-2 text-center bg-alt-column fw-bold text-white d-flex align-items-center justify-content-center font-monospace" style={{ width: "33%" }}>
-              {formatNumber(Math.round(altSystemData.operator * exchangeRate), 0, 0)} {getCurrencySymbol()} <span className="text-white-50 font-sans-serif fw-normal ms-1" style={{ fontSize: "11px" }}>{isForeign ? "/ year" : "/ yıl"}</span>
+            <div className="p-2 d-flex justify-content-center align-items-center gap-1 bg-alt-column" style={{ width: "33%" }}>
+              {renderManagedInput(selectedSystem, "operator", altSystemData.operator)}
+              <span className="text-white-50" style={{ fontSize: "11px" }}>{getCurrencySymbol()} {isForeign ? "/ year" : "/ yıl"}</span>
             </div>
           </div>
 
-          {/* BAKIM ROW (Hücre içi renderManagedInput zaten kur katsayısını içeriyor) */}
+          {/* BAKIM ROW */}
           <div className="d-flex align-items-stretch comp-row border-bottom" style={{ borderBottomWidth: "2px", borderColor: "#475569" }}>
             <div className="p-2.5 ps-3 fw-medium text-white-50 d-flex align-items-center" style={{ width: "34%", fontSize: "12px" }}>
               {isForeign ? "Annual Maintenance & Spare Parts Cost" : "Yıllık Bakım ve Yedek Parça Maliyeti"}
@@ -362,7 +411,7 @@ function OnYillikMaliyetTablosu() {
             </div>
           </div>
 
-          {/* TCO TOPLAMI (Kurla Çarpılmış) */}
+          {/* TCO TOPLAMI */}
           <div className="d-flex align-items-stretch font-monospace" style={{ backgroundColor: "#0b1524", borderTop: "1px dashed #474f5d" }}>
             <div className="p-3 ps-3 fw-bold text-white-50 text-uppercase d-flex align-items-center font-sans-serif" style={{ width: "34%", fontSize: "11px", letterSpacing: "0.5px" }}>
               {isForeign ? "Total 10 Years TCO Cumulative Sum" : "Toplam 10 Yıllık İlk Yatırım ve İşletme Maliyeti (TCO)"}
@@ -380,17 +429,11 @@ function OnYillikMaliyetTablosu() {
         </div>
       </div>
 
-      {/* PAZARLAMA TASARRUF PANELİ */}
+      {/* 🌟 REVİZE EDİLEN PAZARLAMA TASARRUF PANELİ */}
       <div className="d-flex flex-column rounded-3 overflow-hidden border p-4 gap-2 mt-1" style={{ borderColor: "#475569", backgroundColor: "#090d16" }}>
         <div className="d-flex flex-column align-items-center justify-content-center text-center">
-          <span className="text-white-50 mb-2 fw-medium" style={{ fontSize: "13px", letterSpacing: "0.5px" }}>
-            {isForeign
-              ? <>Total financial savings at the end of 10 Years when <strong>PlanetDISK® RBC System</strong> is chosen over {selectedSystem === "aktif_camur" ? "Activated Sludge" : "MBBR"}:</>
-              : <>{altSystemName} yerine <strong>PlanetDISK® DBD Sistemi</strong> tercih edildiğinde 10 Yıl Sonundaki Toplam Kazanç:</>
-            }
-          </span>
-          <span className="fw-extrabold text-success font-monospace" style={{ fontSize: "34px", letterSpacing: "1px", textShadow: "0 0 10px rgba(74, 222, 128, 0.2)" }}>
-            ~ {formatNumber(roundedSavings10Y * exchangeRate, 0, 0)} {getCurrencySymbol()}
+          <span className="fw-extrabold text-success font-monospace" style={{ fontSize: "22px", letterSpacing: "0.5px", textShadow: "0 0 10px rgba(74, 222, 128, 0.2)" }}>
+            {dynamicSavingsText}
           </span>
           {data.inflationRate > 0 && (
             <span className="text-white-50 mt-2" style={{ fontSize: "11px" }}>

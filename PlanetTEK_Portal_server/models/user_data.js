@@ -46,23 +46,36 @@ const getUser = async (req, res) => {
 // ➕ 2. YENİ KULLANICI EKLEME
 // ==========================================
 const addUser = async (req, res) => {
-    // ... mevcut kodlar (validation, password hashing vs.) ...
+    const { username, email, password, role, department } = req.body;
+
+    if (!username || !email || !password) {
+        return res.status(400).json({ message: "Lütfen tüm zorunlu alanları doldurun (İsim, E-posta, Şifre)." });
+    }
+
     try {
+        const saltRounds = 10;
+        const hashedPassword = await bcrypt.hash(password, saltRounds);
+
         const [result] = await pool.execute(
             "INSERT INTO users (isim, eposta, sifre_hash, rol, departman, durum) VALUES (?, ?, ?, ?, ?, 'Aktif')",
-            [username.trim(), email.trim(), hashedPassword, role, department]
+            [username.trim(), email.trim(), hashedPassword, role || "Satış Temsilcisi", department || null]
         );
 
         // LOG AT
-        await logActivity(req.user.id, {
-            tip: "kullanici_ekleme",
-            eklenen_kullanici_id: result.insertId,
-            eklenen_eposta: email.trim(),
-            rol: role
-        });
+        if (req.user && req.user.id) {
+            await logActivity(req.user.id, {
+                tip: "kullanici_ekleme",
+                eklenen_kullanici_id: result.insertId,
+                eklenen_eposta: email.trim(),
+                rol: role || "Satış Temsilcisi"
+            });
+        }
 
         return res.status(201).json({ message: "Kullanıcı başarıyla oluşturuldu." });
-    } catch (error) { /* ... */ }
+    } catch (error) {
+        console.error("addUser Error:", error.message);
+        return res.status(500).json({ message: "Kullanıcı eklenirken teknik hata oluştu.", error: error.message });
+    }
 };
 
 // ==========================================
@@ -149,14 +162,19 @@ const deleteUser = async (req, res) => {
         if (result.affectedRows === 0) return res.status(404).json({ message: "Bulunamadı" });
 
         // LOG AT
-        await logActivity(req.user.id, {
-            tip: "kullanici_silme",
-            silinen_kullanici_id: id,
-            silinen_eposta: user[0]?.eposta || "Bilinmiyor"
-        });
+        if (req.user && req.user.id) {
+            await logActivity(req.user.id, {
+                tip: "kullanici_silme",
+                silinen_kullanici_id: id,
+                silinen_eposta: user[0]?.eposta || "Bilinmiyor"
+            });
+        }
 
         return res.json({ message: "Kullanıcı silindi." });
-    } catch (error) { /* ... */ }
+    } catch (error) {
+        console.error("deleteUser Error:", error.message);
+        return res.status(500).json({ message: "Silme işlemi sırasında teknik hata oluştu.", error: error.message });
+    }
 };
 
 // Dışa aktarma uyuşmazlıkları düzeltildi babo

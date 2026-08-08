@@ -46,7 +46,7 @@ app.use(cors({
   credentials: true // 🍪 Çerezlerin (HttpOnly tokens) gitmesi/gelmesi için ŞART!
 }));
 
-app.use(express.json({ limit: '10kb' }));
+app.use(express.json({ limit: '1000kb' }));
 app.use(express.urlencoded({ extended: false, limit: '10kb', parameterLimit: 100 }));
 
 if (!process.env.COOKIE_SECRET) {

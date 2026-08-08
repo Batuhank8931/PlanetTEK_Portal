@@ -8,12 +8,11 @@ function OpexTablosu() {
     const teklifDili = formData?.customerInfo?.teklifDili;
     const isForeign = teklifDili === "Yabancı";
     
-    // 🌟 Canlı Döviz ve Kur Bilgilerini Çekiyoruz
+    // 🌟 Canlı Döviz Bilgisini Çekiyoruz
     const currency = formData?.customerInfo?.currency || "EUR";
-    const exchangeRate = parseFloat(formData?.customerInfo?.exchangeRate) || 1.0000;
 
-    // Diğer tablolardan doğrudan gelen net toplamlar
-    const enerjiGideri = parseFloat(formData?.tables?.enerjiisletmettablosu?.yearlyCostEuro) || 0;
+    // Diğer tablolardan doğrudan gelen net toplamlar (Zaten seçili para birimine göre hesaplanmış)
+    const enerjiGideri = parseFloat(formData?.tables?.enerjiisletmettablosu?.summary?.yearlyElectricityCost?.value) || 0;
     const sarfMalzemeGideri = parseFloat(formData?.tables?.sarfmalzemettablosu?.grandTotal) || 0;
 
     const storeTabloVerisi = formData?.tables?.opextablosu?.rows || formData?.tables?.opextablosu || [];
@@ -75,7 +74,7 @@ function OpexTablosu() {
     const [editingCell, setEditingCell] = useState(null); // { id: rowId, value: 'string' }
     const [history, setHistory] = useState([]);
 
-    // Dil veya bağımlı Euro değerleri değiştiğinde dinamik satırları güncelle
+    // Dil veya bağımlı diğer tablo değerleri değiştiğinde dinamik satırları güncelle
     useEffect(() => {
         setRows((prevRows) =>
             prevRows.map((row) => {
@@ -98,11 +97,8 @@ function OpexTablosu() {
         );
     }, [enerjiGideri, sarfMalzemeGideri, teklifDili]);
 
-    // 🌟 Toplam hesabı Store'daki ham Euro değerleri üzerinden toplanır
-    const totalOpexEuro = rows.reduce((sum, row) => sum + (parseFloat(row.value) || 0), 0);
-    
-    // Ekranda gösterilecek kurla çarpılmış toplam maliyet
-    const totalOpexConverted = totalOpexEuro * exchangeRate;
+    // 🌟 Toplam OPEX Hesabı (Doğrudan seçili para birimindeki değerlerin toplamı)
+    const totalOpex = rows.reduce((sum, row) => sum + (parseFloat(row.value) || 0), 0);
 
     // Değişiklikleri merkezi store'a yazan useEffect
     useEffect(() => {
@@ -110,10 +106,11 @@ function OpexTablosu() {
             ...formData?.tables,
             opextablosu: {
                 rows: rows,
-                totalOpex: totalOpexEuro 
+                totalOpex: totalOpex,
+                formattedTotalOpex: formatNumber(totalOpex, 2, 2)
             }
         });
-    }, [rows, totalOpexEuro]);
+    }, [rows, totalOpex]);
 
     const updateStoreWithNewRows = (newRows) => {
         setRows(newRows);
@@ -142,11 +139,10 @@ function OpexTablosu() {
     const handleInputChange = (id, field, newValue) => {
         saveToHistory(rows);
         let finalValue = newValue;
-        
+
         if (field === "value") {
-            // Ekrana girilen dövizli text veriyi parse edip kur katsayısına bölerek Euro tabanına indirgiyoruz
-            const parsedVal = parseInputValue(newValue);
-            finalValue = parsedVal / exchangeRate;
+            // Artık kurla bölmüyoruz, doğrudan kullanıcının girdiği nümerik değeri alıyoruz
+            finalValue = parseInputValue(newValue);
         }
 
         const updatedRows = rows.map(row => row.id === id ? { ...row, [field]: finalValue } : row);
@@ -243,15 +239,14 @@ function OpexTablosu() {
 
                     {/* TABLO SATIRLARI */}
                     {rows.map((row, index) => {
-                        const convertedValue = (parseFloat(row.value) || 0) * exchangeRate;
+                        const rawValue = parseFloat(row.value) || 0;
                         const isCurrentEditing = editingCell?.id === row.id;
 
-                        // Hücre input string değeri yönetimi
                         let inputDisplayStr = "";
                         if (isCurrentEditing) {
                             inputDisplayStr = editingCell.value;
                         } else {
-                            inputDisplayStr = formatInputValue(convertedValue);
+                            inputDisplayStr = formatInputValue(rawValue);
                         }
 
                         return (
@@ -271,15 +266,13 @@ function OpexTablosu() {
 
                                 <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
 
-                                {/* 2. KOLON: Dönüştürülmüş Fiyat Girişi veya Düz Metin Alanı */}
+                                {/* 2. KOLON: Doğrudan Fiyat Girişi veya Düz Metin Alanı */}
                                 <div className="p-2.5 px-3 d-flex align-items-center justify-content-end gap-2" style={{ width: "50%" }}>
                                     {row.isDynamic ? (
-                                        // 🌟 Dinamik satırlar input yerine şık bir formatlı text olarak basılıyor
                                         <span className="fw-bold text-white text-end pe-1" style={{ fontSize: "12px", width: "65%" }}>
-                                            {formatNumber(convertedValue, 2, 2)}
+                                            {formatNumber(rawValue, 2, 2)}
                                         </span>
                                     ) : (
-                                        // Manuel girilen satırlar kontrollü text input
                                         <input
                                             type="text"
                                             className="form-control form-control-sm text-end fw-bold text-white bg-transparent border-0 p-1 opex-input rounded"
@@ -287,7 +280,7 @@ function OpexTablosu() {
                                             value={inputDisplayStr}
                                             onChange={(e) => setEditingCell({ id: row.id, value: e.target.value })}
                                             onFocus={() => {
-                                                const cleanString = isForeign ? convertedValue.toString() : convertedValue.toString().replace(".", ",");
+                                                const cleanString = isForeign ? rawValue.toString() : rawValue.toString().replace(".", ",");
                                                 setEditingCell({ id: row.id, value: cleanString });
                                             }}
                                             onBlur={(e) => {
@@ -336,7 +329,7 @@ function OpexTablosu() {
                         <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
                         
                         <div className="d-flex align-items-center justify-content-end gap-2 text-success fw-bold" style={{ width: "35%", fontSize: "13px" }}>
-                            <span>{formatNumber(totalOpexConverted, 2, 2)}</span>
+                            <span>{formatNumber(totalOpex, 2, 2)}</span>
                             <span style={{ fontSize: "11px", minWidth: "65px" }}>
                                 {getCurrencyUnitLabel()}
                             </span>

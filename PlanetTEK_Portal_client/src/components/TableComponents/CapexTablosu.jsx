@@ -89,7 +89,7 @@ function CapexTablosu() {
     const initialGeneralInfo = {
         offerNo: `${formatDate()} / ${teklifNo} `,
         refNo: refNO,
-        clientName: customerInfo?.ticariUnvan || "-",
+        clientName: customerInfo?.ticari_unvan || "-",
     };
 
     const storeCapexObj = formData?.tables?.capextablosu;

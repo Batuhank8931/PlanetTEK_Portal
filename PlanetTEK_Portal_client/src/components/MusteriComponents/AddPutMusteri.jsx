@@ -1,33 +1,38 @@
 import React, { useState, useEffect } from "react";
-import { motion } from "framer-motion"; // 🚀 Animasyon için eklendi
+import { motion } from "framer-motion";
+import API from "../../utils/utilRequest.js";
 
 const EMPTY_FORM_STATE = {
     id: null,
-    ticariUnvan: "",
+    ticari_unvan: "",
     mensei: "Yerli",
     ulke: "Türkiye",
     adres: "",
     vergiDairesi: "",
     vergiNo: "",
     yetkililer: [{ isim: "", mail: "", telefon: "" }],
-    teklifAdedi: 0,
-    teklifDetay: "Yeni Kayıt",
     yetkiliSatisci: ""
 };
 
 function AddPutMusteri({ isOpen, onClose, selectedCustomer, onSave }) {
     const [formData, setFormData] = useState(EMPTY_FORM_STATE);
+    const [submitting, setSubmitting] = useState(false);
+    const [errorMessage, setErrorMessage] = useState("");
 
     useEffect(() => {
         if (selectedCustomer) {
-            setFormData({ ...selectedCustomer });
+            setFormData({
+                ...selectedCustomer,
+                // Yetkililer dizisi yoksa veya boşsa varsayılan alan oluştur
+                yetkililer: (selectedCustomer.yetkililer && selectedCustomer.yetkililer.length > 0)
+                    ? selectedCustomer.yetkililer
+                    : [{ isim: "", mail: "", telefon: "" }]
+            });
         } else {
             setFormData(EMPTY_FORM_STATE);
         }
+        setErrorMessage("");
     }, [selectedCustomer, isOpen]);
-
-    // 🚩 NOT: if (!isOpen) return null; kaldırıldı. 
-    // Animasyonun "exit" (çıkış) kısmının çalışması için bu şartı Parent (AnimatePresence olan yer) yönetmeli.
 
     const handleInputChange = (e) => {
         const { name, value } = e.target;
@@ -54,9 +59,40 @@ function AddPutMusteri({ isOpen, onClose, selectedCustomer, onSave }) {
         }
     };
 
-    const handleSubmit = (e) => {
+    // 🚀 Backend Kaydet/Güncelle İsteği
+    const handleSubmit = async (e) => {
         e.preventDefault();
-        onSave(formData);
+        setSubmitting(true);
+        setErrorMessage("");
+
+        // Backend `contacts` ismiyle beklediği için mapping yapıyoruz
+        const payload = {
+            ticari_unvan: formData.ticari_unvan,
+            mensei: formData.mensei,
+            ulke: formData.ulke,
+            adres: formData.adres,
+            vergiDairesi: formData.vergiDairesi,
+            vergiNo: formData.vergiNo,
+            contacts: formData.yetkililer.filter(k => k.isim && k.isim.trim() !== "")
+        };
+
+        try {
+            if (formData.id) {
+                // Güncelleme işlemi
+                await API.putCustomer(formData.id, payload);
+            } else {
+                // Yeni kayıt işlemi
+                await API.addCustomer(payload);
+            }
+
+            // İşlem başarılıysa parent fonksiyonunu tetikle
+            if (onSave) onSave(formData);
+        } catch (err) {
+            console.error("Müşteri kaydedilirken hata oluştu:", err);
+            setErrorMessage(err.response?.data?.message || "Kayıt sırasında bir hata oluştu.");
+        } finally {
+            setSubmitting(false);
+        }
     };
 
     const inputStyle = {
@@ -69,7 +105,7 @@ function AddPutMusteri({ isOpen, onClose, selectedCustomer, onSave }) {
 
     return (
         <>
-            {/* 🚀 Backdrop (Karartı) Animasyonu */}
+            {/* Backdrop */}
             <motion.div
                 initial={{ opacity: 0 }}
                 animate={{ opacity: 1 }}
@@ -80,7 +116,7 @@ function AddPutMusteri({ isOpen, onClose, selectedCustomer, onSave }) {
                 onClick={onClose}
             />
 
-            {/* 🚀 Panel (Sağdan Kayış) Animasyonu */}
+            {/* Slide-over Panel */}
             <motion.div
                 initial={{ x: "100%" }}
                 animate={{ x: 0 }}
@@ -118,6 +154,13 @@ function AddPutMusteri({ isOpen, onClose, selectedCustomer, onSave }) {
 
                 <form onSubmit={handleSubmit} className="p-3 p-sm-4">
 
+                    {errorMessage && (
+                        <div className="alert alert-danger py-2 mb-3" style={{ fontSize: "12px", backgroundColor: "rgba(239, 68, 68, 0.2)", borderColor: "#ef4444", color: "#fca5a5" }}>
+                            <i className="bi bi-exclamation-triangle-fill me-2"></i>
+                            {errorMessage}
+                        </div>
+                    )}
+
                     {/* SEKSİYON 1 - ŞİRKET GENEL BİLGİLERİ */}
                     <div className="d-flex align-items-center mb-3">
                         <span className="fw-bold text-uppercase pe-2" style={{ fontSize: "11px", letterSpacing: "0.5px", color: "#94a3b8" }}>
@@ -131,8 +174,8 @@ function AddPutMusteri({ isOpen, onClose, selectedCustomer, onSave }) {
                         <input
                             required
                             type="text"
-                            name="ticariUnvan"
-                            value={formData?.ticariUnvan || ""}
+                            name="ticari_unvan"
+                            value={formData?.ticari_unvan || ""}
                             onChange={handleInputChange}
                             className="form-control form-control-sm shadow-none custom-placeholder"
                             style={inputStyle}
@@ -206,24 +249,6 @@ function AddPutMusteri({ isOpen, onClose, selectedCustomer, onSave }) {
                         ></textarea>
                     </div>
 
-                    <div className="mb-4">
-                        <label className="form-label mb-1 fw-medium" style={{ fontSize: "12px", color: "#cbd5e1" }}>Sorumlu Yetkili Satışçı</label>
-                        <div className="input-group input-group-sm">
-                            <span className="input-group-text border-end-0 text-muted" style={{ backgroundColor: "#0f172a", borderColor: "#334155", padding: "0 0.75rem" }}>
-                                <i className="bi bi-person text-white-50" style={{ fontSize: "16px" }}></i>
-                            </span>
-                            <input
-                                type="text"
-                                name="yetkiliSatisci"
-                                value={formData?.yetkiliSatisci || ""}
-                                onChange={handleInputChange}
-                                className="form-control border-start-0 shadow-none custom-placeholder"
-                                style={inputStyle}
-                                placeholder="Portföy sorumlusu satış temsilcisi"
-                            />
-                        </div>
-                    </div>
-
                     {/* SEKSİYON 2 - ŞİRKET YETKİLİ KİŞİLERİ */}
                     <div className="d-flex flex-column flex-sm-row justify-content-between align-items-start align-items-sm-center mb-3 gap-2">
                         <div className="d-flex align-items-center flex-grow-1 w-100">
@@ -265,7 +290,7 @@ function AddPutMusteri({ isOpen, onClose, selectedCustomer, onSave }) {
                                     type="text"
                                     className="form-control form-control-sm shadow-none"
                                     style={{ ...inputStyle, backgroundColor: "#1e293b" }}
-                                    value={yetkili.isim}
+                                    value={yetkili.isim || ""}
                                     onChange={(e) => handleYetkiliChange(index, "isim", e.target.value)}
                                 />
                             </div>
@@ -273,11 +298,10 @@ function AddPutMusteri({ isOpen, onClose, selectedCustomer, onSave }) {
                                 <div className="col-12 col-sm-6">
                                     <label className="fw-semibold mb-1" style={{ fontSize: "11px", color: "#94a3b8" }}>E-Posta</label>
                                     <input
-                                        required
                                         type="email"
                                         className="form-control form-control-sm shadow-none"
                                         style={{ ...inputStyle, backgroundColor: "#1e293b" }}
-                                        value={yetkili.mail}
+                                        value={yetkili.mail || ""}
                                         onChange={(e) => handleYetkiliChange(index, "mail", e.target.value)}
                                     />
                                 </div>
@@ -287,7 +311,7 @@ function AddPutMusteri({ isOpen, onClose, selectedCustomer, onSave }) {
                                         type="text"
                                         className="form-control form-control-sm shadow-none"
                                         style={{ ...inputStyle, backgroundColor: "#1e293b" }}
-                                        value={yetkili.telefon}
+                                        value={yetkili.telefon || ""}
                                         placeholder="+90"
                                         onChange={(e) => handleYetkiliChange(index, "telefon", e.target.value)}
                                     />
@@ -301,6 +325,7 @@ function AddPutMusteri({ isOpen, onClose, selectedCustomer, onSave }) {
                         <button
                             type="button"
                             onClick={onClose}
+                            disabled={submitting}
                             className="btn btn-sm text-white flex-grow-1 py-2 fw-semibold"
                             style={{ borderRadius: "6px", fontSize: "13px", backgroundColor: "#334155", border: "1px solid #475569" }}
                         >
@@ -308,11 +333,21 @@ function AddPutMusteri({ isOpen, onClose, selectedCustomer, onSave }) {
                         </button>
                         <button
                             type="submit"
-                            className="btn btn-sm text-white flex-grow-1 py-2 fw-bold border-0"
+                            disabled={submitting}
+                            className="btn btn-sm text-white flex-grow-1 py-2 fw-bold border-0 d-flex align-items-center justify-content-center"
                             style={{ backgroundColor: "#00874e", borderRadius: "6px", fontSize: "13px" }}
                         >
-                            <i className="bi bi-check-lg me-1"></i>
-                            {formData?.id ? "Değişiklikleri Kaydet" : "Müşteriyi Kaydet"}
+                            {submitting ? (
+                                <>
+                                    <span className="spinner-border spinner-border-sm me-2" role="status" aria-hidden="true"></span>
+                                    Kaydediliyor...
+                                </>
+                            ) : (
+                                <>
+                                    <i className="bi bi-check-lg me-1"></i>
+                                    {formData?.id ? "Değişiklikleri Kaydet" : "Müşteriyi Kaydet"}
+                                </>
+                            )}
                         </button>
                     </div>
                 </form>

@@ -12,9 +12,9 @@ import {
     calculateTumSiralar
 } from "../../../../utils/yerlesimCalculations";
 
-import KademeKartlari from "./YerleşimObjects/KademeKartlari";
-import SistemKontrolPaneli from "./YerleşimObjects/SistemKontrolPaneli";
-import SistemSemasi from "./YerleşimObjects/SistemSemasi";
+import KademeKartlari from "./YerlesimObjects/KademeKartlari";
+import SistemKontrolPaneli from "./YerlesimObjects/SistemKontrolPaneli";
+import SistemSemasi from "./YerlesimObjects/SistemSemasi";
 
 function YerlesimDetail() {
     // 1. Akışı kilitlemek için loading state'i ekliyoruz

@@ -49,7 +49,7 @@ function KapakTablosu() {
     if (val === undefined || val === null || val === "") return "";
     const num = parseFloat(val);
     if (isNaN(num)) return val; // Eğer sayıya çevrilemiyorsa string halini koru
-    
+
     return num.toLocaleString(activeLocale, {
       minimumFractionDigits: 0,
       maximumFractionDigits: 2
@@ -106,11 +106,16 @@ function KapakTablosu() {
       })
       .map((param, index) => {
         let rawValue = "0";
-        
+
         if (param.key === "filtrasyonBoi") {
-          const cikisBoiVal = parseFloat(pDetails.cikisBoi);
-          if (!isNaN(cikisBoiVal)) {
-            rawValue = String(Math.round(cikisBoiVal * 0.8 * 100) / 100); 
+          const thirdTreatmentBOD = formData?.equipments?.filtrationSystem?.thirdTreatmentBOD;
+
+          // Store'da değer varsa onu kullan, yoksa yedek hesaplama yap
+          if (thirdTreatmentBOD !== undefined && thirdTreatmentBOD !== "") {
+            rawValue = String(thirdTreatmentBOD);
+          } else {
+            const cikisBoiVal = parseFloat(pDetails?.cikisBoi);
+            rawValue = !isNaN(cikisBoiVal) ? String(Math.round(cikisBoiVal * 0.8 * 100) / 100) : "0";
           }
         } else {
           rawValue = pDetails[param.key] !== undefined ? String(pDetails[param.key]) : "0";
@@ -147,7 +152,7 @@ function KapakTablosu() {
       return freshRows.map(fRow => {
         const existing = prevRows.find(p => p.id === fRow.id);
         const isUnitSystemChanged = existing && existing.id.startsWith("design_") && (fRow.unit !== existing.unit);
-        
+
         if (existing && !isUnitSystemChanged) {
           return { ...fRow, value: existing.value, label: existing.label, unit: existing.unit };
         }
@@ -229,7 +234,7 @@ function KapakTablosu() {
           {/* ÜST PANEL */}
           <div className="p-3 d-flex justify-content-between align-items-center" style={{ backgroundColor: "#1e293b", borderBottom: "1px solid #334155" }}>
             <div className="fw-semibold text-white" style={{ fontSize: "14px" }}>
-              {isForeign ? "Cover Table Parameters" : "Kapak Tablosu Parametreleri"} 
+              {isForeign ? "Cover Table Parameters" : "Kapak Tablosu Parametreleri"}
               <span className="badge ms-2" style={{ backgroundColor: "#00874e", fontSize: "10px" }}>{unitSystem}</span>
             </div>
 
@@ -306,8 +311,8 @@ function KapakTablosu() {
                       onChange={(e) => setEditingCell({ id: row.id, value: e.target.value })}
                       onFocus={() => {
                         const rawNum = parseInputValue(row.value);
-                        const cleanString = isNaN(rawNum) 
-                          ? row.value.toString() 
+                        const cleanString = isNaN(rawNum)
+                          ? row.value.toString()
                           : (isForeign ? rawNum.toString() : rawNum.toString().replace(".", ","));
                         setEditingCell({ id: row.id, value: cleanString });
                       }}
@@ -336,7 +341,7 @@ function KapakTablosu() {
                         title={isForeign ? "Insert New Row Below" : "Altına Yeni Satır Ekle"}
                       >
                         +
-                    </button>
+                      </button>
                       <button
                         onClick={() => deleteRow(row.id)}
                         className="btn btn-sm p-0 border-0 text-danger opacity-50 opacity-hover"
@@ -344,7 +349,7 @@ function KapakTablosu() {
                         title={isForeign ? "Delete Row" : "Satırı Sil"}
                       >
                         &times;
-                    </button>
+                      </button>
                     </div>
                   </div>
                 </div>

@@ -13,7 +13,10 @@ const PARAMETER_TEMPLATES = {
       label: "Üçüncül Arıtma Sonrası BOİ",
       requiresFiltrasyon: true,
       girişFn: (p) => p?.girisBoi ? String(p.girisBoi) : "0",
-      çıkışFn: (p) => {
+      çıkışFn: (p, ia, fs) => {
+        if (fs?.thirdTreatmentBOD !== undefined && fs?.thirdTreatmentBOD !== "") {
+          return String(fs.thirdTreatmentBOD);
+        }
         const cikisVal = parseFloat(p?.cikisBoi);
         return !isNaN(cikisVal) ? String(Math.round(cikisVal * 0.8 * 100) / 100) : "0";
       }
@@ -38,7 +41,10 @@ const PARAMETER_TEMPLATES = {
       label: "BOD After Tertiary Treatment",
       requiresFiltrasyon: true,
       girişFn: (p) => p?.girisBoi ? String(p.girisBoi) : "0",
-      çıkışFn: (p) => {
+      çıkışFn: (p, ia, fs) => {
+        if (fs?.thirdTreatmentBOD !== undefined && fs?.thirdTreatmentBOD !== "") {
+          return String(fs.thirdTreatmentBOD);
+        }
         const cikisVal = parseFloat(p?.cikisBoi);
         return !isNaN(cikisVal) ? String(Math.round(cikisVal * 0.8 * 100) / 100) : "0";
       }
@@ -46,7 +52,7 @@ const PARAMETER_TEMPLATES = {
     { key: "koi", label: "Chemical Oxygen Demand (COD)", girişFn: (p) => p?.girisBoi ? String((p.girisBoi * 1.8).toFixed(0)) : "0", çıkışFn: (p) => p?.cikisBoi ? String((p.cikisBoi * 1.8).toFixed(0)) : "0" },
     { key: "akm", label: "Total Suspended Solids (TSS)", girişFn: (p) => p?.girisBoi ? String(p.girisBoi) : "0", çıkışFn: (p) => p?.cikisBoi ? `<${p.cikisBoi}` : "0" },
     { key: "tn", label: "Total Nitrogen (TN)", requiresIleriAritma: true, girişFn: (p, ia) => ia?.girisToplamAzot ? String(ia.girisToplamAzot) : "0", çıkışFn: (p, ia) => ia?.cikisToplamAzot ? String(ia.cikisToplamAzot) : "0" },
-    { key: "nh4", label: "Ammonium Nitrogen (NH4-N)", requiresNitrifikasyon: true, girişFn: (p) => p?.girisAmonyum ? String(p.girisAmonyum) : "0", checkoutFn: (p) => p?.cikisAmonyum ? String(p.cikisAmonyum) : "0" },
+    { key: "nh4", label: "Ammonium Nitrogen (NH4-N)", requiresNitrifikasyon: true, girişFn: (p) => p?.girisAmonyum ? String(p.girisAmonyum) : "0", çıkışFn: (p) => p?.cikisAmonyum ? String(p.cikisAmonyum) : "0" },
     { key: "tp", label: "Total Phosphorus (TP)", requiresIleriAritma: true, girişFn: (p, ia) => ia?.girisToplamFosfor ? String(ia.girisToplamFosfor) : "0", çıkışFn: (p, ia) => ia?.cikisToplamFosfor ? String(ia.cikisToplamFosfor) : "0" },
     { key: "yagGres", label: "Oil and Grease", giriş: "≤25", çıkış: "<20" },
     { key: "ph", label: "pH", giriş: "6 – 9", çıkış: "6 – 9" },
@@ -60,22 +66,19 @@ function ParametreTablosu() {
   const updateSection = useTeklifStore((state) => state.updateSection);
 
   const teklifDili = formData?.customerInfo?.teklifDili;
-  const unitSystem = formData?.customerInfo?.unitSystem || "Metric"; 
+  const unitSystem = formData?.customerInfo?.unitSystem || "Metric";
   const isForeign = teklifDili === "Yabancı";
   const activeTemplates = isForeign ? PARAMETER_TEMPLATES.EN : PARAMETER_TEMPLATES.TR;
 
   const storeParametre = formData?.tables?.parametretablosu;
 
-  // 🌟 Lokasyon bazlı format seçimi
   const activeLocale = isForeign ? "en-US" : "tr-TR";
 
-  // Sayısal veya Karışık İfadeleri Maskelemek İçin Yardımcı Format Fonksiyonu
   const formatInputValue = (val) => {
     if (val === undefined || val === null || val === "") return "";
     let str = val.toString().trim();
     if (str === "-") return "-";
 
-    // Aralık içeriyorsa ("15-32" veya "15 – 32") iki tarafı da ayrı formatla
     if (str.includes("-") || str.includes("–")) {
       const separator = str.includes("-") ? "-" : "–";
       const parts = str.split(separator).map(p => parseFloat(p.replace(/[^\d.]/g, "")));
@@ -84,20 +87,18 @@ function ParametreTablosu() {
       }
     }
 
-    // Ön ek temizliği (Örn: "<25" -> prefix: "<", num: 25)
     const prefix = str.startsWith("<") ? "<" : str.startsWith("≤") ? "≤" : "";
     const cleanStr = str.replace(/[^\d.]/g, "");
     const num = parseFloat(cleanStr);
-    
-    if (isNaN(num)) return val; // Sayı barındırmıyorsa ("6 – 9" gibi özel durumlar veya düz metin)
-    
+
+    if (isNaN(num)) return val;
+
     return `${prefix}${num.toLocaleString(activeLocale, {
       minimumFractionDigits: 0,
       maximumFractionDigits: 2
     })}`;
   };
 
-  // Formatlanmış string ifadeyi standart JS formatına çevirme
   const parseInputValue = (val) => {
     if (!val) return "0";
     let cleanVal = val.toString();
@@ -109,12 +110,10 @@ function ParametreTablosu() {
     return cleanVal;
   };
 
-  // Gelişmiş Birim ve Değer Dönüştürücü Gözü
   const convertValueAndUnit = (key, rawStr, targetSystem) => {
     if (!rawStr || rawStr === "-") return { value: rawStr, unit: "-" };
-    
+
     const cleanNum = parseFloat(rawStr.replace(/[^\d.]/g, ""));
-    const prefix = rawStr.startsWith("<") ? "<" : rawStr.startsWith("≤") ? "≤" : "";
 
     if (key === "hidrolikYuk") {
       if (targetSystem === "US" && !isNaN(cleanNum)) {
@@ -161,6 +160,7 @@ function ParametreTablosu() {
   const generateRowsFromDesign = () => {
     const pDetails = formData?.planetDiskDetails?.tasarim?.aritmaParametreleri || {};
     const ileriAritmaData = formData?.equipments?.ileriAritma?.IleriAritmaInputSelections;
+    const filtrationSystem = formData?.equipments?.filtrationSystem;
 
     const hasIleriAritma = formData?.equipments?.modulesState?.ileriAritma?.checked === true;
     const hasNitrifikasyon = pDetails.nitrifikasyon === "nitrifikasyonVar";
@@ -171,8 +171,8 @@ function ParametreTablosu() {
       .filter(param => !param.requiresIleriAritma || hasIleriAritma)
       .filter(param => !param.requiresFiltrasyon || isFiltrasyonChecked)
       .map((param, index) => {
-        const rawGiriş = param.girişFn ? param.girişFn(pDetails, ileriAritmaData) : (param.giriş || "0");
-        const rawÇıkış = param.çıkışFn ? param.çıkışFn(pDetails, ileriAritmaData) : (param.çıkış || "0");
+        const rawGiriş = param.girişFn ? param.girişFn(pDetails, ileriAritmaData, filtrationSystem) : (param.giriş || "0");
+        const rawÇıkış = param.çıkışFn ? param.çıkışFn(pDetails, ileriAritmaData, filtrationSystem) : (param.çıkış || "0");
 
         const convertedGiriş = convertValueAndUnit(param.key, rawGiriş, unitSystem);
         const convertedÇıkış = convertValueAndUnit(param.key, rawÇıkış, unitSystem);
@@ -180,7 +180,7 @@ function ParametreTablosu() {
         return {
           id: `design_${param.key}_${index}`,
           label: param.label,
-          unit: convertedGiriş.unit, 
+          unit: convertedGiriş.unit,
           giriş: convertedGiriş.value,
           çıkış: convertedÇıkış.value,
           isUrgent: false
@@ -195,8 +195,7 @@ function ParametreTablosu() {
     return generateRowsFromDesign();
   });
 
-  // İnput odak yönetimi için geçici yerel string stateleri
-  const [editingCell, setEditingCell] = useState(null); // { id: rowId, field: 'giriş'|'çıkış', value: 'string' }
+  const [editingCell, setEditingCell] = useState(null);
   const [history, setHistory] = useState([]);
 
   useEffect(() => {
@@ -206,7 +205,7 @@ function ParametreTablosu() {
       return freshRows.map(fRow => {
         const existing = prevRows.find(p => p.id === fRow.id);
         const isUnitSystemChanged = existing && existing.id.startsWith("design_") && (fRow.unit !== existing.unit);
-        
+
         if (existing && !isUnitSystemChanged) {
           return { ...fRow, giriş: existing.giriş, çıkış: existing.çıkış, label: existing.label, unit: existing.unit };
         }
@@ -216,10 +215,11 @@ function ParametreTablosu() {
   }, [
     formData?.planetDiskDetails?.tasarim?.aritmaParametreleri,
     formData?.equipments?.ileriAritma?.IleriAritmaInputSelections,
+    formData?.equipments?.filtrationSystem?.thirdTreatmentBOD,
     formData?.equipments?.modulesState?.ileriAritma?.checked,
     formData?.equipments?.modulesState?.filtrasyon?.checked,
     teklifDili,
-    unitSystem 
+    unitSystem
   ]);
 
   useEffect(() => {
@@ -274,7 +274,6 @@ function ParametreTablosu() {
     setRows(rows.filter(row => row.id !== id));
   };
 
-  // Dinamik input render kontrolü fonksiyonu
   const renderCellInput = (row, field) => {
     const isCurrentEditing = editingCell?.id === row.id && editingCell?.field === field;
     let cellDisplayStr = "";
@@ -294,9 +293,8 @@ function ParametreTablosu() {
         onChange={(e) => setEditingCell({ ...editingCell, value: e.target.value })}
         onFocus={() => {
           let currentRawStr = row[field].toString();
-          // Eğer içinde özel karakter varsa, yazma kolaylığı için odaktayken noktayı virgüle (veya tersi) çevirip temiz sunalım
           if (!isForeign) {
-            currentRawStr = currentRawStr.replace(/\./g, "").replace(",", "."); // Standart ara çevrim
+            currentRawStr = currentRawStr.replace(/\./g, "").replace(",", ".");
             currentRawStr = currentRawStr.replace(".", ",");
           }
           setEditingCell({ id: row.id, field, value: currentRawStr });
@@ -414,14 +412,12 @@ function ParametreTablosu() {
 
                 <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
 
-                {/* 🌟 Atıksu Giriş hücresi kontrollü hale getirildi */}
                 <div className="p-1 px-3 d-flex align-items-center justify-content-end" style={{ width: "20%" }}>
                   {renderCellInput(row, "giriş")}
                 </div>
 
                 <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
 
-                {/* 🌟 Atıksu Çıkış hücresi kontrollü hale getirildi */}
                 <div className="p-1 px-3 d-flex align-items-center justify-content-end" style={{ width: "20%" }}>
                   {renderCellInput(row, "çıkış")}
                 </div>

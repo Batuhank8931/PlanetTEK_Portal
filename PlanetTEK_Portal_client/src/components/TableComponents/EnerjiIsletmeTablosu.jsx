@@ -29,30 +29,25 @@ function EnerjiIsletmeTablosu() {
     };
 
     // 🌟 Input Alanlarında Formatlı Gösterim İçin Yardımcı Fonksiyon
-    // Yabancı ise noktayı tutar, Yerli ise noktayı virgüle çevirir.
-    // 🌟 Hem binler hem ondalık ayracını teklif diline göre tam maskeler
     const formatInputValue = (val) => {
         if (val === undefined || val === null || val === "") return "";
         const num = parseFloat(val);
         if (isNaN(num)) return val;
 
-        // Hem binler basamağını hem de ondalık kısmını teklif diline göre ayırır
         return num.toLocaleString(activeLocale, {
             minimumFractionDigits: 0,
             maximumFractionDigits: 2
         });
     };
 
-    // 🌟 Formatlanmış string değerini (nokta/virgül karmaşasını çözüp) temiz JS float'ına çevirir
+    // 🌟 Formatlanmış string değerini temiz JS float'ına çevirir
     const parseInputValue = (val) => {
         if (!val) return 0;
 
         let cleanVal = val.toString();
         if (isForeign) {
-            // Yabancı dilde: Binler ayracı olan virgülleri kaldır, noktayı koru
             cleanVal = cleanVal.replace(/,/g, "");
         } else {
-            // Yerli dilde: Binler ayracı olan noktaları kaldır, virgülü noktaya çevir
             cleanVal = cleanVal.replace(/\./g, "").replace(",", ".");
         }
         return parseFloat(cleanVal) || 0;
@@ -63,7 +58,7 @@ function EnerjiIsletmeTablosu() {
         energyPrice: 13,
     });
 
-    // İnputların anlık string değerlerini tutacak local stateler (İmleç kaymasını önlemek için)
+    // İnputların anlık string değerlerini tutacak local stateler
     const [inputHydraulic, setInputHydraulic] = useState(formatInputValue(storeDebi));
     const [inputEnergyPrice, setInputEnergyPrice] = useState(formatInputValue((13 * exchangeRate).toFixed(2)));
 
@@ -75,7 +70,7 @@ function EnerjiIsletmeTablosu() {
     const [history, setHistory] = useState([]);
     const [activeMenuId, setActiveMenuId] = useState(null);
 
-    // Sync input values when storeDebi or exchangeRate changes
+    // Sync input values when params or exchangeRate changes
     useEffect(() => {
         setInputHydraulic(formatInputValue(params.hydraulicLoad));
     }, [params.hydraulicLoad]);
@@ -110,17 +105,63 @@ function EnerjiIsletmeTablosu() {
         return q * p * c * h;
     };
 
-    const totalKwhDay = rows.reduce((sum, row) => sum + calculateRowConsumption(row), 0);
+    // 🌟 ÖZET HESAPLAMA FONKSİYONU (Dışarıdan verilen rows array'i üzerinden anlık hesaplar)
+    const getSummaryPayload = (targetRows = rows, currentParams = params) => {
+        const totalKwhDayVal = (targetRows || []).reduce((sum, row) => sum + calculateRowConsumption(row), 0);
 
-    const dailyFlowM3 = unitSystem === "US"
-        ? (parseFloat(params.hydraulicLoad) || 0) / 264.172
-        : (parseFloat(params.hydraulicLoad) || 0);
+        const dailyFlowM3Val = unitSystem === "US"
+            ? (parseFloat(currentParams.hydraulicLoad) || 0) / 264.172
+            : (parseFloat(currentParams.hydraulicLoad) || 0);
 
-    const consumptionPerM3 = dailyFlowM3 > 0 ? totalKwhDay / dailyFlowM3 : 0;
-    const costPerM3Cent = consumptionPerM3 * (parseFloat(params.energyPrice) || 0) * exchangeRate;
+        const consumptionPerM3Val = dailyFlowM3Val > 0 ? totalKwhDayVal / dailyFlowM3Val : 0;
+        const costPerM3CentVal = consumptionPerM3Val * (parseFloat(currentParams.energyPrice) || 0) * exchangeRate;
 
-    const dailyCostConverted = totalKwhDay * ((parseFloat(params.energyPrice) || 0) / 100) * exchangeRate;
-    const yearlyCostConverted = dailyCostConverted * 365;
+        const dailyCostConvertedVal = totalKwhDayVal * ((parseFloat(currentParams.energyPrice) || 0) / 100) * exchangeRate;
+        const yearlyCostConvertedVal = dailyCostConvertedVal * 365;
+
+        const consumptionPerUnitVal = unitSystem === "US" ? consumptionPerM3Val / 264.172 : consumptionPerM3Val;
+        const costPerUnitCentVal = unitSystem === "US" ? costPerM3CentVal / 264.172 : costPerM3CentVal;
+
+        const volumeUnit = unitSystem === "US" ? "gal" : "m³";
+        const kwhUnit = isForeign ? "kW.hour/day" : "kWh/gün";
+        const unitConsumptionLabel = unitSystem === "US" ? "kWh/gal" : "kWh/m³";
+        const unitCostLabel = `${getCentSymbol()}/${volumeUnit}`;
+        const dailyCostLabel = `${getCurrencySymbol()} / ${isForeign ? "day" : "gün"}`;
+        const yearlyCostLabel = `${getCurrencySymbol()} / ${isForeign ? "year" : "yıl"}`;
+
+        return {
+            summary: {
+                totalElectricityConsumption: {
+                    value: totalKwhDayVal,
+                    formatted: formatNumber(totalKwhDayVal, 2, 2),
+                    unit: kwhUnit
+                },
+                consumptionPerUnitWastewater: {
+                    value: consumptionPerUnitVal,
+                    formatted: formatNumber(consumptionPerUnitVal, 4, 6),
+                    unit: unitConsumptionLabel
+                },
+                costPerUnitWastewater: {
+                    value: costPerUnitCentVal,
+                    formatted: formatNumber(costPerUnitCentVal, 4, 6),
+                    unit: unitCostLabel
+                },
+                dailyElectricityCost: {
+                    value: dailyCostConvertedVal,
+                    formatted: formatNumber(dailyCostConvertedVal, 2, 2),
+                    unit: dailyCostLabel
+                },
+                yearlyElectricityCost: {
+                    value: yearlyCostConvertedVal,
+                    formatted: formatNumber(yearlyCostConvertedVal, 0, 0),
+                    unit: yearlyCostLabel
+                }
+            }
+        };
+    };
+
+    // Render hesaplamaları (UI için)
+    const summaryData = getSummaryPayload(rows, params).summary;
 
     useEffect(() => {
         if (!storeTabloVerisi || storeTabloVerisi.length === 0) {
@@ -134,7 +175,15 @@ function EnerjiIsletmeTablosu() {
 
                     updateSection("tables", {
                         ...formData?.tables,
-                        enerjiisletmettablosu: { rows: freshRows, yearlyCostEuro: freshYearlyCostEuro }
+                        enerjiisletmettablosu: { 
+                            rows: freshRows, 
+                            yearlyCostEuro: freshYearlyCostEuro,
+                            inputEnergyPrice,
+                            inputHydraulic,
+                            energyPrice: params.energyPrice,
+                            hydraulicLoad: params.hydraulicLoad,
+                            ...getSummaryPayload(freshRows, params)
+                        }
                     });
                 } catch (e) {
                     console.error(e);
@@ -148,24 +197,57 @@ function EnerjiIsletmeTablosu() {
         setParams((prev) => ({ ...prev, hydraulicLoad: storeDebi }));
     }, [storeDebi]);
 
+    // 🌟 Metrikler veya parametreler değiştiğinde store'a yansıtma
     useEffect(() => {
         if (rows && rows.length > 0) {
-            const rawDaily = totalKwhDay * ((parseFloat(params.energyPrice) || 0) / 100);
-            updateSection("tables", {
-                ...formData?.tables,
-                enerjiisletmettablosu: { rows: [...rows], yearlyCostEuro: rawDaily * 365 }
-            });
+            const currentTableState = formData?.tables?.enerjiisletmettablosu;
+            const summaryPayload = getSummaryPayload(rows, params);
+            
+            if (
+                currentTableState?.inputEnergyPrice !== inputEnergyPrice ||
+                currentTableState?.inputHydraulic !== inputHydraulic ||
+                currentTableState?.energyPrice !== params.energyPrice ||
+                currentTableState?.hydraulicLoad !== params.hydraulicLoad ||
+                currentTableState?.summary?.totalElectricityConsumption?.value !== summaryPayload.summary.totalElectricityConsumption.value
+            ) {
+                const totalKwhDayVal = summaryPayload.summary.totalElectricityConsumption.value;
+                const rawDaily = totalKwhDayVal * ((parseFloat(params.energyPrice) || 0) / 100);
+                
+                updateSection("tables", {
+                    ...formData?.tables,
+                    enerjiisletmettablosu: { 
+                        ...currentTableState,
+                        rows: [...rows], 
+                        yearlyCostEuro: rawDaily * 365,
+                        inputEnergyPrice,
+                        inputHydraulic,
+                        energyPrice: params.energyPrice,
+                        hydraulicLoad: params.hydraulicLoad,
+                        ...summaryPayload
+                    }
+                });
+            }
         }
-    }, [params.energyPrice, params.hydraulicLoad]);
+    }, [params.energyPrice, params.hydraulicLoad, inputEnergyPrice, inputHydraulic, rows]);
 
     const updateStoreWithNewRows = (newRows) => {
         setRows(newRows);
-        const currentTotalKwhDay = newRows.reduce((sum, row) => sum + calculateRowConsumption(row), 0);
-        const currentDailyCostEuro = currentTotalKwhDay * ((parseFloat(params.energyPrice) || 0) / 100);
+        const summaryPayload = getSummaryPayload(newRows, params);
+        const totalKwhDayVal = summaryPayload.summary.totalElectricityConsumption.value;
+        const currentDailyCostEuro = totalKwhDayVal * ((parseFloat(params.energyPrice) || 0) / 100);
 
         updateSection("tables", {
             ...formData?.tables,
-            enerjiisletmettablosu: { rows: [...newRows], yearlyCostEuro: currentDailyCostEuro * 365 }
+            enerjiisletmettablosu: { 
+                ...formData?.tables?.enerjiisletmettablosu,
+                rows: [...newRows], 
+                yearlyCostEuro: currentDailyCostEuro * 365,
+                inputEnergyPrice,
+                inputHydraulic,
+                energyPrice: params.energyPrice,
+                hydraulicLoad: params.hydraulicLoad,
+                ...summaryPayload
+            }
         });
     };
 
@@ -174,12 +256,21 @@ function EnerjiIsletmeTablosu() {
         try {
             const freshRows = await enerjiIsletmeHesapFonksiyonu(formData);
             setRows(freshRows);
-            const freshTotalKwhDay = freshRows.reduce((sum, row) => sum + calculateRowConsumption(row), 0);
-            const freshDailyCostEuro = freshTotalKwhDay * ((parseFloat(params.energyPrice) || 0) / 100);
+            const summaryPayload = getSummaryPayload(freshRows, params);
+            const totalKwhDayVal = summaryPayload.summary.totalElectricityConsumption.value;
+            const freshDailyCostEuro = totalKwhDayVal * ((parseFloat(params.energyPrice) || 0) / 100);
 
             updateSection("tables", {
                 ...formData?.tables,
-                enerjiisletmettablosu: { rows: freshRows, yearlyCostEuro: freshDailyCostEuro * 365 }
+                enerjiisletmettablosu: { 
+                    rows: freshRows, 
+                    yearlyCostEuro: freshDailyCostEuro * 365,
+                    inputEnergyPrice,
+                    inputHydraulic,
+                    energyPrice: params.energyPrice,
+                    hydraulicLoad: params.hydraulicLoad,
+                    ...summaryPayload
+                }
             });
         } catch (error) {
             console.error(error);
@@ -266,7 +357,6 @@ function EnerjiIsletmeTablosu() {
                                             {isForeign ? "TOTAL HYDRAULIC LOAD" : "TOPLAM HİDROLİK YÜK"}
                                         </label>
                                         <div className="d-flex align-items-center gap-2">
-                                            {/* type="text" yapılarak dil kurallarına göre maskeleme sağlandı */}
                                             <input
                                                 type="text"
                                                 className="param-input-top"
@@ -522,9 +612,11 @@ function EnerjiIsletmeTablosu() {
                             <div className="fw-bold text-end text-white-50" style={{ width: "75%", fontSize: "12px" }}>
                                 {isForeign ? "TOTAL ELECTRICITY CONSUMPTION" : "TOPLAM ELEKTRİK TÜKETİMİ"}
                             </div>
-                            <div className="fw-bold text-end text-white" style={{ width: "15%", fontSize: "13px" }}>{formatNumber(totalKwhDay, 2, 2)}</div>
+                            <div className="fw-bold text-end text-white" style={{ width: "15%", fontSize: "13px" }}>
+                                {summaryData.totalElectricityConsumption.formatted}
+                            </div>
                             <div className="text-white-50 ms-2" style={{ fontSize: "11px" }}>
-                                {isForeign ? "kW.hour/day" : "kWh/gün"}
+                                {summaryData.totalElectricityConsumption.unit}
                             </div>
                         </div>
 
@@ -536,10 +628,10 @@ function EnerjiIsletmeTablosu() {
                                 }
                             </div>
                             <div className="fw-bold text-end text-white" style={{ width: "15%", fontSize: "13px" }}>
-                                {formatNumber((unitSystem === "US" ? consumptionPerM3 / 264.172 : consumptionPerM3), 4, 6)}
+                                {summaryData.consumptionPerUnitWastewater.formatted}
                             </div>
                             <div className="text-white-50 ms-2" style={{ fontSize: "11px" }}>
-                                {unitSystem === "US" ? "kWh/gal" : "kWh/m³"}
+                                {summaryData.consumptionPerUnitWastewater.unit}
                             </div>
                         </div>
 
@@ -551,10 +643,10 @@ function EnerjiIsletmeTablosu() {
                                 }
                             </div>
                             <div className="fw-bold text-end text-white" style={{ width: "15%", fontSize: "13px" }}>
-                                {formatNumber((unitSystem === "US" ? costPerM3Cent / 264.172 : costPerM3Cent), 4, 6)}
+                                {summaryData.costPerUnitWastewater.formatted}
                             </div>
                             <div className="text-white-50 ms-2" style={{ fontSize: "11px" }}>
-                                {getCentSymbol()}/{unitSystem === "US" ? "gal" : "m³"}
+                                {summaryData.costPerUnitWastewater.unit}
                             </div>
                         </div>
 
@@ -562,9 +654,11 @@ function EnerjiIsletmeTablosu() {
                             <div className="fw-bold text-end text-white-50" style={{ width: "75%", fontSize: "12px" }}>
                                 {isForeign ? "ELECTRICITY CONSUMPTION COST" : "ELEKTRİK TÜKETİM MALİYETİ (GÜNLÜK)"}
                             </div>
-                            <div className="fw-bold text-end text-warning" style={{ width: "15%", fontSize: "14px" }}>{formatNumber(dailyCostConverted, 2, 2)}</div>
+                            <div className="fw-bold text-end text-warning" style={{ width: "15%", fontSize: "14px" }}>
+                                {summaryData.dailyElectricityCost.formatted}
+                            </div>
                             <div className="text-warning ms-2" style={{ fontSize: "11px" }}>
-                                {getCurrencySymbol()} / {isForeign ? "day" : "gün"}
+                                {summaryData.dailyElectricityCost.unit}
                             </div>
                         </div>
 
@@ -572,9 +666,11 @@ function EnerjiIsletmeTablosu() {
                             <div className="fw-bold text-end text-white" style={{ width: "75%", fontSize: "12px" }}>
                                 {isForeign ? "ELECTRICITY CONSUMPTION COST" : "ELEKTRİK TÜKETİM MALİYETİ (YILLIK)"}
                             </div>
-                            <div className="fw-bold text-end text-success" style={{ width: "15%", fontSize: "15px" }}>{formatNumber(yearlyCostConverted, 0, 0)}</div>
+                            <div className="fw-bold text-end text-success" style={{ width: "15%", fontSize: "15px" }}>
+                                {summaryData.yearlyElectricityCost.formatted}
+                            </div>
                             <div className="text-success ms-2" style={{ fontSize: "11px" }}>
-                                {getCurrencySymbol()} / {isForeign ? "year" : "yıl"}
+                                {summaryData.yearlyElectricityCost.unit}
                             </div>
                         </div>
                     </div>

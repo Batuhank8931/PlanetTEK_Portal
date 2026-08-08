@@ -1,12 +1,16 @@
 import React, { useState, useEffect } from "react";
 import { useTeklifStore } from "../../utils/teklifStore"; 
 
+// MOCK Veritabanında kişilere id, ad ve dummy email eklendi
 const MOCK_CUSTOMERS_DB = [
     {
         id: 1,
-        ticariUnvan: "Acme Endüstri A.Ş.",
+        ticari_unvan: "Acme Endüstri A.Ş.",
         teklifDili: "Yerli",
-        ilgiliKisiler: ["Ahmet Yılmaz (Satın Alma Müdürü)", "Mehmet Kaya (Operasyon)"],
+        ilgiliKisiler: [
+            { ad: "Ahmet Yılmaz (Satın Alma Müdürü)", email: "ahmet.yilmaz@acme.com" },
+            { ad: "Mehmet Kaya (Operasyon)", email: "mehmet.kaya@acme.com" }
+        ],
         indirimler: [
             { planetTekIndirim: 15, ekipmanIndirim: 10, indirimTarihi: "2026-04-12" },
             { planetTekIndirim: 20, ekipmanIndirim: 12, indirimTarihi: "2026-05-15" }
@@ -14,18 +18,23 @@ const MOCK_CUSTOMERS_DB = [
     },
     {
         id: 2,
-        ticariUnvan: "Global Tech LLC",
+        ticari_unvan: "Global Tech LLC",
         teklifDili: "Yabancı",
-        ilgiliKisiler: ["John Doe (CTO)", "Jane Smith (Procurement)"],
+        ilgiliKisiler: [
+            { ad: "John Doe (CTO)", email: "john.doe@globaltech.com" },
+            { ad: "Jane Smith (Procurement)", email: "jane.smith@globaltech.com" }
+        ],
         indirimler: [
             { planetTekIndirim: 25, ekipmanIndirim: 5, indirimTarihi: "2026-05-01" }
         ]
     },
     {
         id: 3,
-        ticariUnvan: "Yıldız Holding",
+        ticari_unvan: "Yıldız Holding",
         teklifDili: "Yerli",
-        ilgiliKisiler: ["Selin Yıldız"],
+        ilgiliKisiler: [
+            { ad: "Selin Yıldız", email: "selin.yildiz@yildiz.com.tr" }
+        ],
         indirimler: []
     }
 ];
@@ -36,14 +45,25 @@ function SelectCustomer() {
     const customerInfo = useTeklifStore((state) => state.formData.customerInfo) || {};
     const updateSection = useTeklifStore((state) => state.updateSection);
 
-    const [searchTerm, setSearchTerm] = useState(customerInfo.ticariUnvan || "");
+    const [searchTerm, setSearchTerm] = useState(customerInfo.ticari_unvan || "");
     const [searchResults, setSearchResults] = useState([]);
     const [isSelecting, setIsSelecting] = useState(false);
     const [isLoadingRate, setIsLoadingRate] = useState(false);
 
+    // Müşteriyi id veya ticari unvan üzerinden eşleştir
     const [selectedCustomer, setSelectedCustomer] = useState(
-        MOCK_CUSTOMERS_DB.find(c => c.ticariUnvan === customerInfo.ticariUnvan) || null
+        MOCK_CUSTOMERS_DB.find(c => c.id === customerInfo.customer_id || c.ticari_unvan === customerInfo.ticari_unvan) || null
     );
+
+    // Store'daki customer_id veya ticari_unvan değişirse local selectedCustomer'ı senkronize et
+    useEffect(() => {
+        const found = MOCK_CUSTOMERS_DB.find(
+            c => c.id === customerInfo.customer_id || (customerInfo.ticari_unvan && c.ticari_unvan === customerInfo.ticari_unvan)
+        );
+        if (found) {
+            setSelectedCustomer(found);
+        }
+    }, [customerInfo.customer_id, customerInfo.ticari_unvan]);
 
     useEffect(() => {
         if (customerInfo.teklifNo === undefined || customerInfo.teklifNo === "") {
@@ -63,7 +83,7 @@ function SelectCustomer() {
 
     useEffect(() => {
         if (isSelecting) return;
-        if (selectedCustomer && searchTerm === selectedCustomer.ticariUnvan) {
+        if (selectedCustomer && searchTerm === selectedCustomer.ticari_unvan) {
             setSearchResults([]);
             return;
         }
@@ -73,7 +93,7 @@ function SelectCustomer() {
         }
 
         const filtered = MOCK_CUSTOMERS_DB.filter(c =>
-            c.ticariUnvan.toLowerCase().includes(searchTerm.toLowerCase())
+            c.ticari_unvan.toLowerCase().includes(searchTerm.toLowerCase())
         );
         setSearchResults(filtered);
     }, [searchTerm, isSelecting, selectedCustomer]);
@@ -101,7 +121,7 @@ function SelectCustomer() {
     const handleSelectCustomer = (customer) => {
         setIsSelecting(true);
         setSelectedCustomer(customer);
-        setSearchTerm(customer.ticariUnvan);
+        setSearchTerm(customer.ticari_unvan);
         setSearchResults([]);
 
         const siraliIndirimler = customer.indirimler
@@ -109,14 +129,17 @@ function SelectCustomer() {
             : [];
 
         const enGuncelIndirim = siraliIndirimler[0] || {};
+        const varsayilanKisi = customer.ilgiliKisiler[0] || {};
 
         updateSection("customerInfo", {
             ...customerInfo,
-            ticariUnvan: customer.ticariUnvan,
+            customer_id: customer.id, // 👈 Seçilen müşterinin ID'si ekleniyor
+            ticari_unvan: customer.ticari_unvan,
             teklifDili: customer.teklifDili || "Yerli",
             planetTekIndirim: enGuncelIndirim.planetTekIndirim || "",
             ekipmanIndirim: enGuncelIndirim.ekipmanIndirim || "",
-            ilgiliKisi: customer.ilgiliKisiler[0] || "",
+            ilgiliKisi: varsayilanKisi.ad || "",
+            ilgiliKisi_email: varsayilanKisi.email || "",
             revizyonNo: customerInfo.revizyonNo || "R0"
         });
 
@@ -127,6 +150,44 @@ function SelectCustomer() {
         setTimeout(() => {
             setIsSelecting(false);
         }, 150);
+    };
+
+    const handleSearchInputChange = (e) => {
+        const value = e.target.value;
+        if (!isSelecting) setSearchTerm(value);
+
+        if (value === "") {
+            setSelectedCustomer(null);
+            updateSection("customerInfo", {
+                ...customerInfo,
+                customer_id: null, // 👈 Temizlendiğinde null yapılıyor
+                ticari_unvan: "",
+                planetTekIndirim: "",
+                ekipmanIndirim: "",
+                ilgiliKisi: "",
+                ilgiliKisi_email: "",
+                currency: "EUR",
+                exchangeRate: "1.0000"
+            });
+        } else {
+            // Kullanıcı listeden seçmeyip elle metin değiştirirse ID'yi kaldır, sadece ticari_unvan yaz
+            updateSection("customerInfo", {
+                ...customerInfo,
+                customer_id: null,
+                ticari_unvan: value
+            });
+        }
+    };
+
+    const handleIlgiliKisiSelect = (e) => {
+        const secilenAd = e.target.value;
+        const kisiObj = selectedCustomer?.ilgiliKisiler.find(k => k.ad === secilenAd);
+
+        updateSection("customerInfo", {
+            ...customerInfo,
+            ilgiliKisi: secilenAd,
+            ilgiliKisi_email: kisiObj ? kisiObj.email : customerInfo.ilgiliKisi_email || ""
+        });
     };
 
     const handleChange = (e) => {
@@ -177,7 +238,7 @@ function SelectCustomer() {
                 <div className="flex-grow-1 border-bottom" style={{ borderColor: "rgba(255,255,255,0.1)" }}></div>
             </div>
 
-            {/* FORM ALANI (Alt Alta Bölünmüş Şık Düzen) */}
+            {/* FORM ALANI */}
             <div className="d-flex flex-column gap-3">
                 
                 {/* 1. Satır: Müşteri Tanım ve Dil Bilgileri */}
@@ -190,21 +251,7 @@ function SelectCustomer() {
                         <input
                             type="text"
                             value={searchTerm}
-                            onChange={(e) => {
-                                if (!isSelecting) setSearchTerm(e.target.value);
-                                if (e.target.value === "") {
-                                    setSelectedCustomer(null);
-                                    updateSection("customerInfo", {
-                                        ...customerInfo,
-                                        ticariUnvan: "",
-                                        planetTekIndirim: "",
-                                        ekipmanIndirim: "",
-                                        ilgiliKisi: "",
-                                        currency: "EUR",
-                                        exchangeRate: "1.0000"
-                                    });
-                                }
-                            }}
+                            onChange={handleSearchInputChange}
                             className="form-control form-control-sm text-white fw-bold border-0 py-2"
                             style={{ backgroundColor: "#1e293b", borderRadius: "6px", fontSize: "12px" }}
                             placeholder="Müşteri adı ara..."
@@ -214,7 +261,7 @@ function SelectCustomer() {
                             <ul className="list-group position-absolute w-100 mt-1 shadow-lg border" style={{ zIndex: 1050, maxHeight: "180px", overflowY: "auto", backgroundColor: "#0f172a", borderColor: "#334155" }}>
                                 {searchResults.map((customer) => (
                                     <li key={customer.id} className="list-group-item list-group-item-action small py-2 text-white-50" style={{ cursor: "pointer", backgroundColor: "#0f172a", borderBottom: "1px solid #334155", fontSize: "12px" }} onClick={() => handleSelectCustomer(customer)}>
-                                        {customer.ticariUnvan}
+                                        {customer.ticari_unvan}
                                     </li>
                                 ))}
                             </ul>
@@ -314,17 +361,41 @@ function SelectCustomer() {
                     <div className="border-bottom" style={{ borderColor: "rgba(255,255,255,0.05)", margin: "5px 0" }}></div>
                     
                     <div className="row g-3 align-items-end">
-                        {/* İlgili Kişi Seçimi */}
+                        {/* İlgili Kişi Seçimi (Select/Dropdown) */}
                         <div className="col-12 col-md-3">
                             <label className="form-label mb-1 small fw-medium text-white-50" style={{ fontSize: "11px" }}>
                                 İlgili Kişi *
                             </label>
-                            <select name="ilgiliKisi" value={customerInfo.ilgiliKisi || ""} onChange={handleChange} className="form-select form-select-sm text-white fw-bold border-0 py-2" style={{ backgroundColor: "#1e293b", borderRadius: "6px", fontSize: "12px" }}>
+                            <select 
+                                name="ilgiliKisi" 
+                                value={customerInfo.ilgiliKisi || ""} 
+                                onChange={handleIlgiliKisiSelect} 
+                                className="form-select form-select-sm text-white fw-bold border-0 py-2" 
+                                style={{ backgroundColor: "#1e293b", borderRadius: "6px", fontSize: "12px" }}
+                            >
                                 <option value="" style={{ backgroundColor: "#0f172a" }}>Seçiniz...</option>
                                 {selectedCustomer.ilgiliKisiler.map((kisi, index) => (
-                                    <option key={index} value={kisi} style={{ backgroundColor: "#0f172a" }}>{kisi}</option>
+                                    <option key={index} value={kisi.ad} style={{ backgroundColor: "#0f172a" }}>
+                                        {kisi.ad}
+                                    </option>
                                 ))}
                             </select>
+                        </div>
+
+                        {/* İlgili Kişi Email (Düzeltilebilir Input) */}
+                        <div className="col-12 col-md-3">
+                            <label className="form-label mb-1 small fw-medium text-white-50" style={{ fontSize: "11px" }}>
+                                İlgili Kişi E-posta
+                            </label>
+                            <input
+                                type="email"
+                                name="ilgiliKisi_email"
+                                value={customerInfo.ilgiliKisi_email || ""}
+                                onChange={handleChange}
+                                className="form-control form-control-sm text-white border-0 py-2"
+                                style={{ backgroundColor: "#1e293b", borderRadius: "6px", fontSize: "12px" }}
+                                placeholder="ornek@sirket.com"
+                            />
                         </div>
 
                         {/* PlanetTEK İndirim Oranı */}
@@ -340,13 +411,13 @@ function SelectCustomer() {
                         </div>
 
                         {/* Bilgi Gösterge Kartı / Tablo */}
-                        <div className="col-12 col-md-5">
+                        <div className="col-12 col-md-2">
                             <div className="p-2 rounded border" style={{ backgroundColor: "#0f172a", borderColor: "#334155", fontSize: "11px", lineHeight: "1.4", minHeight: "62px" }}>
                                 <div className="fw-medium text-white-50 mb-1" style={{ fontSize: "11px" }}>
-                                    <i className="bi bi-clock-history me-1"></i> Kayıtlı İndirim Geçmişi
+                                    <i className="bi bi-clock-history me-1"></i> İndirim Geçmişi
                                 </div>
                                 {siraliIndirimler.length === 0 ? (
-                                    <div className="text-muted italic py-1" style={{ fontSize: "11px" }}>Kayıtlı indirim bulunamadı.</div>
+                                    <div className="text-muted italic py-1" style={{ fontSize: "11px" }}>Kayıtlı indirim yok.</div>
                                 ) : (
                                     <div className="d-flex gap-3 overflow-auto pt-1">
                                         {siraliIndirimler.map((indirim, idx) => (

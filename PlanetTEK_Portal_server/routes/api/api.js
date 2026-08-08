@@ -30,6 +30,11 @@ const { getParamteters, updateParametersData } = require("../../models/parameter
 // 📊 Pompa Eğrisi (Pump Curve) Kontrolleri
 const { getPumpCurve, updatePumpCurve, getAllPumpCurves, getCentrifugePumps } = require("../../models/pump_curve_data.js");
 
+const { sendFormData, getDocData, getTeklifData, getAllOffers } = require("../../models/offer_functions.js");
+
+const { getCustomers, addCustomer, putCustomer, deleteCustomer, getCustomerById } = require("../../models/customer_data.js");
+
+
 
 // ==========================================
 // 👥 KULLANICI CRUD ROTALARI
@@ -74,5 +79,23 @@ router.post('/price/update', verifyToken, updatePriceData);
 router.get('/parameters', verifyToken, getParamteters);
 router.post('/parameters/update', verifyToken, updateParametersData);
 
+// ==========================================
+// ⚙️ TEKLİF OLUŞTURMA APİLERİ
+// ==========================================
+router.post('/sendFormData', verifyToken, sendFormData);
+router.post('/getDocData', verifyToken, getDocData);
+router.post('/getTeklifData', verifyToken, getTeklifData);
+router.get('/getAllOffers', verifyToken, getAllOffers);
+
+
+
+// ==========================================
+// ⚙️ MÜŞTERİ BİLGİLERİ APİLERİ
+// ==========================================
+router.post('/getCustomers', verifyToken, getCustomers);
+router.post('/addCustomer', verifyToken, addCustomer);
+router.put('/putCustomer/:id', verifyToken, putCustomer);
+router.delete('/deleteCustomer/:id', verifyToken, deleteCustomer);
+router.get('/getCustomer/:id', verifyToken, getCustomerById);
 
 module.exports = router;

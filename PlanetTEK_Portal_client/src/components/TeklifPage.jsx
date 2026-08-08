@@ -37,15 +37,13 @@ function TeklifPage() {
     { id: 5, label: "Özet & Onay", icon: "bi-check2-circle" }
   ];
 
-  // Doğrudan bir adıma zıplamayı sağlayan yeni fonksiyon
+  // Doğrudan bir adıma zıplamayı sağlayan fonksiyon
   const handleStepClick = (targetStepId) => {
     if (targetStepId === currentStep) return;
 
-    // Hedef adım mevcut adımdan büyükse ileri (1), küçükse geri (-1) animasyonu ayarla
     const nextDirection = targetStepId > currentStep ? 1 : -1;
     setDirection(nextDirection);
 
-    // Aradaki adımlara uğramadan direkt store'u hedef adıma güncelle
     setCurrentStepStore(targetStepId);
   };
 
@@ -64,7 +62,6 @@ function TeklifPage() {
   };
 
   const handleSubmit = () => {
-    // Oski alert satırını sil, yerine bunu ekle:
     setAlertConfig({
       show: true,
       title: "İşlem Tamamlandı",
@@ -75,17 +72,16 @@ function TeklifPage() {
     });
   };
 
-
   const handleResetForm = () => {
     setAlertConfig({
       show: true,
       title: "Formu Sıfırla",
       message: "Formdaki tüm verileri sıfırlamak istediğinize emin misiniz?",
       type: "warning",
-      showCancel: true, // İptal butonu aktif
+      showCancel: true,
       action: () => {
-        resetForm(); // Kullanıcı "Evet" derse tetiklenecek fonksiyon
-        setAlertConfig(prev => ({ ...prev, show: false })); // Modalı kapat
+        resetForm();
+        setAlertConfig((prev) => ({ ...prev, show: false }));
       }
     });
   };
@@ -165,8 +161,8 @@ function TeklifPage() {
                 <div
                   key={step.id}
                   className="d-flex align-items-center"
-                  onClick={() => handleStepClick(step.id)} // Tıklanınca direkt o adıma geçiş sağlandı
-                  style={{ cursor: "pointer" }} // Kullanıcıya tıklanabilir olduğunu hissettirmek için imleç
+                  onClick={() => handleStepClick(step.id)}
+                  style={{ cursor: "pointer" }}
                 >
                   <motion.div
                     animate={{
@@ -208,7 +204,8 @@ function TeklifPage() {
 
           {/* SAĞ TARAF: AKSİYON + MODAL BUTON GRUBU */}
           <div className="d-flex align-items-center gap-2">
-            {currentStep < steps.length ? (
+            {/* İLERİ BUTONU (Yalnızca 5. adımdan önce görünür) */}
+            {currentStep < steps.length && (
               <button
                 type="button"
                 className="btn btn-sm text-white px-3 py-2 fw-bold d-flex align-items-center"
@@ -216,15 +213,6 @@ function TeklifPage() {
                 style={{ backgroundColor: "#22c55e", borderRadius: "6px", border: "none", fontSize: "13px" }}
               >
                 İleri <i className="bi bi-arrow-right ms-1.5"></i>
-              </button>
-            ) : (
-              <button
-                type="button"
-                className="btn btn-sm text-dark px-3 py-2 fw-bold border-0 shadow-sm d-flex align-items-center"
-                onClick={handleSubmit}
-                style={{ backgroundColor: "#eab308", borderRadius: "6px", fontSize: "13px" }}
-              >
-                <i className="bi bi-check-all me-1.5" style={{ fontSize: "15px" }}></i> Kaydet
               </button>
             )}
 
@@ -287,9 +275,9 @@ function TeklifPage() {
         title={alertConfig.title}
         message={alertConfig.message}
         type={alertConfig.type}
-        showCancel={alertConfig.showCancel} // State ne derse o (true/false)
-        onConfirm={alertConfig.action}     // Varsa fonksiyon çalışır, yoksa pas geçer
-        onClose={() => setAlertConfig(prev => ({ ...prev, show: false }))}
+        showCancel={alertConfig.showCancel}
+        onConfirm={alertConfig.action}
+        onClose={() => setAlertConfig((prev) => ({ ...prev, show: false }))}
       />
     </div>
   );

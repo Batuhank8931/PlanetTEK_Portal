@@ -50,19 +50,6 @@ function SarfMalzemeTablosu() {
     return parseFloat(cleanVal) || 0;
   };
 
-  const [rows, setRows] = useState(() => {
-    if (storeTabloVerisi && storeTabloVerisi.length > 0) {
-      return storeTabloVerisi;
-    }
-    return [];
-  });
-
-  // İnput odak yönetimi için geçici yerel string stateleri
-  const [editingCell, setEditingCell] = useState(null); // { id: rowId, field: 'qty'|'consumption'|'unitPrice', value: 'string' }
-
-  const [history, setHistory] = useState([]);
-  const [activeMenuId, setActiveMenuId] = useState(null);
-
   // 🌟 Para birimi simgelerini dinamik getiren yardımcı fonksiyonlar
   const getCurrencySymbol = () => {
     if (currency === "USD") return "$";
@@ -70,16 +57,51 @@ function SarfMalzemeTablosu() {
     return "€";
   };
 
-  // 🌟 Kur Dönüşümlü Satır Toplamı Hesaplama (Euro ham değerini kurla çarpar)
+  // 🌟 Birim Fiyat Etiketini Dinamik Getirme (örn: $/lbs, ₺/ton)
+  const getFormattedPriceUnit = (priceUnit) => {
+    if (!priceUnit) return `${getCurrencySymbol()}/${isForeign ? "unit" : "birim"}`;
+    return priceUnit.replace(/[$₺€]/g, getCurrencySymbol());
+  };
+
+  // 🌟 ENGINE/STORE GELEN ROWLARI EKRANDA GÖRÜNEN DÖVİZ BİRİMİNE ÇEVİREN MAPPING
+  // Bu fonksiyon unitPrice'ı direkt kurla çarpar ve priceUnit simgesini ekrandaki para birimine dönüştürür.
+  const convertRowsToActiveCurrency = (rawRows) => {
+    return (rawRows || []).map((row) => {
+      if (row.isHeader || row.isSubHeader) return row;
+
+      // Eğer unitPrice zaten çevrilmemişse (Engine'den EUR olarak geldiyse) kurla çarparız
+      const rawPrice = parseFloat(row.unitPrice) || 0;
+      const convertedPrice = parseFloat((rawPrice * exchangeRate).toFixed(2));
+      const convertedPriceUnit = getFormattedPriceUnit(row.priceUnit);
+
+      return {
+        ...row,
+        unitPrice: convertedPrice,
+        priceUnit: convertedPriceUnit
+      };
+    });
+  };
+
+  const [rows, setRows] = useState(() => {
+    if (storeTabloVerisi && storeTabloVerisi.length > 0) {
+      return storeTabloVerisi;
+    }
+    return [];
+  });
+
+  const [editingCell, setEditingCell] = useState(null);
+  const [history, setHistory] = useState([]);
+  const [activeMenuId, setActiveMenuId] = useState(null);
+
+  // 🌟 Satır Toplamı Hesaplama (Artık unitPrice doğrudan ekrandaki para biriminde olduğu için kurla çarpmıyoruz)
   const calculateRowTotal = (row) => {
     if (row.isHeader || row.isSubHeader) return 0;
     const qty = parseFloat(row.qty) || 0;
     const consumption = parseFloat(row.consumption) || 0;
-    const unitPrice = parseFloat(row.unitPrice) || 0; // Arka planda hep Euro
-    return qty === 0 ? 0 : qty * consumption * unitPrice * exchangeRate;
+    const unitPrice = parseFloat(row.unitPrice) || 0;
+    return qty === 0 ? 0 : qty * consumption * unitPrice;
   };
 
-  // Gres ve Redüktör yağlarının toplam yıllık fiyatını hesaplayan yardımcı fonksiyon
   const calculateOilTotal = (currentRows) => {
     return currentRows.reduce((sum, row) => {
       const labelUpper = (row.label || "").toLowerCase();
@@ -96,28 +118,24 @@ function SarfMalzemeTablosu() {
 
   const grandTotal = rows.reduce((sum, row) => sum + calculateRowTotal(row), 0);
 
-  // İlk yükleme
+  // 🌟 İlk Yükleme: Engine'den gelen EUR verileri çevirip hem state'e hem formData'ya yazar
   useEffect(() => {
     if (!storeTabloVerisi || storeTabloVerisi.length === 0) {
       async function loadFromEngine() {
         try {
-          const freshRows = await sarfMalzemeHesapFonksiyonu(formData);
-          setRows(freshRows);
+          const freshEngineRows = await sarfMalzemeHesapFonksiyonu(formData);
+          
+          // Ekranda ne görünüyorsa (USD/TRY vb. kurla çarpılmış hali) ona dönüştürülüyor
+          const convertedRows = convertRowsToActiveCurrency(freshEngineRows);
+          setRows(convertedRows);
 
-          const freshGrandTotal = freshRows.reduce((sum, row) => {
-            if (row.isHeader || row.isSubHeader) return sum;
-            const qty = parseFloat(row.qty) || 0;
-            const consumption = parseFloat(row.consumption) || 0;
-            const unitPrice = parseFloat(row.unitPrice) || 0;
-            return sum + (qty === 0 ? 0 : qty * consumption * unitPrice);
-          }, 0);
-
-          const oilTotal = calculateOilTotal(freshRows);
+          const freshGrandTotal = convertedRows.reduce((sum, row) => sum + calculateRowTotal(row), 0);
+          const oilTotal = calculateOilTotal(convertedRows);
 
           updateSection("tables", {
             ...formData?.tables,
             sarfmalzemettablosu: {
-              rows: freshRows,
+              rows: convertedRows,
               grandTotal: freshGrandTotal,
               RBCYillikSarfMalzeme: oilTotal
             }
@@ -130,25 +148,18 @@ function SarfMalzemeTablosu() {
     }
   }, []);
 
-  // Kullanıcı manuel değişiklik yaparsa store güncelleme
+  // 🌟 Kullanıcı Manuel Değişiklik Yaparsa Veya Para Birimi/Kur Değişirse Store Güncelleme
   const updateStoreWithNewRows = (newRows) => {
     setRows(newRows);
 
-    const currentGrandTotalEuro = newRows.reduce((sum, row) => {
-      if (row.isHeader || row.isSubHeader) return sum;
-      const qty = parseFloat(row.qty) || 0;
-      const consumption = parseFloat(row.consumption) || 0;
-      const unitPrice = parseFloat(row.unitPrice) || 0;
-      return sum + (qty === 0 ? 0 : qty * consumption * unitPrice);
-    }, 0);
-
+    const currentGrandTotal = newRows.reduce((sum, row) => sum + calculateRowTotal(row), 0);
     const oilTotal = calculateOilTotal(newRows);
 
     updateSection("tables", {
       ...formData?.tables,
       sarfmalzemettablosu: {
         rows: [...newRows],
-        grandTotal: currentGrandTotalEuro,
+        grandTotal: currentGrandTotal,
         RBCYillikSarfMalzeme: oilTotal
       }
     });
@@ -158,24 +169,18 @@ function SarfMalzemeTablosu() {
   const handleRefresh = async () => {
     setHistory([]);
     try {
-      const freshRows = await sarfMalzemeHesapFonksiyonu(formData);
-      setRows(freshRows);
+      const freshEngineRows = await sarfMalzemeHesapFonksiyonu(formData);
+      const convertedRows = convertRowsToActiveCurrency(freshEngineRows);
+      setRows(convertedRows);
 
-      const freshGrandTotalEuro = freshRows.reduce((sum, row) => {
-        if (row.isHeader || row.isSubHeader) return sum;
-        const qty = parseFloat(row.qty) || 0;
-        const consumption = parseFloat(row.consumption) || 0;
-        const unitPrice = parseFloat(row.unitPrice) || 0;
-        return sum + (qty === 0 ? 0 : qty * consumption * unitPrice);
-      }, 0);
-
-      const oilTotal = calculateOilTotal(freshRows);
+      const freshGrandTotal = convertedRows.reduce((sum, row) => sum + calculateRowTotal(row), 0);
+      const oilTotal = calculateOilTotal(convertedRows);
 
       updateSection("tables", {
         ...formData?.tables,
         sarfmalzemettablosu: {
-          rows: freshRows,
-          grandTotal: freshGrandTotalEuro,
+          rows: convertedRows,
+          grandTotal: freshGrandTotal,
           RBCYillikSarfMalzeme: oilTotal
         }
       });
@@ -198,13 +203,11 @@ function SarfMalzemeTablosu() {
   const handleCellChange = (id, field, val) => {
     saveToHistory(rows);
     let parsedVal = val;
-    // Eğer nümerik bir alan ise veriyi parse ederek float'a dönüştürürüz
-    if (field === "qty" || field === "consumption") {
+
+    if (field === "qty" || field === "consumption" || field === "unitPrice") {
       parsedVal = parseInputValue(val);
-    } else if (field === "unitPrice") {
-      // Birim fiyat ekranda kurla çarpılmış gösterilir, store'a giderken bölünür
-      parsedVal = parseInputValue(val) / exchangeRate;
     }
+
     const updatedRows = rows.map(row => row.id === id ? { ...row, [field]: parsedVal } : row);
     updateStoreWithNewRows(updatedRows);
   };
@@ -221,7 +224,16 @@ function SarfMalzemeTablosu() {
     } else if (type === 2) {
       newRow = { ...newRow, label: "Yeni Alt Başlık (Açık)", isSubHeader: true, isLight: true };
     } else {
-      newRow = { ...newRow, label: "Yeni Sarf Malzemesi", qty: 1, qtyUnit: "adet", consumption: 1, consumptionUnit: "birim/yıl", unitPrice: 0, priceUnit: `${getCurrencySymbol()}/birim` };
+      newRow = { 
+        ...newRow, 
+        label: "Yeni Sarf Malzemesi", 
+        qty: 1, 
+        qtyUnit: "adet", 
+        consumption: 1, 
+        consumptionUnit: "birim/yıl", 
+        unitPrice: 0, 
+        priceUnit: `${getCurrencySymbol()}/${isForeign ? "unit" : "birim"}` 
+      };
     }
 
     const updatedRows = [...rows];
@@ -242,16 +254,16 @@ function SarfMalzemeTablosu() {
     return "#151f32";
   };
 
-  // Dinamik input hücre render metodu (yazım kolaylığı ve blur anında tam binler ayracı formatlama)
+  // Dinamik input hücre render metodu
   const renderManagedInput = (row, field, rawValue, widthStyle, isPrice = false) => {
     const isCurrent = editingCell?.id === row.id && editingCell?.field === field;
 
-    // Değeri ekrana basmak üzere formatlama mantığı
     let displayValue = "";
     if (isCurrent) {
       displayValue = editingCell.value;
     } else {
-      const valNum = isPrice ? parseFloat(rawValue || 0) * exchangeRate : parseFloat(rawValue || 0);
+      // Artık rawValue (unitPrice) ekranda ne görünüyorsa store'da da o olduğu için doğrudan basıyoruz
+      const valNum = parseFloat(rawValue || 0);
       displayValue = formatInputValue(valNum, isPrice ? 2 : 3);
     }
 
@@ -265,8 +277,7 @@ function SarfMalzemeTablosu() {
           setEditingCell({ ...editingCell, value: e.target.value });
         }}
         onFocus={() => {
-          const valNum = isPrice ? parseFloat(rawValue || 0) * exchangeRate : parseFloat(rawValue || 0);
-          // Odaklandığında düzenlemeyi kolaylaştırmak adına binler ayracını kaldırırız
+          const valNum = parseFloat(rawValue || 0);
           const cleanString = isForeign ? valNum.toString() : valNum.toString().replace(".", ",");
           setEditingCell({ id: row.id, field, value: cleanString });
         }}
@@ -386,7 +397,6 @@ function SarfMalzemeTablosu() {
             {rows.map((row, index) => {
               const isHeading = row.isHeader || row.isSubHeader;
               const isZero = !isHeading && (parseFloat(row.qty) === 0);
-              const numColor = isZero ? "#ef4444" : "white";
               const rowTotal = calculateRowTotal(row);
 
               return (
@@ -443,13 +453,13 @@ function SarfMalzemeTablosu() {
                   </div>
                   <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
 
-                  {/* BİRİM FİYAT HÜCRESİ (Kur Çevrimli ve Formatlı) */}
+                  {/* BİRİM FİYAT HÜCRESİ */}
                   <div className="p-1 px-2 d-flex align-items-center justify-content-center gap-1" style={{ width: "14%" }}>
                     {!isHeading && (
                       <>
                         {renderManagedInput(row, "unitPrice", row.unitPrice, "45%", true)}
                         <span className="text-white-50 text-start" style={{ fontSize: "11px", width: "50%" }}>
-                          {row.priceUnit || "birim"}
+                          {row.priceUnit}
                         </span>
                       </>
                     )}
