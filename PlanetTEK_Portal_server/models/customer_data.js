@@ -440,11 +440,127 @@ const deleteCustomer = async (req, res) => {
 };
 
 
+// ==========================================
+// 🎯 6. TEKLİF EKRANI İÇİN MÜŞTERİ VE İNDİRİM ARAMA
+// POST /api/customerForOffer
+// Body: { query: "Acme" } veya { ticari_unvan: "Acme" }
+// ==========================================
+const customerForOffer = async (req, res) => {
+    // req.body.searchTerm eklendi 🎯
+    const searchTerm =
+        req.body.searchTerm ||
+        req.body.query ||
+        req.body.ticari_unvan ||
+        req.body.search ||
+        "";
+
+    try {
+        if (!searchTerm.trim()) {
+            return res.json([]);
+        }
+
+        // 1. Müşteri ünvanına göre LIKE araması yap
+        const [customers] = await pool.execute(
+            `SELECT id, ticari_unvan, mensei 
+             FROM customers 
+             WHERE ticari_unvan LIKE ? 
+             ORDER BY id DESC LIMIT 20`,
+            [`%${searchTerm.trim()}%`]
+        );
+
+        if (customers.length === 0) {
+            return res.json([]);
+        }
+
+        const customerIds = customers.map((c) => c.id);
+
+        // 2. Müşterilerin İrtibat Kişilerini çek
+        let allContacts = [];
+        try {
+            const [contactsResult] = await pool.query(
+                `SELECT customer_id, isim, mail 
+                 FROM customer_contacts 
+                 WHERE customer_id IN (?) 
+                 ORDER BY id ASC`,
+                [customerIds]
+            );
+            allContacts = contactsResult;
+        } catch (err) {
+            console.warn("contacts hatası:", err.message);
+        }
+
+        // 3. Müşterilerin Geçmiş Teklif İndirimlerini Çek
+        let allOffers = [];
+        try {
+            const [offersResult] = await pool.query(
+                `SELECT 
+                    customer_id, 
+                    planettek_indirim, 
+                    ekipman_indirim, 
+                    teklif_dili,
+                    created_at 
+                 FROM offers 
+                 WHERE customer_id IN (?) 
+                 ORDER BY created_at DESC`,
+                [customerIds]
+            );
+            allOffers = offersResult;
+        } catch (err) {
+            console.warn("offers hatası:", err.message);
+        }
+
+        // 4. Verileri Formatla
+        const result = customers.map((customer) => {
+            const ilgiliKisiler = allContacts
+                .filter((contact) => contact.customer_id === customer.id)
+                .map((contact) => ({
+                    ad: contact.isim,
+                    email: contact.mail || ""
+                }));
+
+            const customerOffers = allOffers.filter((offer) => offer.customer_id === customer.id);
+
+            const indirimler = customerOffers.map((offer) => {
+                let formattedDate = null;
+                if (offer.created_at) {
+                    const d = new Date(offer.created_at);
+                    formattedDate = d.toISOString().split("T")[0];
+                }
+
+                return {
+                    planetTekIndirim: Number(offer.planettek_indirim) || 0,
+                    ekipmanIndirim: Number(offer.ekipman_indirim) || 0,
+                    indirimTarihi: formattedDate
+                };
+            });
+
+            const sonTeklifDili = customerOffers[0]?.teklif_dili || customer.mensei || "Yerli";
+
+            return {
+                id: customer.id,
+                ticari_unvan: customer.ticari_unvan,
+                teklifDili: sonTeklifDili,
+                ilgiliKisiler: ilgiliKisiler,
+                indirimler: indirimler
+            };
+        });
+
+        return res.json(result);
+
+    } catch (error) {
+        console.error("customerForOffer Error:", error.message);
+        return res.status(500).json({
+            message: "Müşteri arama esnasında teknik bir hata oluştu.",
+            error: error.message
+        });
+    }
+};
 
 module.exports = {
     getCustomers,
+    getCustomerById,
     addCustomer,
     putCustomer,
     deleteCustomer,
-    getCustomerById
+    customerForOffer // <-- Yeni eklenen
 };

@@ -1,5 +1,0 @@
-# Exclude the node_modules folder
-/venv
-
-
-/.env

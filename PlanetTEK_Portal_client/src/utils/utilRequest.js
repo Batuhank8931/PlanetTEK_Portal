@@ -281,6 +281,11 @@ const API = {
     // ❌ 5. Müşteri Silme (DELETE api/deleteCustomer/:id)
     deleteCustomer: async (customerId) => {
         return crudClient.delete(`api/deleteCustomer/${customerId}`);
+    },
+
+    // ➕ 3. Yeni Müşteri Ekleme (POST api/addCustomer)
+    customerForOffer: async (searchTerm) => {
+        return crudClient.post("api/customerForOffer", { searchTerm }); // <-- { searchTerm: "acme" } gidiyor
     }
 };
 

@@ -96,19 +96,44 @@ function DashBoardPage() {
     return () => clearTimeout(timer);
   }, [fetchOffers]);
 
-  // 📄 DOSYA İNDİRME AKSİYONU
+  // 📄 DOSYA İNDİRME AKSİYONU (Sunucudan Gelen Orijinal Dosya Adı İle)
   const handleDownloadFile = async (offerNumber, fileType, customerId) => {
     try {
       const response = await API.getDocData(offerNumber, fileType, customerId);
+
+      let fileName = null;
+      const contentDisposition = response.headers?.["content-disposition"];
+
+      if (contentDisposition) {
+        const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
+        const standardMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
+
+        if (utf8Match && utf8Match[1]) {
+          fileName = decodeURIComponent(utf8Match[1]);
+        } else if (standardMatch && standardMatch[1]) {
+          fileName = standardMatch[1];
+        }
+      }
+
+      // Eğer sunucu header'ından dosya adı alınamazsa fallback olarak teklif nosunu kullanır
+      if (!fileName) {
+        const cleanFileName = offerNumber.replace(/\s+/g, "_");
+        fileName = `${cleanFileName}.${fileType}`;
+      }
+
       const blob = new Blob([response.data], {
-        type: response.headers["content-type"] || "application/octet-stream"
+        type: response.headers?.["content-type"] || "application/octet-stream"
       });
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = downloadUrl;
-      link.download = `${offerNumber}.${fileType}`;
+
+      // Sunucudan alınan dinamik dosya adı buraya atanır:
+      link.setAttribute("download", fileName);
+
       document.body.appendChild(link);
       link.click();
+
       link.remove();
       window.URL.revokeObjectURL(downloadUrl);
     } catch (err) {
@@ -556,7 +581,11 @@ function DashBoardPage() {
                     <td className="text-center">
                       {getStatusBadge(teklif.offer_status)}
                     </td>
-                    <td>{new Date(teklif.created_at).toLocaleDateString("tr-TR")}</td>
+                    <td>
+                      {new Date(teklif.created_at)
+                        .toLocaleString("sv-SE", { timeZone: "Europe/Istanbul" })
+                        .replace(" ", " ")}
+                    </td>
                     <td className="fw-semibold text-white" style={{ maxWidth: "180px", overflow: "hidden", textOverflow: "ellipsis" }} title={teklif.ticari_unvan}>
                       {teklif.ticari_unvan || "-"}
                     </td>
