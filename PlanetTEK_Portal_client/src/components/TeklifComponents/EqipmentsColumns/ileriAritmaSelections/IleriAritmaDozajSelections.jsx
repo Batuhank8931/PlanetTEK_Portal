@@ -2,7 +2,8 @@ import React, { useMemo, useEffect, useState } from "react";
 import { useTeklifStore } from "../../../../utils/teklifStore"; 
 import API from "../../../../utils/utilRequest";
 
-function IleriAritmaDozajSelections() {
+function IleriAritmaDozajSelections({ inputParams }) {
+
   // 1. STATE TANIMLAMALARI
   const [apiEquipments, setApiEquipments] = useState([]); 
   const [loading, setLoading] = useState(false);
@@ -16,7 +17,6 @@ function IleriAritmaDozajSelections() {
 
   const equipmentsCache = formData.equipments || {};
   const storeIleriAritma = equipmentsCache.ileriAritma || {};
-  const inputSelections = storeIleriAritma.IleriAritmaInputSelections || {};
   const storeDozajSelections = storeIleriAritma.IleriAritmaDozajSelections || {};
 
   // API'den gelen ekipmanları çekip filtrelemeye hazır hale getirme
@@ -42,12 +42,21 @@ function IleriAritmaDozajSelections() {
 
   const stokGunu = parseFloat(formData.stokGunu) || 30;
 
+  // --- PARAMETRE DEĞİŞİM KONTROLÜ (inputParams veya debi değişti mi?) ---
+  const girisP = parseFloat(inputParams?.girisToplamFosfor); 
+  const cikisP = parseFloat(inputParams?.cikisToplamFosfor); 
+  const katsayi = parseFloat(inputParams?.gerekliFeKatsayisi);
+
+  const isParamsChanged = 
+    storeDozajSelections.lastGirisP !== undefined && (
+      storeDozajSelections.lastGirisP !== girisP ||
+      storeDozajSelections.lastCikisP !== cikisP ||
+      storeDozajSelections.lastKatsayi !== katsayi ||
+      storeDozajSelections.lastDebi !== debi
+    );
+
   // 3. SAF MATEMATİKSEL HESAPLAMA VE OTOMATİK EKİPMAN SEÇİMİ
   const hesaplananDegerler = useMemo(() => {
-    const girisP = parseFloat(inputSelections.girisToplamFosfor) || 10; 
-    const cikisP = parseFloat(inputSelections.cikisToplamFosfor) || 3; 
-    const katsayi = parseFloat(inputSelections.gerekliFeKatsayisi) || 2.7;
-
     const giderilecekP = Math.max(0, girisP - cikisP);
     const gerekliFe = (debi * giderilecekP * katsayi) / 1000;
     const gerekliFeCl3 = gerekliFe * (60 / 26);
@@ -113,23 +122,26 @@ function IleriAritmaDozajSelections() {
       otomatikPompaId: otomatikPompa ? String(otomatikPompa.id) : "", 
       otomatikTankId: otomatikTank ? String(otomatikTank.id) : ""     
     };
-  }, [debi, inputSelections, stokGunu, availablePumps, availableTanks]);
+  }, [debi, girisP, cikisP, katsayi, stokGunu, availablePumps, availableTanks]);
 
-  // 4. OTOMATİK İLK YÜKLEME VE DEBİ/GİRİŞ DEĞİŞİM SENKRONİZASYONU
+  // 4. OTOMATİK İLK YÜKLEME VE DEBİ/GİRİŞ PARAMETRELERİ DEĞİŞİM SENKRONİZASYONU
   useEffect(() => {
-    if (debi > 0 && apiEquipments.length > 0) {
-      const finalPompaId = storeDozajSelections.secilenPompaId !== undefined 
-        ? String(storeDozajSelections.secilenPompaId) 
-        : hesaplananDegerler.otomatikPompaId;
+    if ((debi > 0 || girisP > 0) && apiEquipments.length > 0) {
+      // Parametreler değiştiyse otomatik hesaplanan ekipmana dön
+      const finalPompaId = (storeDozajSelections.secilenPompaId === undefined || isParamsChanged) 
+        ? hesaplananDegerler.otomatikPompaId 
+        : String(storeDozajSelections.secilenPompaId);
 
-      const finalTankId = storeDozajSelections.secilenTankId !== undefined 
-        ? String(storeDozajSelections.secilenTankId) 
-        : hesaplananDegerler.otomatikTankId;
+      const finalTankId = (storeDozajSelections.secilenTankId === undefined || isParamsChanged) 
+        ? hesaplananDegerler.otomatikTankId 
+        : String(storeDozajSelections.secilenTankId);
       
+      const currentPompaAdedi = isParamsChanged 
+        ? hesaplananDegerler.pompaAdedi 
+        : (parseInt(storeDozajSelections.pompaAdedi ?? hesaplananDegerler.pompaAdedi, 10) || 1);
+
       const secilenPompaObj = apiEquipments.find(e => String(e.id) === finalPompaId);
       const secilenTankObj = apiEquipments.find(e => String(e.id) === finalTankId);
-
-      const currentPompaAdedi = parseInt(storeDozajSelections.pompaAdedi ?? hesaplananDegerler.pompaAdedi, 10) || 1;
       
       const dozajPompasiString = secilenPompaObj 
         ? `${currentPompaAdedi} Adet ${secilenPompaObj.ekipman_adi}`
@@ -139,7 +151,6 @@ function IleriAritmaDozajSelections() {
         ? secilenTankObj.ekipman_adi 
         : "---";
 
-      // YENİ DATALARIN AYIKLANMASI (Örn: "5 L/h @ 5 Bar" veya "200")
       const dozajPompasiKapasitesi = secilenPompaObj
         ? secilenPompaObj.ekipman_adi.match(/\(([^)]+)\)/)?.[1] || secilenPompaObj.ekipman_adi
         : "";
@@ -148,7 +159,15 @@ function IleriAritmaDozajSelections() {
         ? parseFloat(secilenTankObj.ekipman_adi.match(/(\d+)\s*(lt|Litre)/i)?.[1]) || ""
         : "";
 
+      // Parametreler değiştiğinde hesaplanan değerler anında yenilenir
+      const nextGerekliFe = isParamsChanged ? hesaplananDegerler.gerekliFe : (storeDozajSelections.gerekliFe ?? hesaplananDegerler.gerekliFe);
+      const nextGerekliFeCl3 = isParamsChanged ? hesaplananDegerler.gerekliFeCl3 : (storeDozajSelections.gerekliFeCl3 ?? hesaplananDegerler.gerekliFeCl3);
+      const nextCozeltiLitreGun = isParamsChanged ? hesaplananDegerler.cozeltiLitreGun : (storeDozajSelections.cozeltiLitreGun ?? hesaplananDegerler.cozeltiLitreGun);
+      const nextPompaSaatlikDebi = isParamsChanged ? hesaplananDegerler.pompaSaatlikDebi : (storeDozajSelections.pompaSaatlikDebi ?? hesaplananDegerler.pompaSaatlikDebi);
+      const nextTankHacmiLitre = isParamsChanged ? hesaplananDegerler.tankHacmiLitre : (storeDozajSelections.tankHacmiLitre ?? hesaplananDegerler.tankHacmiLitre);
+
       if (
+        isParamsChanged ||
         storeDozajSelections.dozajPompasi !== dozajPompasiString ||
         storeDozajSelections.kimyasalTanki !== kimyasalTankString ||
         storeDozajSelections.secilenPompaId !== finalPompaId ||
@@ -162,27 +181,32 @@ function IleriAritmaDozajSelections() {
           ileriAritma: {
             ...storeIleriAritma,
             IleriAritmaDozajSelections: {
-              gerekliFe: storeDozajSelections.gerekliFe ?? hesaplananDegerler.gerekliFe,
-              gerekliFeCl3: storeDozajSelections.gerekliFeCl3 ?? hesaplananDegerler.gerekliFeCl3,
-              cozeltiLitreGun: storeDozajSelections.cozeltiLitreGun ?? hesaplananDegerler.cozeltiLitreGun,
-              pompaSaatlikDebi: storeDozajSelections.pompaSaatlikDebi ?? hesaplananDegerler.pompaSaatlikDebi,
+              gerekliFe: nextGerekliFe,
+              gerekliFeCl3: nextGerekliFeCl3,
+              cozeltiLitreGun: nextCozeltiLitreGun,
+              pompaSaatlikDebi: nextPompaSaatlikDebi,
               pompaAdedi: currentPompaAdedi,
-              tankHacmiLitre: storeDozajSelections.tankHacmiLitre ?? hesaplananDegerler.tankHacmiLitre,
+              tankHacmiLitre: nextTankHacmiLitre,
               secilenPompaId: finalPompaId, 
               secilenTankId: finalTankId,   
               dozajPompasi: dozajPompasiString,
               kimyasalTanki: kimyasalTankString,
               pompaBirimFiyat: secilenPompaObj?.alis_fiyati || 0,
               tankBirimFiyat: secilenTankObj?.alis_fiyati || 0,
-              dozajPompasiKapasitesi: dozajPompasiKapasitesi, // EKLENEN DATA 1
-              kimyasalTankKapasitesi: kimyasalTankKapasitesi  // EKLENEN DATA 2
+              dozajPompasiKapasitesi: dozajPompasiKapasitesi,
+              kimyasalTankKapasitesi: kimyasalTankKapasitesi,
+              // Parametre değim kontrolü için Store'a yazılan mühür değerler
+              lastGirisP: girisP,
+              lastCikisP: cikisP,
+              lastKatsayi: katsayi,
+              lastDebi: debi
             }
           }
         });
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hesaplananDegerler, apiEquipments]);
+  }, [hesaplananDegerler, apiEquipments, isParamsChanged, debi, girisP]);
 
   // 5. MANUEL DROPDOWN VE INPUT YÖNETİMİ
   const handleInputChange = (field, value) => {
@@ -200,7 +224,7 @@ function IleriAritmaDozajSelections() {
           secilenPompaId: targetId,
           dozajPompasi: `${currentPompaAdedi} Adet ${secilenPompaObj.ekipman_adi}`,
           pompaBirimFiyat: secilenPompaObj.alis_fiyati || 0,
-          dozajPompasiKapasitesi: pompaKapasite // MANUEL SEÇİMDE GÜNCELLEME
+          dozajPompasiKapasitesi: pompaKapasite
         };
       } else {
         nextState.secilenPompaId = targetId;
@@ -218,7 +242,7 @@ function IleriAritmaDozajSelections() {
           secilenTankId: targetId,
           kimyasalTanki: secilenTankObj.ekipman_adi,
           tankBirimFiyat: secilenTankObj.alis_fiyati || 0,
-          kimyasalTankKapasitesi: tankKapasite // MANUEL SEÇİMDE GÜNCELLEME
+          kimyasalTankKapasitesi: tankKapasite
         };
       } else {
         nextState.secilenTankId = targetId;
@@ -239,7 +263,6 @@ function IleriAritmaDozajSelections() {
       nextState[field] = value === "" ? "" : parseFloat(value) || 0;
     }
 
-    // Değişikliği anında store'a gönderiyoruz
     updateSection("equipments", {
       ...equipmentsCache,
       ileriAritma: {
@@ -286,7 +309,7 @@ function IleriAritmaDozajSelections() {
       {/* BAŞLIK BÖLÜMÜ */}
       <div className="d-flex align-items-center flex-grow-1">
         <span className="fw-bold text-uppercase pe-2" style={{ fontSize: "11px", letterSpacing: "0.7px", color: "#00874e" }}>
-          3. Dozaj Sistemi
+          4. Dozaj Sistemi
         </span>
         <div className="flex-grow-1 border-bottom" style={{ borderColor: "rgba(255,255,255,0.1)" }}></div>
       </div>

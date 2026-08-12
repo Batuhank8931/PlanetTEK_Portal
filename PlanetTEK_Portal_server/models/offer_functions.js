@@ -430,17 +430,24 @@ const getDocData = async (req, res) => {
 // ==========================================
 // 📊 4. GELİŞMİŞ ÇOKLU FİLTRELEME VE PAGINATION İLE LİSTELEME API
 // ==========================================
+// ==========================================
+// 📊 4. GELİŞMİŞ ÇOKLU FİLTRELEME VE PAGINATION İLE LİSTELEME API
+// ==========================================
 const getAllOffers = async (req, res) => {
     try {
         const page = Math.max(1, parseInt(req.query.page, 10) || 1);
         const limit = Math.max(1, parseInt(req.query.limit, 10) || 10);
         const offset = (page - 1) * limit;
 
+        // Kullanıcı yetki bilgilerini middleware'den alıyoruz
+        const currentUserId = req.user?.id;
+        const currentUserRole = req.user?.role;
+
         // Gelen tüm olası filtre parametreleri
         const {
             search,               // Genel arama (Hepsinde arar)
             offer_number,
-            offer_status,         // 🆕 Teklif Durumu filtresi eklendi
+            offer_status,
             teklif_no,
             ticari_unvan,
             hazirlayan_kullanici, // u.isim
@@ -460,6 +467,13 @@ const getAllOffers = async (req, res) => {
 
         let whereClauses = [];
         let queryParams = [];
+
+        // 🔐 0. Rol Bazlı Erişim Kısıtlaması (RBAC)
+        // Eğer kullanıcı Satış Temsilcisi ise yalnızca kendi verilerini görebilir
+        if (currentUserRole === 'Satış Temsilcisi') {
+            whereClauses.push("o.user_id = ?");
+            queryParams.push(currentUserId);
+        }
 
         // 🔍 1. Genel Arama (Herhangi bir alanda eşleşme)
         if (search && search.trim() !== "") {
@@ -502,7 +516,9 @@ const getAllOffers = async (req, res) => {
             queryParams.push(`%${hazirlayan_kullanici.trim()}%`);
         }
 
-        if (user_id && !isNaN(parseInt(user_id, 10))) {
+        // Dışarıdan sorgu parametresi olarak gelen user_id kısıtlaması:
+        // Admin her kullanıcıyı sorgulayabilir. Satış Temsilcisi için yukarıda zaten kendi id'si eklendi.
+        if (currentUserRole !== 'Satış Temsilcisi' && user_id && !isNaN(parseInt(user_id, 10))) {
             whereClauses.push("o.user_id = ?");
             queryParams.push(parseInt(user_id, 10));
         }
@@ -656,4 +672,150 @@ const getAllOffers = async (req, res) => {
     }
 };
 
-module.exports = { sendFormData, getDocData, getTeklifData, getAllOffers };
+
+// ==========================================
+// ✏️ TEKLİF DURUMUNU GÜNCELLEME API
+// ==========================================
+const updateOfferStatus = async (req, res) => {
+    // ID veya Teklif Numarası kontrolü
+    const targetId = req.body?.id || req.body?.offerId || req.body?.offer_id || req.body?.offer_number || req.body?.offerNumber;
+    // Yeni durum parametresi kontrolü (newStatus eklendi)
+    const newStatus = req.body?.newStatus || req.body?.offer_status || req.body?.offerStatus || req.body?.status;
+
+    const currentUserId = req.user?.id;
+    const currentUserRole = req.user?.role;
+
+    if (!targetId || !newStatus) {
+        return res.status(400).json({
+            message: "Teklif ID/Numarası ve yeni durum (newStatus) eksiksiz gönderilmelidir."
+        });
+    }
+
+    try {
+        // Hem id hem de offer_number / teklif_no üzerinden sorgula
+        const [existingOffers] = await pool.execute(
+            "SELECT id, user_id, offer_status, offer_number FROM offers WHERE id = ? OR offer_number = ? OR teklif_no = ?",
+            [targetId, targetId, targetId]
+        );
+
+        if (existingOffers.length === 0) {
+            return res.status(404).json({
+                message: "Güncellenmek istenen teklif bulunamadı."
+            });
+        }
+
+        const offer = existingOffers[0];
+
+        // 🔐 Rol Bazlı Yetki Kontrolü
+        if (currentUserRole === 'Satış Temsilcisi' && offer.user_id !== currentUserId) {
+            return res.status(403).json({
+                message: "Sadece kendi oluşturduğunuz tekliflerin durumunu güncelleyebilirsiniz."
+            });
+        }
+
+        // Veritabanı Güncelleme
+        await pool.execute(
+            "UPDATE offers SET offer_status = ?, updated_at = NOW() WHERE id = ?",
+            [newStatus.trim(), offer.id]
+        );
+
+        return res.status(200).json({
+            message: "Teklif durumu başarıyla güncellendi.",
+            data: {
+                id: offer.id,
+                offer_number: offer.offer_number,
+                previous_status: offer.offer_status,
+                updated_status: newStatus.trim()
+            }
+        });
+
+    } catch (error) {
+        console.error("[updateOfferStatus Hata]:", error.message);
+        return res.status(500).json({
+            message: "Teklif durumu güncellenirken sunucu hatası oluştu.",
+            error: error.message,
+        });
+    }
+};
+
+
+// ==========================================
+// 📈 5. TEKLİF İSTATİSTİKLERİ VE ÖZET SAYILARI API
+// ==========================================
+const getOfferStatsCount  = async (req, res) => {
+    try {
+        // Kullanıcı yetki bilgilerini middleware'den alıyoruz
+        const currentUserId = req.user?.id;
+        const currentUserRole = req.user?.role;
+
+        let whereClauses = [];
+        let queryParams = [];
+
+        // 🔐 0. Rol Bazlı Erişim Kısıtlaması (RBAC)
+        // Satış Temsilcisi ise yalnızca kendi tekliflerinin istatistiklerini görür
+        if (currentUserRole === 'Satış Temsilcisi') {
+            whereClauses.push("user_id = ?");
+            queryParams.push(currentUserId);
+        }
+
+        const whereSQL = whereClauses.length > 0 ? `WHERE ${whereClauses.join(" AND ")}` : "";
+
+        // 📊 Tek Sorguda Tüm Metriklerin Hesaplanması
+        const statsQuery = `
+            SELECT 
+                COUNT(*) AS toplam,
+                
+                -- Beklemede olan teklifler
+                COUNT(CASE 
+                    WHEN LOWER(offer_status) = 'beklemede' THEN 1 
+                END) AS beklemede,
+                
+                -- Gönderilmiş tüm teklifler
+                COUNT(CASE 
+                    WHEN LOWER(offer_status) IN ('gönderildi', 'gonderildi') THEN 1 
+                END) AS gonderildi,
+                
+                -- 🚨 ÖNEMLİ: Gönderilen ve son güncelleme tarihi 1 aydan eski olanlar (Takip gerektirenler)
+                COUNT(CASE 
+                    WHEN LOWER(offer_status) IN ('gönderildi', 'gonderildi') 
+                         AND updated_at < DATE_SUB(NOW(), INTERVAL 1 MONTH) THEN 1 
+                END) AS takip_gerektiren_eski,
+                
+                -- Onaylanan / Kazanılan teklifler
+                COUNT(CASE 
+                    WHEN LOWER(offer_status) IN ('onaylandı', 'onaylandi', 'kazanıldı', 'kazanildi') THEN 1 
+                END) AS onaylandi,
+                
+                -- Reddedilen / Olumsuz teklifler
+                COUNT(CASE 
+                    WHEN LOWER(offer_status) IN ('olumsuz', 'reddedildi', 'iptal', 'kayıp', 'kayip') THEN 1 
+                END) AS olumsuz
+                
+            FROM offers
+            ${whereSQL}
+        `;
+
+        const [[stats]] = await pool.execute(statsQuery, queryParams);
+
+        return res.status(200).json({
+            message: "Teklif istatistikleri başarıyla hesaplandı.",
+            data: {
+                toplam: Number(stats.toplam || 0),
+                beklemede: Number(stats.beklemede || 0),
+                gonderildi: Number(stats.gonderildi || 0),
+                takip_gerektiren_eski: Number(stats.takip_gerektiren_eski || 0), // 1 aydan eski gönderilenler
+                onaylandi: Number(stats.onaylandi || 0),
+                olumsuz: Number(stats.olumsuz || 0)
+            }
+        });
+
+    } catch (error) {
+        console.error("[getOfferStats Hata]:", error.message);
+        return res.status(500).json({
+            message: "Teklif istatistikleri hesaplanırken sunucu hatası oluştu.",
+            error: error.message,
+        });
+    }
+};
+
+module.exports = { sendFormData, getDocData, getTeklifData, getAllOffers, updateOfferStatus, getOfferStatsCount  };

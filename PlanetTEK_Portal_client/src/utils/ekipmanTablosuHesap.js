@@ -684,9 +684,9 @@ export const ekipmanTabloHesap = (formData) => {
         ...(isIleriAritmaChecked ? [
             { id: "e02", type: "equip", label: teklifDili === "Yabancı" ? "Anoxic Denitrification Tank" : "Anoksik Denitrifikasyon Tankı", isUrgent: true },
             { id: "s02_1", type: "spec", label: teklifDili === "Yabancı" ? "Quantity" : "Miktar", value: teklifDili === "Yabancı" ? "1 Unit" : "1 Adet" },
-            { id: "s02_2", type: "spec", label: teklifDili === "Yabancı" ? "Capacity" : "Kapasite", value: formatVolume(geriYikamaPompasidebi * 4) + ` ${teklifDili === "Yabancı" ? "wet volume" : "ıslak hacim"}` },
+            { id: "s02_2", type: "spec", label: teklifDili === "Yabancı" ? "Capacity" : "Kapasite", value: formatVolume(resirkulasyonPompadebi * 4) + ` ${teklifDili === "Yabancı" ? "wet volume" : "ıslak hacim"}` },
             { id: "s02_3", type: "spec", label: teklifDili === "Yabancı" ? "Material" : "Malzeme", value: teklifDili === "Yabancı" ? "Reinforced Concrete" : "Betonarme" },
-            { id: "s02_4", type: "spec", label: teklifDili === "Yabancı" ? "Retention Time" : "Bekleme Süresi", value: teklifDili === "Yabancı" ? `4 hours at flow rate of ${formatFlow(geriYikamaPompasidebi)}` : `${formatFlow(geriYikamaPompasidebi)} debide 4 saat` },
+            { id: "s02_4", type: "spec", label: teklifDili === "Yabancı" ? "Retention Time" : "Bekleme Süresi", value: teklifDili === "Yabancı" ? `4 hours at flow rate of ${formatFlow(resirkulasyonPompadebi)}` : `${formatFlow(resirkulasyonPompadebi)} debide 4 saat` },
         ] : []),
 
         { id: "e03", type: "equip", label: teklifDili === "Yabancı" ? "Primary Clarifier Tank" : "Birinci Çöktürme Tankı", isUrgent: true },

@@ -650,7 +650,6 @@ export async function resolveMontajPrices(formData, priceData) {
             secilenSatir = grupSatirlari.reduce((maxRow, currentSpec) => {
                 return Number(currentSpec.unite_sayisi) > Number(maxRow.unite_sayisi) ? currentSpec : maxRow;
             }, grupSatirlari[0]);
-            console.log(`Tam ünite sayısı (${toplamRbcAdedi}) bulunamadı. Maksimum ünite satırı seçildi.`);
         }
 
         // 8️⃣ Toplam Maliyeti Dönüştür ve Gönder

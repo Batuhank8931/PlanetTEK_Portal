@@ -1,7 +1,7 @@
 import React, { useEffect } from "react";
 import { useTeklifStore } from "../../../../utils/teklifStore";
 
-const DEFAULT_VALUES = {
+export const DEFAULT_INPUT_VALUES = {
   girisToplamAzot: 60,
   cikisToplamAzot: 10,
   girisToplamFosfor: 10,
@@ -9,7 +9,7 @@ const DEFAULT_VALUES = {
   gerekliFeKatsayisi: 2.7,
 };
 
-function IleriAritmaInputSelections({ onReset }) { // 👈 Parent'tan gelen fonksiyonu yakaladık
+function IleriAritmaInputSelections({ onReset, onParamsChange }) {
   const formData = useTeklifStore((state) => state.formData);
   const updateSection = useTeklifStore((state) => state.updateSection);
 
@@ -17,33 +17,44 @@ function IleriAritmaInputSelections({ onReset }) { // 👈 Parent'tan gelen fonk
   const storeIleriAritma = equipmentsCache.ileriAritma || {};
   const storeSelections = storeIleriAritma.IleriAritmaInputSelections;
 
+  const currentSelectionData = storeSelections || DEFAULT_INPUT_VALUES;
+
+  // Store boşsa varsayılan verileri bas
   useEffect(() => {
     if (!storeSelections) {
       updateSection("equipments", {
         ...equipmentsCache,
         ileriAritma: {
           ...storeIleriAritma,
-          IleriAritmaInputSelections: DEFAULT_VALUES,
+          IleriAritmaInputSelections: DEFAULT_INPUT_VALUES,
         },
       });
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [storeSelections]); // 👈 Temizlik sonrası algılaması için buraya ekledik
+  }, [storeSelections]);
 
-  const currentSelectionData = storeSelections || DEFAULT_VALUES;
+  // Parent bileşene parametre değişikliklerini anlık olarak bildir
+  useEffect(() => {
+    if (onParamsChange) {
+      onParamsChange(currentSelectionData);
+    }
+  }, [currentSelectionData, onParamsChange]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
     const parsedValue = value === "" ? "" : Number(value);
 
+    const updatedData = {
+      ...currentSelectionData,
+      [name]: parsedValue,
+    };
+
+    // Store güncellemesi
     updateSection("equipments", {
       ...equipmentsCache,
       ileriAritma: {
         ...storeIleriAritma,
-        IleriAritmaInputSelections: {
-          ...currentSelectionData,
-          [name]: parsedValue,
-        },
+        IleriAritmaInputSelections: updatedData,
       },
     });
   };
@@ -60,7 +71,6 @@ function IleriAritmaInputSelections({ onReset }) { // 👈 Parent'tan gelen fonk
 
   return (
     <div className="card-body d-flex flex-column gap-3" style={{ position: "relative", color: "#fff", padding: 0 }}>
-      
       {/* BAŞLIK BÖLÜMÜ VE YENİLEME BUTONU */}
       <div className="d-flex align-items-center justify-content-between">
         <span className="fw-bold text-uppercase pe-2" style={{ fontSize: "11px", letterSpacing: "0.7px", color: "#00874e" }}>
@@ -69,7 +79,7 @@ function IleriAritmaInputSelections({ onReset }) { // 👈 Parent'tan gelen fonk
         <div className="d-flex align-items-center flex-grow-1 gap-2">
           <div className="flex-grow-1 border-bottom" style={{ borderColor: "rgba(255,255,255,0.1)" }}></div>
           <button
-            onClick={onReset} // 👈 Üst bileşendeki temizlik fonksiyonunu çalıştırır
+            onClick={onReset}
             className="btn btn-sm px-3 fw-semibold text-white d-flex align-items-center gap-1 border-0"
             style={{ backgroundColor: "#d97706", fontSize: "11px", borderRadius: "6px" }}
             title="Tüm İleri Arıtma Sekmelerini İlk Ayarlarına Döndür"

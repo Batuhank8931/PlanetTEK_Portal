@@ -34,7 +34,8 @@ function SideBar({ logout }) {
   ];
 
   const userItems = [
-    { label: "İstekler", path: "/requestslist", icon: "bi-inbox" },
+    { label: "Ana Sayfa", path: "/mainpage", icon: "bi-house-door" },
+    { label: "Teklif", path: "/teklif", icon: "bi-file-earmark-text" }
   ];
 
   const currentItems = userRole === "Admin" ? adminItems : userItems;

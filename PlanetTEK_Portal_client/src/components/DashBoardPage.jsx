@@ -1,7 +1,11 @@
-import React, { useState, useMemo, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import AlertModal from "./modals/AlertModal";
+import UpdateStatusModal from "./modals/UpdateStatusModal";
+import StatsCards from "./dashboard/StatsCards"; // 👈 YENİ
+import FilterPanel from "./dashboard/FilterPanel"; // 👈 YENİ
+import OffersTable from "./dashboard/OffersTable"; // 👈 YENİ
 import API from "../utils/utilRequest";
-import { useNavigate, useLocation } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useTeklifStore } from "../utils/teklifStore";
 
 const INITIAL_FILTERS = {
@@ -29,24 +33,27 @@ function DashBoardPage() {
   const setFormData = useTeklifStore((state) => state.setFormData);
   const formData = useTeklifStore((state) => state.formData);
   const updateSection = useTeklifStore((state) => state.updateSection);
-  const setCurrentStepStore = useTeklifStore((state) => state.setCurrentStepStore); // Gerekirse adımı da başa alabilirsin
+  const setCurrentStepStore = useTeklifStore((state) => state.setCurrentStepStore);
 
   const [offers, setOffers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
 
-  // Pagination & Filtreleme State'leri
+  // İstatistik State'leri
+  const [stats, setStats] = useState(null);
+  const [loadingStats, setLoadingStats] = useState(false);
+
+  // Pagination & Filtreleme
   const [page, setPage] = useState(1);
   const [limit, setLimit] = useState(15);
   const [totalPages, setTotalPages] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
 
-  // Filtre State'leri
   const [filters, setFilters] = useState(INITIAL_FILTERS);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
-
-  // Alert Modal State'i
+  // Modallar
+  const [statusModalConfig, setStatusModalConfig] = useState({ show: false, offer: null });
   const [alertConfig, setAlertConfig] = useState({
     show: false,
     title: "",
@@ -56,29 +63,36 @@ function DashBoardPage() {
     action: null
   });
 
-  // Filtre input değişim handler'ı
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
     setPage(1);
   };
 
-  // Tüm filtreleri sıfırlama
   const handleResetFilters = () => {
     setFilters(INITIAL_FILTERS);
     setPage(1);
   };
 
-  // 🚀 SUNUCUDAN VERİ ÇEKME
+  // 📊 İSTATİSTİKLERİ ÇEKME
+  const fetchStats = useCallback(async () => {
+    setLoadingStats(true);
+    try {
+      const response = await API.getOfferStatsCount();
+      const resData = response.data?.data || response.data || response;
+      setStats(resData);
+    } catch (err) {
+      console.error("İstatistikler çekilirken hata:", err);
+    } finally {
+      setLoadingStats(false);
+    }
+  }, []);
+
+  // 🚀 LİSTE VERİSİNİ ÇEKME
   const fetchOffers = useCallback(async () => {
     setLoading(true);
     setErrorMsg("");
     try {
-      const response = await API.getAllOffers({
-        page,
-        limit,
-        ...filters
-      });
-
+      const response = await API.getAllOffers({ page, limit, ...filters });
       const resData = response.data || response;
       setOffers(resData.data || []);
       if (resData.pagination) {
@@ -93,7 +107,10 @@ function DashBoardPage() {
     }
   }, [page, limit, filters]);
 
-  // Filtreler veya sayfa değiştiğinde istek at (Debounce ile)
+  useEffect(() => {
+    fetchStats();
+  }, [fetchStats]);
+
   useEffect(() => {
     const timer = setTimeout(() => {
       fetchOffers();
@@ -101,29 +118,46 @@ function DashBoardPage() {
     return () => clearTimeout(timer);
   }, [fetchOffers]);
 
-  // 📄 DOSYA İNDİRME AKSİYONU
+  // ✏️ TEKLİF DURUMUNU GÜNCELLEME
+  const handleSaveStatus = async (offerId, newStatus) => {
+    try {
+      await API.updateOfferStatus(offerId, newStatus);
+      setStatusModalConfig({ show: false, offer: null });
+      fetchOffers();
+      fetchStats(); // İstatistikleri de güncelle
+
+      setAlertConfig({
+        show: true,
+        title: "Başarılı",
+        message: "Teklif durumu başarıyla güncellendi.",
+        type: "success"
+      });
+    } catch (error) {
+      console.error("Durum güncelleme hatası:", error);
+      setAlertConfig({
+        show: true,
+        title: "Hata",
+        message: error.response?.data?.message || "Teklif durumu güncellenirken hata oluştu.",
+        type: "danger"
+      });
+    }
+  };
+
+  // 📄 DOSYA İNDİRME
   const handleDownloadFile = async (offerNumber, fileType, customerId) => {
     try {
       const response = await API.getDocData(offerNumber, fileType, customerId);
-
       let fileName = null;
       const contentDisposition = response.headers?.["content-disposition"];
 
       if (contentDisposition) {
         const utf8Match = contentDisposition.match(/filename\*=UTF-8''([^;]+)/i);
         const standardMatch = contentDisposition.match(/filename="?([^";]+)"?/i);
-
-        if (utf8Match && utf8Match[1]) {
-          fileName = decodeURIComponent(utf8Match[1]);
-        } else if (standardMatch && standardMatch[1]) {
-          fileName = standardMatch[1];
-        }
+        if (utf8Match && utf8Match[1]) fileName = decodeURIComponent(utf8Match[1]);
+        else if (standardMatch && standardMatch[1]) fileName = standardMatch[1];
       }
 
-      if (!fileName) {
-        const cleanFileName = offerNumber.replace(/\s+/g, "_");
-        fileName = `${cleanFileName}.${fileType}`;
-      }
+      if (!fileName) fileName = `${offerNumber.replace(/\s+/g, "_")}.${fileType}`;
 
       const blob = new Blob([response.data], {
         type: response.headers?.["content-type"] || "application/octet-stream"
@@ -132,10 +166,8 @@ function DashBoardPage() {
       const link = document.createElement("a");
       link.href = downloadUrl;
       link.setAttribute("download", fileName);
-
       document.body.appendChild(link);
       link.click();
-
       link.remove();
       window.URL.revokeObjectURL(downloadUrl);
     } catch (err) {
@@ -149,79 +181,61 @@ function DashBoardPage() {
     }
   };
 
-  // METRİK HESAPLAMALARI
-  const metrikler = useMemo(() => {
-    const toplamTeklif = totalRecords;
-    const toplamTasarimKapasitesi = offers.reduce(
-      (acc, curr) => acc + (parseFloat(curr.debi) || parseFloat(curr.parsed_debi) || 0),
-      0
-    );
-
-    return { toplamTeklif, toplamTasarimKapasitesi };
-  }, [offers, totalRecords]);
-
-  // 🎨 Teklif Durumuna Göre Badge Rengi
+  // 🎨 BADGE RENKLERİ
   const getStatusBadge = (status) => {
-    if (!status) return <span className="badge bg-secondary py-1 px-2">Bilinmiyor</span>;
+    const displayStatus = status || "Bilinmiyor";
+    const lowerStatus = displayStatus.toLowerCase();
 
-    const lowerStatus = status.toLowerCase();
+    let badgeClass = "bg-secondary text-white";
+    let iconClass = "bi-question-circle";
+
     if (lowerStatus.includes("onay") || lowerStatus.includes("kazan")) {
-      return <span className="badge bg-success text-white py-1 px-2"><i className="bi bi-check-circle me-1"></i>{status}</span>;
-    }
-    if (lowerStatus.includes("bekle")) {
-      return <span className="badge bg-warning text-dark py-1 px-2"><i className="bi bi-clock me-1"></i>{status}</span>;
-    }
-    if (lowerStatus.includes("gönder") || lowerStatus.includes("gonder")) {
-      return <span className="badge bg-info text-dark py-1 px-2"><i className="bi bi-send me-1"></i>{status}</span>;
-    }
-    if (lowerStatus.includes("olumsuz") || lowerStatus.includes("iptal") || lowerStatus.includes("kayıp")) {
-      return <span className="badge bg-danger text-white py-1 px-2"><i className="bi bi-x-circle me-1"></i>{status}</span>;
-    }
-    if (lowerStatus.includes("reviz")) {
-      return <span className="badge bg-primary text-white py-1 px-2"><i className="bi bi-arrow-repeat me-1"></i>{status}</span>;
+      badgeClass = "bg-success text-white";
+      iconClass = "bi-check-circle";
+    } else if (lowerStatus.includes("bekle")) {
+      badgeClass = "bg-warning text-dark";
+      iconClass = "bi-clock";
+    } else if (lowerStatus.includes("gönder") || lowerStatus.includes("gonder")) {
+      badgeClass = "bg-info text-dark";
+      iconClass = "bi-send";
+    } else if (lowerStatus.includes("olumsuz") || lowerStatus.includes("iptal") || lowerStatus.includes("kayıp")) {
+      badgeClass = "bg-danger text-white";
+      iconClass = "bi-x-circle";
+    } else if (lowerStatus.includes("reviz")) {
+      badgeClass = "bg-primary text-white";
+      iconClass = "bi-arrow-repeat";
     }
 
-    return <span className="badge bg-secondary text-white py-1 px-2">{status}</span>;
+    return (
+      <span className={`badge ${badgeClass} py-1 px-2 cursor-pointer shadow-sm`} style={{ cursor: "pointer" }}>
+        <i className={`bi ${iconClass} me-1`}></i>
+        {displayStatus}
+      </span>
+    );
   };
 
   const reviseOffer = async (full_form_data) => {
     try {
-      // 1. Mevcut revizyon ve teklif numarasını al
-      const currentRev =
-        full_form_data.customerInfo?.revizyonNo ||
-        full_form_data.revizyonNo ||
-        "R0";
+      const currentRev = full_form_data.customerInfo?.revizyonNo || full_form_data.revizyonNo || "R0";
       const currentTeklifNo = formData.customerInfo?.teklifNo;
 
-      // 2. Revizyon numarasını 1 arttır
       const currentNumber = parseInt(currentRev.replace(/\D/g, ""), 10);
       const nextRevNumber = isNaN(currentNumber) ? 1 : currentNumber + 1;
       const newRevizyonNo = `R${nextRevNumber}`;
 
-      console.log(currentTeklifNo);
-      // 3. İLK API: Önce bu istek atılır ve yanıt beklenir
       const unsetRes = await API.unSetOfferNumber(currentTeklifNo);
 
-      // İsteğe bağlı kontrol: İlk API başarılı bir yanıt döndüyse 2. API'ye geç
-      // (API mimarinize göre unsetRes.status === 200 veya unsetRes.success kontrolü ekleyebilirsiniz)
       if (unsetRes) {
-        // 4. İKİNCİ API: İlk API sorunsuz bittikten sonra çalışır
         const res = await API.setOfferNumber();
         const fetchedNumber = res.data?.teklif_no || res.teklif_no;
 
-        // 5. State ve yönlendirme işlemleri
         setFormData(full_form_data);
-
-        updateSection("customerInfo", {
-          revizyonNo: newRevizyonNo,
-          teklifNo: fetchedNumber,
-        });
-
+        updateSection("customerInfo", { revizyonNo: newRevizyonNo, teklifNo: fetchedNumber });
         setCurrentStepStore(1);
         navigate("/teklif");
       }
     } catch (error) {
-      console.error("Revize işlemi sırasında hata oluştu:", error);
+      console.error("Revize işlemi hatası:", error);
     }
   };
 
@@ -237,11 +251,9 @@ function DashBoardPage() {
     >
       {/* ÜST BAŞLIK */}
       <div className="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom" style={{ borderColor: "rgba(255,255,255,0.1)" }}>
-        <div>
-          <h6 className="mb-0 fw-semibold tracking-tight" style={{ color: "#94a3b8", fontSize: "14px" }}>
-            <i className="bi bi-grid-1x2-fill me-2" style={{ color: "#00874e" }}></i> Satış Paneli & Teklif Yönetimi
-          </h6>
-        </div>
+        <h6 className="mb-0 fw-semibold tracking-tight" style={{ color: "#94a3b8", fontSize: "14px" }}>
+          <i className="bi bi-grid-1x2-fill me-2" style={{ color: "#00874e" }}></i> Satış Paneli & Teklif Yönetimi
+        </h6>
       </div>
 
       {errorMsg && (
@@ -250,425 +262,41 @@ function DashBoardPage() {
         </div>
       )}
 
-      {/* GELİŞMİŞ ÇOKLU FİLTRELEME VE ARAMA PANELİ */}
-      <div className="p-3 rounded mb-3" style={{ backgroundColor: "#0f172a", border: "1px solid #1e293b" }}>
-        <div className="d-flex justify-content-between align-items-center mb-2">
-          <span className="fw-bold text-uppercase" style={{ fontSize: "11px", letterSpacing: "0.5px", color: "#00874e" }}>
-            <i className="bi bi-funnel-fill me-1"></i> Gelişmiş Çoklu Süzme & Arama Panel
-          </span>
-          <div className="d-flex gap-2">
-            <button
-              className="btn btn-sm btn-outline-light py-0 px-2"
-              style={{ fontSize: "10.5px" }}
-              onClick={() => setShowAdvancedFilters(!showAdvancedFilters)}
-            >
-              <i className={`bi bi-${showAdvancedFilters ? "chevron-up" : "sliders"} me-1`}></i>
-              {showAdvancedFilters ? "Detaylı Filtreleri Gizle" : "Tüm Kolon Filtrelerini Aç"}
-            </button>
-            <button
-              className="btn btn-sm btn-outline-warning py-0 px-2"
-              style={{ fontSize: "10.5px" }}
-              onClick={handleResetFilters}
-            >
-              <i className="bi bi-arrow-counterclockwise me-1"></i> Sıfırla
-            </button>
-          </div>
-        </div>
+      {/* 📊 1. İSTATİSTİK KARTLARI (Kırmızı Yanıp Sönen Uyarı Dahil) */}
+      <StatsCards stats={stats} loading={loadingStats} />
 
-        {/* Hızlı Arama Satırı */}
-        <div className="row g-2 mb-2">
-          <div className="col-md-3 col-12">
-            <label className="form-label mb-0 text-white-50" style={{ fontSize: "10px" }}>Genel Arama (Hepsinde)</label>
-            <input
-              type="text"
-              className="form-control form-control-sm text-white border-0 custom-dark-input"
-              style={{ backgroundColor: "#1e293b", height: "28px", fontSize: "11px" }}
-              value={filters.search}
-              onChange={(e) => handleFilterChange("search", e.target.value)}
-              placeholder="Teklif No, Müşteri, Durum..."
-            />
-          </div>
-          <div className="col-md-2 col-6">
-            <label className="form-label mb-0 text-white-50" style={{ fontSize: "10px" }}>Teklif Durumu</label>
-            <select
-              className="form-select form-select-sm bg-dark text-white border-0"
-              style={{ height: "28px", fontSize: "11px" }}
-              value={filters.offer_status}
-              onChange={(e) => handleFilterChange("offer_status", e.target.value)}
-            >
-              <option value="">Tüm Durumlar</option>
-              <option value="beklemede">Beklemede</option>
-              <option value="gönderildi">Gönderildi</option>
-              <option value="onaylandı">Onaylandı</option>
-              <option value="olumsuz">Olumsuz</option>
-              <option value="revize edildi">Revize Edildi</option>
-            </select>
-          </div>
-          <div className="col-md-2 col-6">
-            <label className="form-label mb-0 text-white-50" style={{ fontSize: "10px" }}>Teklif No / Kodu</label>
-            <input
-              type="text"
-              className="form-control form-control-sm text-white border-0 custom-dark-input"
-              style={{ backgroundColor: "#1e293b", height: "28px", fontSize: "11px" }}
-              value={filters.offer_number}
-              onChange={(e) => handleFilterChange("offer_number", e.target.value)}
-              placeholder="Örn: PLN R0..."
-            />
-          </div>
-          <div className="col-md-3 col-6">
-            <label className="form-label mb-0 text-white-50" style={{ fontSize: "10px" }}>Ticari Ünvan</label>
-            <input
-              type="text"
-              className="form-control form-control-sm text-white border-0 custom-dark-input"
-              style={{ backgroundColor: "#1e293b", height: "28px", fontSize: "11px" }}
-              value={filters.ticari_unvan}
-              onChange={(e) => handleFilterChange("ticari_unvan", e.target.value)}
-              placeholder="Firma adı..."
-            />
-          </div>
-          <div className="col-md-2 col-6">
-            <label className="form-label mb-0 text-white-50" style={{ fontSize: "10px" }}>Hazırlayan Kullanıcı</label>
-            <input
-              type="text"
-              className="form-control form-control-sm text-white border-0 custom-dark-input"
-              style={{ backgroundColor: "#1e293b", height: "28px", fontSize: "11px" }}
-              value={filters.hazirlayan_kullanici}
-              onChange={(e) => handleFilterChange("hazirlayan_kullanici", e.target.value)}
-              placeholder="İsim soyisim..."
-            />
-          </div>
-        </div>
+      {/* 🔍 2. GELİŞMİŞ FİLTRELEME PANELİ */}
+      <FilterPanel
+        filters={filters}
+        handleFilterChange={handleFilterChange}
+        handleResetFilters={handleResetFilters}
+        showAdvancedFilters={showAdvancedFilters}
+        setShowAdvancedFilters={setShowAdvancedFilters}
+      />
 
-        {/* Detaylı Filtre Seçenekleri Panel */}
-        {showAdvancedFilters && (
-          <div className="pt-2 mt-2 border-top border-secondary animate__animated animate__fadeIn">
-            <div className="row g-2">
-              <div className="col-md-3 col-6">
-                <label className="form-label mb-0 text-white-50" style={{ fontSize: "10px" }}>Başlangıç Tarihi</label>
-                <input
-                  type="date"
-                  className="form-control form-control-sm text-white border-0 text-center"
-                  style={{ backgroundColor: "#1e293b", height: "28px", fontSize: "10.5px" }}
-                  value={filters.startDate}
-                  onChange={(e) => handleFilterChange("startDate", e.target.value)}
-                />
-              </div>
-              <div className="col-md-3 col-6">
-                <label className="form-label mb-0 text-white-50" style={{ fontSize: "10px" }}>Bitiş Tarihi</label>
-                <input
-                  type="date"
-                  className="form-control form-control-sm text-white border-0 text-center"
-                  style={{ backgroundColor: "#1e293b", height: "28px", fontSize: "10.5px" }}
-                  value={filters.endDate}
-                  onChange={(e) => handleFilterChange("endDate", e.target.value)}
-                />
-              </div>
+      {/* 📋 3. TABLO VE PAGINATION */}
+      <OffersTable
+        offers={offers}
+        loading={loading}
+        totalRecords={totalRecords}
+        limit={limit}
+        setLimit={setLimit}
+        page={page}
+        setPage={setPage}
+        totalPages={totalPages}
+        getStatusBadge={getStatusBadge}
+        setStatusModalConfig={setStatusModalConfig}
+        reviseOffer={reviseOffer}
+        handleDownloadFile={handleDownloadFile}
+      />
 
-              <div className="col-md-3 col-6">
-                <label className="form-label mb-0 text-white-50" style={{ fontSize: "10px" }}>Min Debi (m³/g)</label>
-                <input
-                  type="number"
-                  className="form-control form-control-sm text-white border-0 text-center custom-dark-input"
-                  style={{ backgroundColor: "#1e293b", height: "28px", fontSize: "11px" }}
-                  value={filters.min_debi}
-                  onChange={(e) => handleFilterChange("min_debi", e.target.value)}
-                  placeholder="Min"
-                />
-              </div>
-              <div className="col-md-3 col-6">
-                <label className="form-label mb-0 text-white-50" style={{ fontSize: "10px" }}>Max Debi (m³/g)</label>
-                <input
-                  type="number"
-                  className="form-control form-control-sm text-white border-0 text-center custom-dark-input"
-                  style={{ backgroundColor: "#1e293b", height: "28px", fontSize: "11px" }}
-                  value={filters.max_debi}
-                  onChange={(e) => handleFilterChange("max_debi", e.target.value)}
-                  placeholder="Max"
-                />
-              </div>
-
-              <div className="col-md-2 col-6">
-                <label className="form-label mb-0 text-white-50" style={{ fontSize: "10px" }}>Atıksu Tipi</label>
-                <select
-                  className="form-select form-select-sm bg-dark text-white border-0"
-                  style={{ height: "28px", fontSize: "11px" }}
-                  value={filters.atiksutype}
-                  onChange={(e) => handleFilterChange("atiksutype", e.target.value)}
-                >
-                  <option value="">Tümü</option>
-                  <option value="Evsel">Evsel</option>
-                  <option value="Endüstriyel">Endüstriyel</option>
-                </select>
-              </div>
-
-              <div className="col-md-2 col-6">
-                <label className="form-label mb-0 text-white-50" style={{ fontSize: "10px" }}>Hesap Yöntemi</label>
-                <select
-                  className="form-select form-select-sm bg-dark text-white border-0"
-                  style={{ height: "28px", fontSize: "11px" }}
-                  value={filters.hesap_yontemi}
-                  onChange={(e) => handleFilterChange("hesap_yontemi", e.target.value)}
-                >
-                  <option value="">Tümü</option>
-                  <option value="Hidrolik">Hidrolik</option>
-                  <option value="Kişi">Kişi</option>
-                </select>
-              </div>
-
-              <div className="col-md-2 col-6">
-                <label className="form-label mb-0 text-white-50" style={{ fontSize: "10px" }}>Ünite Model Tipi</label>
-                <select
-                  className="form-select form-select-sm bg-dark text-white border-0"
-                  style={{ height: "28px", fontSize: "11px" }}
-                  value={filters.unit_model_type}
-                  onChange={(e) => handleFilterChange("unit_model_type", e.target.value)}
-                >
-                  <option value="">Tümü</option>
-                  <option value="MX 1">MX 1</option>
-                  <option value="MINI">MINI</option>
-                </select>
-              </div>
-              <div className="col-md-2 col-6">
-                <label className="form-label mb-0 text-white-50" style={{ fontSize: "10px" }}>Para Birimi</label>
-                <select
-                  className="form-select form-select-sm bg-dark text-white border-0"
-                  style={{ height: "28px", fontSize: "11px" }}
-                  value={filters.currency}
-                  onChange={(e) => handleFilterChange("currency", e.target.value)}
-                >
-                  <option value="">Tümü</option>
-                  <option value="EUR">EUR (€)</option>
-                  <option value="USD">USD ($)</option>
-                  <option value="TRY">TRY (₺)</option>
-                </select>
-              </div>
-
-              <div className="col-md-2 col-6">
-                <label className="form-label mb-0 text-white-50" style={{ fontSize: "10px" }}>Teklif Dili</label>
-                <select
-                  className="form-select form-select-sm bg-dark text-white border-0"
-                  style={{ height: "28px", fontSize: "11px" }}
-                  value={filters.teklif_dili}
-                  onChange={(e) => handleFilterChange("teklif_dili", e.target.value)}
-                >
-                  <option value="">Tüm Diller</option>
-                  <option value="Yerli">Yerli (TR)</option>
-                  <option value="Yabancı">Yabancı (EN)</option>
-                </select>
-              </div>
-
-              <div className="col-md-1 col-3">
-                <label className="form-label mb-0 text-white-50" style={{ fontSize: "10px" }}>Min BOİ</label>
-                <input
-                  type="number"
-                  className="form-control form-control-sm text-white border-0 text-center custom-dark-input"
-                  style={{ backgroundColor: "#1e293b", height: "28px", fontSize: "11px" }}
-                  value={filters.min_boi}
-                  onChange={(e) => handleFilterChange("min_boi", e.target.value)}
-                  placeholder="Giriş"
-                />
-              </div>
-              <div className="col-md-1 col-3">
-                <label className="form-label mb-0 text-white-50" style={{ fontSize: "10px" }}>Max BOİ</label>
-                <input
-                  type="number"
-                  className="form-control form-control-sm text-white border-0 text-center custom-dark-input"
-                  style={{ backgroundColor: "#1e293b", height: "28px", fontSize: "11px" }}
-                  value={filters.max_boi}
-                  onChange={(e) => handleFilterChange("max_boi", e.target.value)}
-                  placeholder="Çıkış"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* DENSE / KOMPAKT MÜHENDİSLİK VERİ TABLOSU */}
-      <div className="p-2 rounded" style={{ backgroundColor: "#1f2937", border: "1px solid #374151" }}>
-        <div className="d-flex justify-content-between align-items-center mb-2 px-1">
-          <span className="fw-semibold" style={{ fontSize: "11px" }}>
-            Teklif Listesi ({totalRecords} Kayıt Bulundu) {loading && <span className="ms-2 text-warning spinner-border spinner-border-sm" role="status"></span>}
-          </span>
-          <div className="d-flex align-items-center gap-2">
-            <label style={{ fontSize: "10px" }} className="text-white-50">Sayfa Başı:</label>
-            <select
-              className="form-select form-select-sm bg-dark text-white border-secondary py-0"
-              style={{ width: "65px", height: "24px", fontSize: "10px" }}
-              value={limit}
-              onChange={(e) => { setLimit(Number(e.target.value)); setPage(1); }}
-            >
-              <option value={10}>10</option>
-              <option value={15}>15</option>
-              <option value={25}>25</option>
-              <option value={50}>50</option>
-              <option value={100}>100</option>
-            </select>
-          </div>
-        </div>
-
-        {/* Tablo Konteyneri */}
-        <div className="table-responsive">
-          <table className="table table-dark table-hover table-striped table-bordered align-middle text-nowrap mb-0" style={{ fontSize: "11px" }}>
-            <thead>
-              <tr className="table-active text-uppercase" style={{ fontSize: "10px", color: "#9ca3af", letterSpacing: "0.3px" }}>
-                <th style={{ width: "40px" }}>#ID</th>
-                <th>Teklif Kodu / No</th>
-                <th className="text-center">Durum</th>
-                <th className="text-center">REVİZE ET</th>
-                <th>Tarih</th>
-                <th>Ticari Ünvan</th>
-                <th>İlgili Kişi</th>
-                <th>Hazırlayan</th>
-                <th className="text-center">Debi (m³/g)</th>
-                <th className="text-center">Atıksu Tipi</th>
-                <th className="text-center">Hesap Yöntemi</th>
-                <th className="text-center">Model Tipi</th>
-                <th className="text-center">Giriş BOİ</th>
-                <th className="text-center">Çıkış BOİ</th>
-                <th className="text-center">Dil</th>
-                <th className="text-center">Para B.</th>
-                <th className="text-center" style={{ width: "130px" }}>İndir / Dokümanlar</th>
-              </tr>
-            </thead>
-            <tbody>
-              {offers.length === 0 ? (
-                <tr>
-                  <td colSpan="16" className="text-center text-white-50 py-4">
-                    {loading ? "Veriler filtreleniyor ve yükleniyor..." : "Seçilen filtrelere uygun kayıt bulunamadı."}
-                  </td>
-                </tr>
-              ) : (
-                offers.map((teklif) => (
-                  <tr key={teklif.id} style={{ height: "30px" }}>
-                    <td className="text-white-50 fw-bold">{teklif.id}</td>
-                    <td className="fw-bold text-info">
-                      {teklif.offer_number || teklif.teklif_no || `TEK-${teklif.id}`}
-                      {teklif.offer_rev_code && <span className="badge bg-secondary ms-1 py-0 px-1" style={{ fontSize: "9px" }}>{teklif.offer_rev_code}</span>}
-                    </td>
-                    <td className="text-center">
-                      {getStatusBadge(teklif.offer_status)}
-                    </td>
-                    <td className="text-center">
-                      <button onClick={() => reviseOffer(teklif.full_form_data)}>
-                        Revize Et
-                      </button>
-                    </td>
-                    <td>
-                      {new Date(teklif.created_at)
-                        .toLocaleString("sv-SE", { timeZone: "Europe/Istanbul" })
-                        .replace(" ", " ")}
-                    </td>
-                    <td className="fw-semibold text-white" style={{ maxWidth: "180px", overflow: "hidden", textOverflow: "ellipsis" }} title={teklif.ticari_unvan}>
-                      {teklif.ticari_unvan || "-"}
-                    </td>
-                    <td className="text-white-50">
-                      <div>{teklif.ilgili_kisi || "-"}</div>
-                      {teklif.ilgili_kisi_email && <div style={{ fontSize: "9.5px" }} className="text-muted">{teklif.ilgili_kisi_email}</div>}
-                    </td>
-                    <td>
-                      <div>{teklif.hazirlayan_kullanici || "Bilinmiyor"}</div>
-                      {teklif.hazirlayan_departman && <span className="text-white-50" style={{ fontSize: "9px" }}>({teklif.hazirlayan_departman})</span>}
-                    </td>
-                    <td className="text-center fw-bold text-warning">
-                      {teklif.debi || teklif.parsed_debi ? `${teklif.debi || teklif.parsed_debi}` : "-"}
-                    </td>
-                    <td className="text-center">
-                      {teklif.atiksutype ? <span className="badge bg-dark border border-secondary text-light py-0 px-1" style={{ fontSize: "9.5px" }}>{teklif.atiksutype}</span> : "-"}
-                    </td>
-                    <td className="text-center text-white-50" style={{ fontSize: "10.5px" }}>
-                      {teklif.hesap_yontemi || "-"}
-                    </td>
-                    <td className="text-center" style={{ fontSize: "10.5px" }}>
-                      {teklif.unit_model_type || "-"}
-                    </td>
-                    <td className="text-center" style={{ fontSize: "10.5px" }}>
-                      {teklif.giris_boi ?? "-"}
-                    </td>
-                    <td className="text-center text-success" style={{ fontSize: "10.5px" }}>
-                      {teklif.cikis_boi ?? "-"}
-                    </td>
-                    <td className="text-center" style={{ fontSize: "10.5px" }}>
-                      <span className="badge bg-dark text-white border border-secondary">{teklif.teklif_dili || "TR"}</span>
-                    </td>
-                    <td className="text-center fw-bold text-success" style={{ fontSize: "10.5px" }}>
-                      {teklif.currency || "EUR"}
-                    </td>
-                    <td className="text-center">
-                      <div className="btn-group btn-group-sm">
-                        <button
-                          className="btn btn-outline-primary py-0 px-1"
-                          style={{ fontSize: "10px", lineHeight: "1.2" }}
-                          title="DOCX İndir"
-                          disabled={!teklif.files?.docx?.length}
-                          onClick={() => handleDownloadFile(teklif.offer_number, "docx", teklif.customer_id)}
-                        >
-                          DOC
-                        </button>
-                        <button
-                          className="btn btn-outline-danger py-0 px-1"
-                          style={{ fontSize: "10px", lineHeight: "1.2" }}
-                          title="PDF İndir"
-                          disabled={!teklif.files?.pdf?.length}
-                          onClick={() => handleDownloadFile(teklif.offer_number, "pdf", teklif.customer_id)}
-                        >
-                          PDF
-                        </button>
-                        <button
-                          className="btn btn-outline-success py-0 px-1"
-                          style={{ fontSize: "10px", lineHeight: "1.2" }}
-                          title="XLSX İndir"
-                          disabled={!teklif.files?.xlsx?.length}
-                          onClick={() => handleDownloadFile(teklif.offer_number, "xlsx", teklif.customer_id)}
-                        >
-                          XLS
-                        </button>
-                      </div>
-                    </td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        {/* PAGINATION PANELİ */}
-        <div className="d-flex justify-content-between align-items-center mt-2 pt-2 border-top border-secondary px-1">
-          <span style={{ fontSize: "10.5px" }} className="text-white-50">
-            Sayfa {page} / {totalPages} (Gösterilen: {offers.length} / Toplam: {totalRecords})
-          </span>
-          <div className="btn-group btn-group-sm">
-            <button
-              className="btn btn-secondary py-0 px-2"
-              style={{ fontSize: "10.5px" }}
-              disabled={page <= 1}
-              onClick={() => setPage((p) => Math.max(1, p - 1))}
-            >
-              <i className="bi bi-chevron-left"></i> Önceki
-            </button>
-            {Array.from({ length: totalPages }, (_, i) => i + 1)
-              .slice(Math.max(0, page - 3), Math.min(totalPages, page + 2))
-              .map((pNum) => (
-                <button
-                  key={pNum}
-                  className={`btn py-0 px-2 ${pNum === page ? "btn-success" : "btn-outline-secondary text-white"}`}
-                  style={{ fontSize: "10.5px" }}
-                  onClick={() => setPage(pNum)}
-                >
-                  {pNum}
-                </button>
-              ))}
-            <button
-              className="btn btn-secondary py-0 px-2"
-              style={{ fontSize: "10.5px" }}
-              disabled={page >= totalPages}
-              onClick={() => setPage((p) => Math.min(totalPages, p + 1))}
-            >
-              Sonraki <i className="bi bi-chevron-right"></i>
-            </button>
-          </div>
-        </div>
-      </div>
+      {/* MODALLAR */}
+      <UpdateStatusModal
+        show={statusModalConfig.show}
+        offer={statusModalConfig.offer}
+        onClose={() => setStatusModalConfig({ show: false, offer: null })}
+        onSave={handleSaveStatus}
+      />
 
       <AlertModal
         show={alertConfig.show}

@@ -297,6 +297,16 @@ const API = {
     unSetOfferNumber: async (numara) => {
         return crudClient.post("api/unsetOfferNumber", { numara });
     },
+
+    // 🗑️ Teklif Numarası ile status update (POST api/updateOfferStatus)
+    updateOfferStatus: async (offerId, newStatus) => {
+        return crudClient.post("api/updateOfferStatus", { offerId, newStatus });
+    },
+
+    // 🗑️ Teklif Numarası ile status update (POST api/updateOfferStatus)
+    getOfferStatsCount: async () => {
+        return crudClient.get("api/getOfferStatsCount");
+    },
 };
 
 export default API;

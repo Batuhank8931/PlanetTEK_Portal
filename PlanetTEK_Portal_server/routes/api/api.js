@@ -30,7 +30,7 @@ const { getParamteters, updateParametersData } = require("../../models/parameter
 // 📊 Pompa Eğrisi (Pump Curve) Kontrolleri
 const { getPumpCurve, updatePumpCurve, getAllPumpCurves, getCentrifugePumps } = require("../../models/pump_curve_data.js");
 
-const { sendFormData, getDocData, getTeklifData, getAllOffers } = require("../../models/offer_functions.js");
+const { sendFormData, getDocData, getTeklifData, getAllOffers, updateOfferStatus, getOfferStatsCount } = require("../../models/offer_functions.js");
 
 const { getCustomers, addCustomer, putCustomer, deleteCustomer, getCustomerById, customerForOffer } = require("../../models/customer_data.js");
 const { setOfferNumber, unSetOfferNumber } = require("../../models/set_offer_number.js");
@@ -102,5 +102,8 @@ router.post('/customerForOffer', verifyToken, customerForOffer);
 
 router.get('/setOfferNumer', verifyToken , setOfferNumber);
 router.post('/unsetOfferNumber', verifyToken , unSetOfferNumber);
+
+router.post('/updateOfferStatus', verifyToken , updateOfferStatus);
+router.get('/getOfferStatsCount', verifyToken , getOfferStatsCount);
 
 module.exports = router;

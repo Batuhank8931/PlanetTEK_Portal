@@ -242,7 +242,6 @@ function KullanicilarPage() {
                 <option value="Hepsi" style={{ backgroundColor: "#0f172a" }}>Rol: Tümü</option>
                 <option value="Admin" style={{ backgroundColor: "#0f172a" }}>Admin</option>
                 <option value="Satış Temsilcisi" style={{ backgroundColor: "#0f172a" }}>Satış Temsilcisi</option>
-                <option value="Yatırım Uzmanı" style={{ backgroundColor: "#0f172a" }}>Yatırım Uzmanı</option>
               </select>
             </div>
 

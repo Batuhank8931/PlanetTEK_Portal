@@ -225,7 +225,9 @@ function BilgiSayfasiTablosu() {
       rows,
       toplamDiskSayisi,
       toplamMilAdet,
-      systemText: systemLines
+      systemText: systemLines,
+      totalKisi,
+      hesapYontemi
     };
   };
 
@@ -240,6 +242,26 @@ function BilgiSayfasiTablosu() {
 
   const [history, setHistory] = useState([]);
 
+  // 🌟 Title2 Oluşturma Yardımcı Fonksiyonu
+  const buildTitle2 = (detailsInfo) => {
+    const isKisiMode = detailsInfo.hesapYontemi === "kisi";
+    const usageSuffix = isFiltrasyonChecked 
+      ? (isForeign ? "Irrigation / Reuse" : "Sulama/Geri Kazanım") 
+      : (isForeign ? "Discharge to Nature" : "Alıcı Ortama Deşarj");
+
+    if (isKisiMode) {
+      const formattedKisi = formatNumber(detailsInfo.totalKisi, 0, 0);
+      return isForeign
+        ? `${formattedKisi} (People Equivalent) Capacity - ${usageSuffix}`
+        : `${formattedKisi} PE Kapasiteli - ${usageSuffix}`;
+    } else {
+      const formattedUsage = formatNumber(displayDailyUsage, 0, 2);
+      return isForeign
+        ? `${formattedUsage} ${debiTopBirim} Capacity - ${usageSuffix}`
+        : `${formattedUsage} ${debiTopBirim} Kapasiteli - ${usageSuffix}`;
+    }
+  };
+
   // 🌟 Birim sistemi, döviz veya dil değiştiğinde tüm başlık ve içerikleri dinamik tetikle
   useEffect(() => {
     if (loading) return;
@@ -247,9 +269,7 @@ function BilgiSayfasiTablosu() {
     const detailsInfo = generateProjectDetails();
     setData({
       title1: formData?.customerInfo?.ticari_unvan || (isForeign ? "CUSTOMER COMMERCIAL TITLE" : "MÜŞTERI TİCARİ ÜNVANI"),
-      title2: isForeign
-        ? `${formatNumber(displayDailyUsage, 0, 2)} ${debiTopBirim} (People Equivalent) Capacity  - ${isFiltrasyonChecked ? "Irrigation / Reuse" : "Discharge to Nature"}`
-        : `${formatNumber(displayDailyUsage, 0, 2)} ${debiTopBirim} Kapasiteli - ${isFiltrasyonChecked ? "Sulama/Geri Kazanım" : "Alıcı Ortama Deşarj"}`,
+      title2: buildTitle2(detailsInfo),
       title3: isForeign
         ? "Rotating Biological Contactor (RBC) Sewage Treatment Plant (STP) Offer"
         : "Dönen Biyolojik Disk Atıksu Arıtma Tesisi Teklifi",
@@ -269,7 +289,7 @@ function BilgiSayfasiTablosu() {
         ? `π x r x r x 2 sides x ${formatNumber(detailsInfo.toplamDiskSayisi, 0, 0)} disks/unit -> 3.14 x ${formatNumber(currentRadius, 3, 3)} x ${formatNumber(currentRadius, 3, 3)} x 2 x ${formatNumber(detailsInfo.toplamDiskSayisi, 0, 0)} = ${formatNumber(3.14 * currentRadius * currentRadius * 2 * detailsInfo.toplamDiskSayisi, 1, 1)} ${unitSystem === "US" ? "ft²" : "m²"}/unit`
         : `π x r x r x 2 taraf x ${formatNumber(detailsInfo.toplamDiskSayisi, 0, 0)} disk -> 3.14 x ${formatNumber(currentRadius, 3, 3)} x ${formatNumber(currentRadius, 3, 3)} x 2 x ${formatNumber(detailsInfo.toplamDiskSayisi, 0, 0)} = ${formatNumber(3.14 * currentRadius * currentRadius * 2 * detailsInfo.toplamDiskSayisi, 1, 1)} ${unitSystem === "US" ? "ft²" : "m²"}`
     });
-  }, [loading, unitSystem, currency, exchangeRate, teklifDili, pDetails.debi, isFiltrasyonChecked]);
+  }, [loading, unitSystem, currency, exchangeRate, teklifDili, pDetails.debi, pDetails.hesapYontemi, pDetails.kaynaklar, isFiltrasyonChecked]);
 
   useEffect(() => {
     if (loading || data.projectDetails.length === 0) return;
@@ -294,9 +314,7 @@ function BilgiSayfasiTablosu() {
     const detailsInfo = generateProjectDetails();
     setData({
       title1: formData?.customerInfo?.ticari_unvan || (isForeign ? "CUSTOMER COMMERCIAL TITLE" : "MÜŞTERI TİCARİ ÜNVANI"),
-      title2: isForeign
-        ? `${formatNumber(displayDailyUsage, 0, 2)} ${debiTopBirim} (People Equivalent) Capacity  - ${isFiltrasyonChecked ? "Irrigation / Reuse" : "Discharge to Nature"}`
-        : `${formatNumber(displayDailyUsage, 0, 2)} ${debiTopBirim} Kapasiteli - ${isFiltrasyonChecked ? "Sulama/Geri Kazanım" : "Alıcı Ortama Deşarj"}`,
+      title2: buildTitle2(detailsInfo),
       title3: isForeign
         ? "Rotating Biological Contactor (RBC) Sewage Treatment Plant (STP) Offer"
         : "Dönen Biyolojik Disk Atıksu Arıtma Tesisi Teklifi",

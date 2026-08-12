@@ -24,7 +24,7 @@ export const CAPEX_LABELS = {
         izgara_kaba_oto: "Otomatik Temizlemeli Kaba Izgara",
         izgara_ince_oto: "Otomatik Temizlemeli İnce Izgara",
         plaka_kum_yag: (boyut) => `Kum-Yağ Tutucu Plakaları`,
-        pompa_terfi: (adet, metin) => metin ? `Terfi Pompası (${adet} asil + ${adet} yedek) - ${metin}` : "Terfi Pompası",
+        pompa_terfi: (adet) => `Terfi Pompası (${adet} asil + ${adet} yedek)`,
         yapi_dagitim: (giris, cikis) => `Debi Dağıtım Yapısı (Giriş: ${giris}, Çıkış: ${cikis})`,
 
         rbc_kapakli: (rbcModeli, uniteBasinaDiskSayisi, uniteBasinaDiskAlani) => `PlanetDISK® ${rbcModeli} 1 DBD Ünitesi;\n- Epoksi Boyalı AISI 1045 (C45) Karbon Çelik Dolu Mil,\n- Islak Parçalar SS304 Paslanmaz ve Galvaniz Kaplı Çelik,\n- Mil Başına ${uniteBasinaDiskSayisi},\n- Disk Yüzey Alanı ${uniteBasinaDiskAlani}`,
@@ -36,22 +36,22 @@ export const CAPEX_LABELS = {
         lamella_seperator: (lamellaModeli) => `${lamellaModeli} Lamella Seperatör Son Çöktürme Tankı`,
         pompa_camur_son_cokturme: (lamellaPomapasiModeli) => `${lamellaPomapasiModeli} Son Çöktürme Tankı Çamur Pompası`,
 
-        pompa_resirkulasyon: (resirkulasyonPompaAdeti, geridevirPompasi) => geridevirPompasi ? `Resürkilasyon Pompası(${resirkulasyonPompaAdeti} asil + ${resirkulasyonPompaAdeti} yedek) - ${geridevirPompasi.replace(`${resirkulasyonPompaAdeti} Adet`, `${resirkulasyonPompaAdeti * 2} Adet`)}` : "Resürkilasyon Pompası",
+        pompa_resirkulasyon: (resirkulasyonPompaAdeti) => `Resürkilasyon Pompası (${resirkulasyonPompaAdeti} asil + ${resirkulasyonPompaAdeti} yedek)`,
         mikser_denitrifikasyon: "Denitrifikasyon Tankı Mikseri",
         dozaj_fecl3: "FeCl3 Koagülant Dozaj Sistemi",
 
         klorlama_on: "Ön Klorlama Sistemi",
         pompa_filtrasyon_besleme: `Filtrasyon Sistemi Besleme Pompası`,
         pompa_filtrasyon_geriyikama: `Filtrasyon Sistemi Geri Yıkama Pompası`,
-        filtre_separator:  `Seperatör Filtre `,
+        filtre_separator: `Seperatör Filtre `,
         filtre_kum_oto: `Tam Otomatik Kum Filtresi Sistemi `,
-        filtre_karbon_oto:  `Tam Otomatik Aktif Karbon Filtresi Sistemi`,
+        filtre_karbon_oto: `Tam Otomatik Aktif Karbon Filtresi Sistemi`,
 
         pompa_camur_besleme: `Çamur Besleme Pompası`,
         dekantor: `Dekantör`,
         filtrepress: `Filtrepress`,
         polimer_unitesi: "Polimer Hazırlama ve Dozaj Ünitesi",
-        pompa_suzuntu_suyu:  `Süzüntü Suyu Pompas`,
+        pompa_suzuntu_suyu: `Süzüntü Suyu Pompas`,
 
         membrane_header: `Membrane Sistemi`,
         membrane_system: `Planet Membran Sistemi \n(Bütün ekipmanları dahil)`,
@@ -97,7 +97,7 @@ export const CAPEX_LABELS = {
         izgara_kaba_oto: "Automatically Cleaned Coarse Screen",
         izgara_ince_oto: "Automatically Cleaned Fine Screen",
         plaka_kum_yag: (boyut) => `Grit-Oil Trap Plates`,
-        pompa_terfi: (adet, metin) => metin ? `Feeding Pump (${adet} duty + ${adet} standby) - ${metin}` : "Feeding Pump",
+        pompa_terfi: (adet) => `Feeding Pump (${adet} duty + ${adet} standby)`,
         yapi_dagitim: (giris, cikis) => `Flow Distribution Structure (Influent: ${giris}, Effluent: ${cikis})`,
 
         rbc_kapakli: (rbcModeli, uniteBasinaDiskSayisi, uniteBasinaDiskAlani) => `PlanetDISK® ${rbcModeli} 1 RBC Unit;\n- Epoxy Painted AISI 1045 (C45) Carbon Steel Solid Shaft,\n- Wet Parts SS304 Stainless and Galvanized Coated Steel,\n- ${uniteBasinaDiskSayisi} per Shaft,\n- Disk Surface Area ${uniteBasinaDiskAlani}`,
@@ -109,22 +109,22 @@ export const CAPEX_LABELS = {
         lamella_seperator: (lamellaModeli) => `${lamellaModeli} Lamella Separator Final Clarifier Tank`,
         pompa_camur_son_cokturme: (lamellaPomapasiModeli) => `${lamellaPomapasiModeli} Final Clarifier Tank Sludge Pump`,
 
-        pompa_resirkulasyon: (resirkulasyonPompaAdeti, geridevirPompasi) => geridevirPompasi ? `Recirculation Pump (${resirkulasyonPompaAdeti} duty + ${resirkulasyonPompaAdeti} standby) - ${geridevirPompasi.replace(`${resirkulasyonPompaAdeti} Adet`, `${resirkulasyonPompaAdeti * 2} Units`).replace(`${resirkulasyonPompaAdeti} Pcs`, `${resirkulasyonPompaAdeti * 2} Pcs`)}` : "Recirculation Pump",
+        pompa_resirkulasyon: (resirkulasyonPompaAdeti) => `Recirculation Pump (${resirkulasyonPompaAdeti} duty + ${resirkulasyonPompaAdeti} standby)`,
         mikser_denitrifikasyon: "Denitrifikasyon Tank Mixer",
         dozaj_fecl3: "FeCl3 Coagulant Dosing System",
 
         klorlama_on: "Pre-Chlorination System",
         pompa_filtrasyon_besleme: `Filtration System Feeding Pump`,
-        pompa_filtrasyon_geriyikama:  `Filtrasyon System Backwash Pump)`,
+        pompa_filtrasyon_geriyikama: `Filtrasyon System Backwash Pump)`,
         filtre_separator: `Separator Filter`,
         filtre_kum_oto: `Fully Automatic Multimedia Filtration System`,
         filtre_karbon_oto: `Fully Automatic Activated Carbon Filtration System `,
 
         pompa_camur_besleme: `Sludge Feed Pump `,
-        dekantor:  `Decanter `,
+        dekantor: `Decanter `,
         filtrepress: `Filterpress `,
         polimer_unitesi: "Polymer Preparation and Dosing Unit",
-        pompa_suzuntu_suyu:  `Filtrate Water Pump `,
+        pompa_suzuntu_suyu: `Filtrate Water Pump `,
 
         membrane_header: `Membrane System`,
         membrane_system: `Planet Membrane System \n(Including all equipments and instruments) `,

@@ -73,7 +73,6 @@ function TeklifPage() {
   };
 
   const handleResetForm = () => {
-    console.log(formData.customerInfo.teklifNo)
 
     setAlertConfig({
       show: true,

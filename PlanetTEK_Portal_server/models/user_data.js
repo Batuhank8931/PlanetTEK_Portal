@@ -52,13 +52,26 @@ const addUser = async (req, res) => {
         return res.status(400).json({ message: "Lütfen tüm zorunlu alanları doldurun (İsim, E-posta, Şifre)." });
     }
 
+    const trimmedUsername = username.trim();
+    const trimmedEmail = email.trim();
+
     try {
+        // 🔍 UNIQUE USERNAME KONTROLÜ
+        const [existingUser] = await pool.execute(
+            "SELECT id FROM users WHERE isim = ? LIMIT 1",
+            [trimmedUsername]
+        );
+
+        if (existingUser.length > 0) {
+            return res.status(400).json({ message: "Bu kullanıcı adı zaten kullanılmakta." });
+        }
+
         const saltRounds = 10;
         const hashedPassword = await bcrypt.hash(password, saltRounds);
 
         const [result] = await pool.execute(
             "INSERT INTO users (isim, eposta, sifre_hash, rol, departman, durum) VALUES (?, ?, ?, ?, ?, 'Aktif')",
-            [username.trim(), email.trim(), hashedPassword, role || "Satış Temsilcisi", department || null]
+            [trimmedUsername, trimmedEmail, hashedPassword, role || "Satış Temsilcisi", department || null]
         );
 
         // LOG AT
@@ -66,7 +79,7 @@ const addUser = async (req, res) => {
             await logActivity(req.user.id, {
                 tip: "kullanici_ekleme",
                 eklenen_kullanici_id: result.insertId,
-                eklenen_eposta: email.trim(),
+                eklenen_eposta: trimmedEmail,
                 rol: role || "Satış Temsilcisi"
             });
         }
@@ -82,12 +95,19 @@ const addUser = async (req, res) => {
 // 🔄 3. KULLANICI GÜNCELLEME
 // ==========================================
 const putUser = async (req, res) => {
-    const { id } = req.params; // Güncellenecek kullanıcının ID'si
+    const { id } = req.params;
     const { username, email, role, status, department, password } = req.body;
-    const adminId = req.user?.id; // İşlemi yapan admin/kullanıcının ID'si
+    const adminId = req.user?.id;
+
+    if (!username || !email) {
+        return res.status(400).json({ message: "Kullanıcı adı ve e-posta zorunludur." });
+    }
+
+    const trimmedUsername = username.trim();
+    const trimmedEmail = email.trim();
 
     try {
-        // 🔍 1. ADIM: Kullanıcının veritabanındaki mevcut (eski) bilgilerini çek
+        // 🔍 1. ADIM: Kullanıcının veritabanındaki mevcut bilgilerini çek
         const [userCheck] = await pool.execute(
             "SELECT isim, eposta, rol, durum, departman FROM users WHERE id = ? LIMIT 1",
             [id]
@@ -97,14 +117,23 @@ const putUser = async (req, res) => {
             return res.status(404).json({ message: "Güncellenecek kullanıcı bulunamadı." });
         }
 
+        // 🔍 UNIQUE USERNAME KONTROLÜ (Başka bir kullanıcı bu kullanıcı adını almış mı?)
+        const [duplicateUser] = await pool.execute(
+            "SELECT id FROM users WHERE isim = ? AND id != ? LIMIT 1",
+            [trimmedUsername, id]
+        );
+
+        if (duplicateUser.length > 0) {
+            return res.status(400).json({ message: "Bu kullanıcı adı başka bir kullanıcı tarafından kullanılıyor." });
+        }
+
         const oldData = userCheck[0];
 
         // 🔄 2. ADIM: SQL Sorgusunu hazırla ve çalıştır
         let query = "UPDATE users SET isim = ?, eposta = ?, rol = ?, durum = ?, departman = ?";
-        let params = [username.trim(), email.trim(), role, status, department || null];
+        let params = [trimmedUsername, trimmedEmail, role, status, department || null];
         let isPasswordChanged = false;
 
-        // Eğer şifre de değiştirilmek isteniyorsa sürece dahil et
         if (password && password.trim() !== "") {
             const saltRounds = 10;
             const hashedPassword = await bcrypt.hash(password, saltRounds);
@@ -118,17 +147,16 @@ const putUser = async (req, res) => {
 
         await pool.execute(query, params);
 
-        // 📝 3. ADIM: Değişiklik Analizi Yap ve JSON olarak Logla
+        // 📝 3. ADIM: Değişiklik Analizi Yap ve Logla
         const dinamikDegisiklikler = {};
 
-        if (oldData.isim !== username.trim()) dinamikDegisiklikler.isim = { eski: oldData.isim, yeni: username.trim() };
-        if (oldData.eposta !== email.trim()) dinamikDegisiklikler.eposta = { eski: oldData.eposta, yeni: email.trim() };
+        if (oldData.isim !== trimmedUsername) dinamikDegisiklikler.isim = { eski: oldData.isim, yeni: trimmedUsername };
+        if (oldData.eposta !== trimmedEmail) dinamikDegisiklikler.eposta = { eski: oldData.eposta, yeni: trimmedEmail };
         if (oldData.rol !== role) dinamikDegisiklikler.rol = { eski: oldData.rol, yeni: role };
         if (oldData.durum !== status) dinamikDegisiklikler.durum = { eski: oldData.durum, yeni: status };
         if (oldData.departman !== (department || null)) dinamikDegisiklikler.departman = { eski: oldData.departman, yeni: department || null };
         if (isPasswordChanged) dinamikDegisiklikler.sifre = { mesaj: "Kullanıcı şifresi admin tarafından güncellendi." };
 
-        // Eğer hiçbir alan değişmediyse boşuna log tablosunu şişirme
         if (Object.keys(dinamikDegisiklikler).length > 0) {
             const logPayload = {
                 tip: "kullanici_guncelleme",
@@ -137,7 +165,6 @@ const putUser = async (req, res) => {
                 tarih: new Date().toISOString()
             };
 
-            // Log tablosuna asenkron olarak yaz
             await logActivity(adminId, logPayload);
         }
 
@@ -148,7 +175,6 @@ const putUser = async (req, res) => {
         return res.status(500).json({ message: "Güncelleme esnasında teknik hata oluştu.", error: error.message });
     }
 };
-
 // ==========================================
 // ❌ 4. KULLANICI SİLME
 // ==========================================

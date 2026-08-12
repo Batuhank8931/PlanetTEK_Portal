@@ -257,7 +257,7 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
             id: "1_pompa_terfi",
             type: 3,
             piece: isFeedPumpChecked ? ToplamFeedpompaAdeti : 0,
-            label: dict.pompa_terfi(pompaAdeti, feedPumpObj.secilenPompaMetni),
+            label: dict.pompa_terfi(pompaAdeti),
             unitPrice: terfiPrices.terfiPompasi,
             discount: ekipmanIndirim
         },

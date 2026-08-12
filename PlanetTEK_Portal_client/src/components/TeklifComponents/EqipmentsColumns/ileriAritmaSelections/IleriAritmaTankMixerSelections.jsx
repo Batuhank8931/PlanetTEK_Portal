@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useTeklifStore } from "../../../../utils/teklifStore";
 import API from "../../../../utils/utilRequest";
 
-function IleriAritmaTankMixerSelections() {
+function IleriAritmaTankMixerSelections({ geriDevirDebisi = 0 }) {
   // 1. STATE TANIMLAMALARI
   const [apiMixers, setApiMixers] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -19,6 +19,7 @@ function IleriAritmaTankMixerSelections() {
 
   // Sabit Tasarım Kriterleri
   const POWER_DENSITY = 10; // 10 W/m³ güç yoğunluğu
+  const DEFAULT_HRT = "4";   // Varsayılan HRT 4 Saat
 
   // API'den mikserleri çekme işlemi
   const fetchMixersData = async () => {
@@ -39,7 +40,6 @@ function IleriAritmaTankMixerSelections() {
   }, []);
 
   // --- MANUEL USER CONTROL & MÜHÜR MANTIĞI ---
-  const DEFAULT_HRT = "2";
   const lastCalculatedDebi = storeMixerSelections.calculatedDebi !== undefined ? storeMixerSelections.calculatedDebi : null;
   const isDebiChanged = lastCalculatedDebi !== null && lastCalculatedDebi !== debi;
 
@@ -49,16 +49,17 @@ function IleriAritmaTankMixerSelections() {
 
   const activeHrtHours = useMemo(() => {
     const val = parseFloat(manualHrtHours);
-    return isNaN(val) || val <= 0 ? 2 : val;
+    return isNaN(val) || val <= 0 ? 4 : val;
   }, [manualHrtHours]);
 
-  // 3. SAF DİNAMİK MÜHENDİSLİK HESAPLAMALARI VE OTOMATİK MİKSER SEÇİMİ
+  // 3. PROP OLARAK GELEN GERİ DEVİR DEBİSİ İLE TANK HACMİ VE MİKSER HESABI
   const hesaplananDegerler = useMemo(() => {
-    if (debi <= 0) {
+    if (geriDevirDebisi <= 0) {
       return { tankHacmi: 0, hamGucKw: 0, otomatikMikserId: "", otomatikKw: 0, otomatikHp: 0, otomatikRpm: 400 };
     }
 
-    const tankHacmi = (debi * activeHrtHours) / 24;
+    // FORMÜL: Tank Hacmi (m³) = Geri Devir Debisi (m³/h) × HRT (Saat)
+    const tankHacmi = geriDevirDebisi * activeHrtHours;
     const hamGucKw = (tankHacmi * POWER_DENSITY) / 1000;
 
     let otomatikMikser = null;
@@ -83,12 +84,11 @@ function IleriAritmaTankMixerSelections() {
       otomatikHp,
       otomatikRpm
     };
-  }, [debi, activeHrtHours, apiMixers]);
+  }, [geriDevirDebisi, activeHrtHours, apiMixers]);
 
   // 4. OTOMATİK İLK YÜKLEME VE DEBİ DEĞİŞİM SENKRONİZASYONU
   useEffect(() => {
-    if (debi > 0 && apiMixers.length > 0) {
-      // Eğer store'da henüz hiç mikser id'si yoksa veya debi değiştiği için mühür kırıldıysa otomatik olanı ata
+    if (geriDevirDebisi > 0 && apiMixers.length > 0) {
       const asilMikserId = (storeMixerSelections.secilenMikserId === undefined || isDebiChanged)
         ? hesaplananDegerler.otomatikMikserId 
         : String(storeMixerSelections.secilenMikserId);
@@ -135,9 +135,9 @@ function IleriAritmaTankMixerSelections() {
       }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hesaplananDegerler, debi, isDebiChanged, apiMixers]);
+  }, [hesaplananDegerler, geriDevirDebisi, debi, isDebiChanged, apiMixers]);
 
-  // 5. MANUEL DROPDOWN VE INPUT YÖNETİMİ (Kritik Alanlar Burada Anlık Hesaplanıp Store'a Basılır)
+  // 5. MANUEL DROPDOWN VE INPUT YÖNETİMİ
   const handleInputChange = (field, value) => {
     let nextState = { ...storeMixerSelections };
 
@@ -163,19 +163,16 @@ function IleriAritmaTankMixerSelections() {
         nextState.secilenMikserId = targetId;
       }
     } else {
-      // Diğer sayısal input alanları (anoksikTankHacmi veya manualHrtHours) değiştirilirse
       const numValue = value === "" ? "" : parseFloat(value) || 0;
       nextState[field] = numValue;
 
-      // Eğer hrt değiştirildiyse tank hacmini de bir sonraki adım için hazırlayabiliriz
       if (field === "manualHrtHours" && numValue > 0) {
-        const yeniHacim = (debi * numValue) / 24;
+        const yeniHacim = geriDevirDebisi * numValue;
         nextState.anoksikTankHacmi = yeniHacim;
         nextState.secilenTankMetni = `${yeniHacim.toFixed(2)} m³ Anoksik Tank Hacmi (${Number(numValue).toFixed(2)} Saat HRT)`;
       }
     }
 
-    // Tek bir seferde store'u temiz ve tam veriyle güncelliyoruz
     updateSection("equipments", {
       ...equipmentsCache,
       ileriAritma: {
@@ -220,11 +217,11 @@ function IleriAritmaTankMixerSelections() {
   if (loading) return <div className="text-white-50" style={{ fontSize: '11px' }}>Mikser verileri yükleniyor...</div>;
 
   return (
-    <div className="card-body d-flex flex-column gap-3 pt-3" style={{ position: "relative", color: "#fff", padding: 0 }}>
+    <div className="card-body d-flex flex-column gap-3 py-3" style={{ position: "relative", color: "#fff", padding: 0 }}>
       {/* BAŞLIK BÖLÜMÜ */}
       <div className="d-flex align-items-center flex-grow-1">
         <span className="fw-bold text-uppercase pe-2" style={{ fontSize: "11px", letterSpacing: "0.7px", color: "#00874e" }}>
-          4. Anoksik Tank & Mikser Seçimi
+          3. Anoksik Tank & Mikser Seçimi
         </span>
         <div className="flex-grow-1 border-bottom" style={{ borderColor: "rgba(255,255,255,0.1)" }}></div>
       </div>
@@ -295,7 +292,7 @@ function IleriAritmaTankMixerSelections() {
       </div>
 
       {/* Özet Görünüm Şeridi */}
-      {debi > 0 && (
+      {(debi > 0 || geriDevirDebisi > 0) && (
         <div className="p-2 rounded mt-1" style={{ backgroundColor: "rgba(16, 185, 129, 0.1)", borderLeft: "3px solid #10b981", fontSize: "11px" }}>
           <div className="text-white-50" style={{ fontSize: "9px", fontWeight: "bold" }}>SİSTEME EKLENECEK EKİPMAN ÖZETLERİ</div>
           <div className="text-white fw-medium mt-0.5">

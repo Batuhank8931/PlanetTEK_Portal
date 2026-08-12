@@ -102,7 +102,7 @@ function AddPutKullanici({ isOpen, onClose, selectedUser, onSave }) {
                     </div>
 
                     <div className="mb-3">
-                        <label className="form-label mb-1 fw-medium" style={{ fontSize: "12px", color: "#cbd5e1" }}>Adı Soyadı *</label>
+                        <label className="form-label mb-1 fw-medium" style={{ fontSize: "12px", color: "#cbd5e1" }}>Kullanıcı Adı</label>
                         <div className="input-group input-group-sm">
                             <span className="input-group-text border-end-0 text-muted" style={{ backgroundColor: "#0f172a", borderColor: "#334155", padding: "0 0.75rem" }}>
                                 <i className="bi bi-person text-white-50" style={{ fontSize: "14px" }}></i>
@@ -201,7 +201,6 @@ function AddPutKullanici({ isOpen, onClose, selectedUser, onSave }) {
                             >
                                 <option value="Admin" style={{ backgroundColor: "#0f172a" }}>Admin</option>
                                 <option value="Satış Temsilcisi" style={{ backgroundColor: "#0f172a" }}>Satış Temsilcisi</option>
-                                <option value="Yatırım Uzmanı" style={{ backgroundColor: "#0f172a" }}>Yatırım Uzmanı</option>
                             </select>
                         </div>
                         <div className="col-12 col-sm-6">
