@@ -3,7 +3,7 @@ import React, { useState, useEffect } from "react";
 import ExcelGrid from "./FiyatlarComponents/ExcelGrid";
 import CalculationChangeUpdateConfirmationModal from "./modals/CalculationChangeUpdateConfirmationModal";
 import API from "../utils/utilRequest";
-import AlertModal from "./modals/AlertModal"; // Yeni modalımız import edildi
+import AlertModal from "./modals/AlertModal";
 
 function CalculationPage() {
   const [activeTableId, setActiveTableId] = useState(null);
@@ -15,22 +15,44 @@ function CalculationPage() {
   const [showModal, setShowModal] = useState(false);
   const [pendingChanges, setPendingChanges] = useState([]);
 
-  // 🌟 Yeni AlertModal State Yönetimi
+  // AlertModal State Yönetimi
   const [alertConfig, setAlertConfig] = useState({
     show: false,
     title: "",
     message: "",
     type: "success",
-    showCancel: false, // İptal butonu olsun mu?
-    action: null       // "Evet" denirse ne çalışsın?
+    showCancel: false,
+    action: null
   });
 
   const fetchParameters = async () => {
     try {
       setLoading(true);
       const response = await API.getParamteters();
-      setAllParameters(response.data || []);
-      setOriginalData(JSON.parse(JSON.stringify(response.data || [])));
+      const data = response.data || [];
+      
+      const hasTeklifNum = data.some(p => 
+        String(p?.parametre_key || "").toLowerCase().includes("teklif")
+      );
+
+      if (!hasTeklifNum) {
+        data.push({
+          id: "teklif_numarasi_init",
+          parametre_key: "teklif_numarasi",
+          parametre_adi: "Teklif Numarasi",
+          deger: "",
+          teklif_numarasi: ""
+        });
+      } else {
+        data.forEach(p => {
+          if (String(p?.parametre_key || "").toLowerCase().includes("teklif")) {
+            p.teklif_numarasi = p.teklif_numarasi ?? p.deger ?? "";
+          }
+        });
+      }
+
+      setAllParameters(data);
+      setOriginalData(JSON.parse(JSON.stringify(data)));
     } catch (error) {
       console.error("Parametre verileri yüklenirken hata oldu:", error);
     } finally {
@@ -61,16 +83,8 @@ function CalculationPage() {
     const changes = [];
 
     allParameters.forEach((item) => {
+      // 🚀 Silinen satırları pas geçiyoruz
       if (item.isDeleted) {
-        if (String(item.id).startsWith("new_")) return;
-        changes.push({
-          type: "DELETE",
-          id: item.id,
-          columnName: "deger",
-          newValue: null,
-          rowName: item.parametre_adi,
-          oldValue: item.deger
-        });
         return;
       }
 
@@ -91,24 +105,18 @@ function CalculationPage() {
 
       const originalItem = originalData.find((o) => String(o.id) === String(item.id));
       if (originalItem) {
-        ["parametre_adi", "deger"].forEach((field) => {
-          let isSame = false;
+        ["parametre_adi", "deger", "teklif_numarasi"].forEach((field) => {
+          if (item[field] === undefined && originalItem[field] === undefined) return;
 
-          if (field === "parametre_adi") {
-            isSame = String(originalItem[field] || "").trim() === String(item[field] || "").trim();
-          } else {
-            const origNum = Number(originalItem[field]) || 0;
-            const currentNum = Number(item[field]) || 0;
-            isSame = origNum === currentNum;
-          }
+          let isSame = String(originalItem[field] || "").trim() === String(item[field] || "").trim();
 
           if (!isSame) {
             changes.push({
               type: "UPDATE",
-              id: Number(originalItem.id),
-              columnName: field,
-              newValue: field === "parametre_adi" ? String(item[field]).trim() : (Number(item[field]) || 0),
-              rowName: item.parametre_adi || originalItem.parametre_adi,
+              id: Number(originalItem.id) || originalItem.id,
+              columnName: field === "teklif_numarasi" ? "deger" : field,
+              newValue: item[field],
+              rowName: item.parametre_key || item.parametre_adi || originalItem.parametre_adi,
               oldValue: originalItem[field]
             });
           }
@@ -117,11 +125,10 @@ function CalculationPage() {
     });
 
     if (changes.length === 0) {
-      // 🔄 MODERN UYARI MODALI TETİKLENDİ
       setAlertConfig({
         show: true,
         title: "Değişiklik Yok",
-        message: "Herhangi bir değişiklik algılanmadı. Kaydetmek için önce hücreleri düzenleyin.",
+        message: "Herhangi bir güncelleme algılanmadı. Kaydetmek için önce hücreleri düzenleyin.",
         type: "warning",
         showCancel: false,
         action: null
@@ -141,7 +148,6 @@ function CalculationPage() {
       await fetchParameters();
       setPendingChanges([]);
 
-      // ✅ BAŞARILI KAYIT BİLDİRİMİ
       setAlertConfig({
         show: true,
         title: "İşlem Tamamlandı",
@@ -152,7 +158,6 @@ function CalculationPage() {
       });
     } catch (error) {
       console.error("Parametreler güncellenirken teknik hata:", error);
-      // ❌ HATA BİLDİRİMİ
       setAlertConfig({
         show: true,
         title: "Sistem Hatası",
@@ -177,13 +182,34 @@ function CalculationPage() {
   }
 
   const activeParams = allParameters.filter(p => !p.isDeleted);
+  
   const diskData = activeParams.filter(p => {
     const key = String(p?.parametre_key || "");
     return key.includes("MX_") || key.includes("MINI_") || key.startsWith("NEW_DISK_");
   });
-  const nitData = activeParams.filter(p => String(p?.parametre_key || "").startsWith("nit_") || String(p?.parametre_key || "").startsWith("NEW_NIT_"));
-  const reservedKeys = [...diskData, ...nitData].map(x => String(x.parametre_key || ""));
-  const giderimData = activeParams.filter(p => !reservedKeys.includes(String(p?.parametre_key || "")) || String(p?.parametre_key || "").startsWith("NEW_GID_"));
+
+  const nitData = activeParams.filter(p => 
+    String(p?.parametre_key || "").startsWith("nit_") || 
+    String(p?.parametre_key || "").startsWith("NEW_NIT_")
+  );
+
+  // 🚀 teklif_numarasi alanı ExcelGrid için eşleniyor
+  const teklifData = activeParams
+    .filter(p => {
+      const key = String(p?.parametre_key || "").toLowerCase();
+      return key === "teklif_numarasi" || key.includes("teklif");
+    })
+    .map(p => ({
+      ...p,
+      teklif_numarasi: p.teklif_numarasi !== undefined ? p.teklif_numarasi : (p.deger ?? "")
+    }));
+
+  const reservedKeys = [...diskData, ...nitData, ...teklifData].map(x => String(x.parametre_key || ""));
+  
+  const giderimData = activeParams.filter(p => 
+    !reservedKeys.includes(String(p?.parametre_key || "")) || 
+    String(p?.parametre_key || "").startsWith("NEW_GID_")
+  );
 
   return (
     <div
@@ -208,7 +234,6 @@ function CalculationPage() {
         </button>
       </div>
 
-      {/* BAĞIMSIZ TABLOLAR DİZİLİMİ */}
       <div className="d-flex flex-column gap-4">
 
         {/* GRID 1: DİNAMİK DİSK SINIRLARI */}
@@ -301,6 +326,40 @@ function CalculationPage() {
           />
         </div>
 
+        {/* GRID 4: TEKLİF NUMARASI */}
+        <div className="mb-2">
+          <div className="d-flex justify-content-between align-items-center mb-2">
+            <div className="fw-bold text-uppercase d-flex align-items-center" style={{ fontSize: "11px", letterSpacing: "0.5px", color: "#f59e0b" }}>
+              <i className="bi bi-hash me-1.5"></i> 4. Teklif Numarası
+            </div>
+          </div>  
+          <ExcelGrid
+            tableId="teklifnumarasi"
+            activeTableId={activeTableId}
+            setActiveTableId={setActiveTableId}
+            headers={["Teklif Numarası"]}
+            fields={["teklif_numarasi"]}
+            data={teklifData}
+            isMainTable={true}
+            onDataChange={(updateFn) => {
+              setAllParameters(prev => {
+                const updatedTeklifData = typeof updateFn === 'function' ? updateFn(teklifData) : updateFn;
+                
+                // 🚀 teklif_numarasi hücresi değiştiğinde deger alanına da eşitliyoruz
+                const syncedTeklifData = updatedTeklifData.map(item => ({
+                  ...item,
+                  deger: item.teklif_numarasi !== undefined ? item.teklif_numarasi : item.deger
+                }));
+
+                const otherData = prev.filter(p => {
+                  const k = String(p?.parametre_key || "").toLowerCase();
+                  return !k.includes("teklif");
+                });
+                return [...otherData, ...syncedTeklifData];
+              });
+            }}
+          />
+        </div>
       </div>
 
       <CalculationChangeUpdateConfirmationModal
@@ -310,14 +369,13 @@ function CalculationPage() {
         changesList={pendingChanges}
       />
 
-      {/* 🌟 PROJEDEKİ ALERT'LERİ SİLİP YERİNE KOYDUĞUMUZ YENİ NESİL MODAL */}
       <AlertModal
         show={alertConfig.show}
         title={alertConfig.title}
         message={alertConfig.message}
         type={alertConfig.type}
-        showCancel={alertConfig.showCancel} // State ne derse o (true/false)
-        onConfirm={alertConfig.action}     // Varsa fonksiyon çalışır, yoksa pas geçer
+        showCancel={alertConfig.showCancel}
+        onConfirm={alertConfig.action}
         onClose={() => setAlertConfig(prev => ({ ...prev, show: false }))}
       />
     </div>

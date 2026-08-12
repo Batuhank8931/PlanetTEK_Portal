@@ -1,11 +1,13 @@
 import React, { useState, useMemo, useEffect, useCallback } from "react";
 import AlertModal from "./modals/AlertModal";
 import API from "../utils/utilRequest";
+import { useNavigate, useLocation } from "react-router-dom";
+import { useTeklifStore } from "../utils/teklifStore";
 
 const INITIAL_FILTERS = {
   search: "",
   offer_number: "",
-  offer_status: "", // 🆕 Teklif Durumu Filtresi Eklendi
+  offer_status: "",
   teklif_no: "",
   ticari_unvan: "",
   hazirlayan_kullanici: "",
@@ -23,6 +25,12 @@ const INITIAL_FILTERS = {
 };
 
 function DashBoardPage() {
+  const navigate = useNavigate();
+  const setFormData = useTeklifStore((state) => state.setFormData);
+  const formData = useTeklifStore((state) => state.formData);
+  const updateSection = useTeklifStore((state) => state.updateSection);
+  const setCurrentStepStore = useTeklifStore((state) => state.setCurrentStepStore); // Gerekirse adımı da başa alabilirsin
+
   const [offers, setOffers] = useState([]);
   const [loading, setLoading] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -33,15 +41,12 @@ function DashBoardPage() {
   const [totalPages, setTotalPages] = useState(1);
   const [totalRecords, setTotalRecords] = useState(0);
 
-  // Tüm filtre parametrelerini tek bir nesnede topluyoruz
+  // Filtre State'leri
   const [filters, setFilters] = useState(INITIAL_FILTERS);
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
 
-  // Modal State'leri
-  const [selectedOffer, setSelectedOffer] = useState(null);
-  const [actionType, setActionType] = useState("Süre Uzatımı");
-  const [actionNote, setActionNote] = useState("");
 
+  // Alert Modal State'i
   const [alertConfig, setAlertConfig] = useState({
     show: false,
     title: "",
@@ -54,7 +59,7 @@ function DashBoardPage() {
   // Filtre input değişim handler'ı
   const handleFilterChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
-    setPage(1); // Filtre değiştiğinde 1. sayfaya dön
+    setPage(1);
   };
 
   // Tüm filtreleri sıfırlama
@@ -63,7 +68,7 @@ function DashBoardPage() {
     setPage(1);
   };
 
-  // 🚀 SUNUCUDAN VERİ ÇEKME (Tüm filtre parametreleri ile)
+  // 🚀 SUNUCUDAN VERİ ÇEKME
   const fetchOffers = useCallback(async () => {
     setLoading(true);
     setErrorMsg("");
@@ -96,7 +101,7 @@ function DashBoardPage() {
     return () => clearTimeout(timer);
   }, [fetchOffers]);
 
-  // 📄 DOSYA İNDİRME AKSİYONU (Sunucudan Gelen Orijinal Dosya Adı İle)
+  // 📄 DOSYA İNDİRME AKSİYONU
   const handleDownloadFile = async (offerNumber, fileType, customerId) => {
     try {
       const response = await API.getDocData(offerNumber, fileType, customerId);
@@ -115,7 +120,6 @@ function DashBoardPage() {
         }
       }
 
-      // Eğer sunucu header'ından dosya adı alınamazsa fallback olarak teklif nosunu kullanır
       if (!fileName) {
         const cleanFileName = offerNumber.replace(/\s+/g, "_");
         fileName = `${cleanFileName}.${fileType}`;
@@ -127,8 +131,6 @@ function DashBoardPage() {
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = downloadUrl;
-
-      // Sunucudan alınan dinamik dosya adı buraya atanır:
       link.setAttribute("download", fileName);
 
       document.body.appendChild(link);
@@ -147,24 +149,6 @@ function DashBoardPage() {
     }
   };
 
-  // OTO SÜRE KONTROLÜ (30 Gün Geçenleri Ayıklama)
-  const { suresiDolmusTeklifler } = useMemo(() => {
-    const bugun = new Date();
-    const dolmus = [];
-
-    offers.forEach((o) => {
-      const teklifTarihi = new Date(o.created_at);
-      const farkZaman = bugun.getTime() - teklifTarihi.getTime();
-      const farkGun = Math.ceil(farkZaman / (1000 * 60 * 60 * 24));
-
-      if (farkGun > 30) {
-        dolmus.push({ ...o, gecenGun: farkGun });
-      }
-    });
-
-    return { suresiDolmusTeklifler: dolmus };
-  }, [offers]);
-
   // METRİK HESAPLAMALARI
   const metrikler = useMemo(() => {
     const toplamTeklif = totalRecords;
@@ -176,7 +160,7 @@ function DashBoardPage() {
     return { toplamTeklif, toplamTasarimKapasitesi };
   }, [offers, totalRecords]);
 
-  // 🎨 Teklif Durumuna Göre Badge (Etiket) Rengi Döndüren Yardımcı Fonksiyon
+  // 🎨 Teklif Durumuna Göre Badge Rengi
   const getStatusBadge = (status) => {
     if (!status) return <span className="badge bg-secondary py-1 px-2">Bilinmiyor</span>;
 
@@ -200,26 +184,45 @@ function DashBoardPage() {
     return <span className="badge bg-secondary text-white py-1 px-2">{status}</span>;
   };
 
-  const handleSaveAction = () => {
-    if (!actionNote.trim()) {
-      setAlertConfig({
-        show: true,
-        title: "Uyarı",
-        message: "Lütfen gerekli bilgi notunu doldurunuz.",
-        type: "warning"
-      });
-      return;
+  const reviseOffer = async (full_form_data) => {
+    try {
+      // 1. Mevcut revizyon ve teklif numarasını al
+      const currentRev =
+        full_form_data.customerInfo?.revizyonNo ||
+        full_form_data.revizyonNo ||
+        "R0";
+      const currentTeklifNo = formData.customerInfo?.teklifNo;
+
+      // 2. Revizyon numarasını 1 arttır
+      const currentNumber = parseInt(currentRev.replace(/\D/g, ""), 10);
+      const nextRevNumber = isNaN(currentNumber) ? 1 : currentNumber + 1;
+      const newRevizyonNo = `R${nextRevNumber}`;
+
+      console.log(currentTeklifNo);
+      // 3. İLK API: Önce bu istek atılır ve yanıt beklenir
+      const unsetRes = await API.unSetOfferNumber(currentTeklifNo);
+
+      // İsteğe bağlı kontrol: İlk API başarılı bir yanıt döndüyse 2. API'ye geç
+      // (API mimarinize göre unsetRes.status === 200 veya unsetRes.success kontrolü ekleyebilirsiniz)
+      if (unsetRes) {
+        // 4. İKİNCİ API: İlk API sorunsuz bittikten sonra çalışır
+        const res = await API.setOfferNumber();
+        const fetchedNumber = res.data?.teklif_no || res.teklif_no;
+
+        // 5. State ve yönlendirme işlemleri
+        setFormData(full_form_data);
+
+        updateSection("customerInfo", {
+          revizyonNo: newRevizyonNo,
+          teklifNo: fetchedNumber,
+        });
+
+        setCurrentStepStore(1);
+        navigate("/teklif");
+      }
+    } catch (error) {
+      console.error("Revize işlemi sırasında hata oluştu:", error);
     }
-
-    setAlertConfig({
-      show: true,
-      title: "Başarılı",
-      message: "Aksiyon kaydı oluşturuldu.",
-      type: "success"
-    });
-
-    setSelectedOffer(null);
-    setActionNote("");
   };
 
   return (
@@ -244,36 +247,6 @@ function DashBoardPage() {
       {errorMsg && (
         <div className="alert alert-warning py-1 px-3 mb-2" role="alert" style={{ fontSize: "11px" }}>
           {errorMsg}
-        </div>
-      )}
-
-      {/* KRİTİK UYARI PANELİ */}
-      {suresiDolmusTeklifler.length > 0 && (
-        <div className="p-2 rounded mb-3 animate__animated animate__fadeIn" style={{ backgroundColor: "rgba(239, 68, 68, 0.1)", border: "1px solid #ef4444" }}>
-          <div className="d-flex align-items-center gap-2 mb-2 text-danger fw-bold" style={{ fontSize: "11.5px" }}>
-            <i className="bi bi-exclamation-triangle-fill"></i>
-            <span>DİKKAT: Takip Süresi Dolan ({suresiDolmusTeklifler.length}) Adet Teklif Bulunuyor!</span>
-          </div>
-          <div className="row g-2">
-            {suresiDolmusTeklifler.map((t) => (
-              <div key={t.id} className="col-md-6 col-12">
-                <div className="p-2 rounded d-flex justify-content-between align-items-center" style={{ backgroundColor: "#1f2937", border: "1px solid rgba(239, 68, 68, 0.3)" }}>
-                  <div>
-                    <span className="fw-bold text-danger" style={{ fontSize: "11px" }}>{t.offer_number || t.teklif_no}</span>
-                    <span className="text-white-50 ms-2" style={{ fontSize: "10.5px" }}>{t.ticari_unvan || "Bilinmeyen Müşteri"}</span>
-                    <div className="text-white-50" style={{ fontSize: "10px" }}>Tarih: {new Date(t.created_at).toLocaleDateString("tr-TR")} - <span className="text-warning">{t.gecenGun} gündür yanıt bekleniyor</span></div>
-                  </div>
-                  <button
-                    className="btn btn-sm btn-danger fw-bold px-2 py-0"
-                    style={{ fontSize: "10px", height: "22px" }}
-                    onClick={() => setSelectedOffer(t)}
-                  >
-                    Aksiyon Al
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
         </div>
       )}
 
@@ -366,11 +339,10 @@ function DashBoardPage() {
           </div>
         </div>
 
-        {/* Detaylı Filtre Seçenekleri Panel (Açılır/Kapanır) */}
+        {/* Detaylı Filtre Seçenekleri Panel */}
         {showAdvancedFilters && (
           <div className="pt-2 mt-2 border-top border-secondary animate__animated animate__fadeIn">
             <div className="row g-2">
-              {/* Tarih Aralığı */}
               <div className="col-md-3 col-6">
                 <label className="form-label mb-0 text-white-50" style={{ fontSize: "10px" }}>Başlangıç Tarihi</label>
                 <input
@@ -392,7 +364,6 @@ function DashBoardPage() {
                 />
               </div>
 
-              {/* Debi Aralığı */}
               <div className="col-md-3 col-6">
                 <label className="form-label mb-0 text-white-50" style={{ fontSize: "10px" }}>Min Debi (m³/g)</label>
                 <input
@@ -416,7 +387,6 @@ function DashBoardPage() {
                 />
               </div>
 
-              {/* Atıksu & Hesap Yöntemi & Model */}
               <div className="col-md-2 col-6">
                 <label className="form-label mb-0 text-white-50" style={{ fontSize: "10px" }}>Atıksu Tipi</label>
                 <select
@@ -473,7 +443,6 @@ function DashBoardPage() {
                 </select>
               </div>
 
-              {/* 🆕 Teklif Dili (DROPDOWN) */}
               <div className="col-md-2 col-6">
                 <label className="form-label mb-0 text-white-50" style={{ fontSize: "10px" }}>Teklif Dili</label>
                 <select
@@ -488,7 +457,6 @@ function DashBoardPage() {
                 </select>
               </div>
 
-              {/* BOİ Değerleri */}
               <div className="col-md-1 col-3">
                 <label className="form-label mb-0 text-white-50" style={{ fontSize: "10px" }}>Min BOİ</label>
                 <input
@@ -539,7 +507,7 @@ function DashBoardPage() {
           </div>
         </div>
 
-        {/* Tablo Konteyneri (Yatay Kaydırma Destekli) */}
+        {/* Tablo Konteyneri */}
         <div className="table-responsive">
           <table className="table table-dark table-hover table-striped table-bordered align-middle text-nowrap mb-0" style={{ fontSize: "11px" }}>
             <thead>
@@ -547,6 +515,7 @@ function DashBoardPage() {
                 <th style={{ width: "40px" }}>#ID</th>
                 <th>Teklif Kodu / No</th>
                 <th className="text-center">Durum</th>
+                <th className="text-center">REVİZE ET</th>
                 <th>Tarih</th>
                 <th>Ticari Ünvan</th>
                 <th>İlgili Kişi</th>
@@ -555,7 +524,6 @@ function DashBoardPage() {
                 <th className="text-center">Atıksu Tipi</th>
                 <th className="text-center">Hesap Yöntemi</th>
                 <th className="text-center">Model Tipi</th>
-                {/* 🛠️ AYRILAN KOLONLAR */}
                 <th className="text-center">Giriş BOİ</th>
                 <th className="text-center">Çıkış BOİ</th>
                 <th className="text-center">Dil</th>
@@ -580,6 +548,11 @@ function DashBoardPage() {
                     </td>
                     <td className="text-center">
                       {getStatusBadge(teklif.offer_status)}
+                    </td>
+                    <td className="text-center">
+                      <button onClick={() => reviseOffer(teklif.full_form_data)}>
+                        Revize Et
+                      </button>
                     </td>
                     <td>
                       {new Date(teklif.created_at)
@@ -609,8 +582,6 @@ function DashBoardPage() {
                     <td className="text-center" style={{ fontSize: "10.5px" }}>
                       {teklif.unit_model_type || "-"}
                     </td>
-
-                    {/* 🛠️ AYRILAN HÜCRELER */}
                     <td className="text-center" style={{ fontSize: "10.5px" }}>
                       {teklif.giris_boi ?? "-"}
                     </td>
@@ -623,7 +594,6 @@ function DashBoardPage() {
                     <td className="text-center fw-bold text-success" style={{ fontSize: "10.5px" }}>
                       {teklif.currency || "EUR"}
                     </td>
-
                     <td className="text-center">
                       <div className="btn-group btn-group-sm">
                         <button
@@ -699,55 +669,6 @@ function DashBoardPage() {
           </div>
         </div>
       </div>
-
-      {/* AKSİYON MODALİ */}
-      {selectedOffer && (
-        <div className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style={{ backgroundColor: "rgba(0,0,0,0.7)", zIndex: 1050 }}>
-          <div className="p-3 rounded w-100 shadow" style={{ maxWidth: "450px", backgroundColor: "#1f2937", border: "1px solid #ef4444" }}>
-            <div className="d-flex justify-content-between align-items-center mb-2">
-              <h6 className="mb-0 fw-bold text-danger" style={{ fontSize: "12px" }}>
-                <i className="bi bi-lightning-charge-fill me-1"></i> Teklif Aksiyonu
-              </h6>
-              <button className="btn-close btn-close-white btn-sm" onClick={() => setSelectedOffer(null)}></button>
-            </div>
-
-            <p className="text-white-50 mb-2" style={{ fontSize: "11px" }}>
-              <strong>{selectedOffer.ticari_unvan}</strong> firmasına ait <strong>{selectedOffer.offer_number || selectedOffer.teklif_no}</strong> teklifinin süresi aşılmıştır.
-            </p>
-
-            <div className="mb-2">
-              <label className="form-label text-white-50 mb-1" style={{ fontSize: "10.5px" }}>Aksiyon Tipi *</label>
-              <select
-                className="form-select form-select-sm bg-dark text-white border-secondary py-1"
-                value={actionType}
-                onChange={(e) => setActionType(e.target.value)}
-                style={{ fontSize: "11px" }}
-              >
-                <option value="Süre Uzatımı">Süre Uzatımı (Teklifi 30 gün daha canlı tut)</option>
-                <option value="Revize">Revize Teklif (Yeniden tasarıma/fiyatlandırmaya gönder)</option>
-                <option value="Teklif İptal">Teklif İptal (Projeyi olumsuz kapat)</option>
-              </select>
-            </div>
-
-            <div className="mb-3">
-              <label className="form-label text-white-50 mb-1" style={{ fontSize: "10.5px" }}>Not / Açıklama *</label>
-              <textarea
-                className="form-control bg-dark text-white border-secondary p-1"
-                rows="2"
-                style={{ fontSize: "11px" }}
-                placeholder="Aksiyon nedeni..."
-                value={actionNote}
-                onChange={(e) => setActionNote(e.target.value)}
-              ></textarea>
-            </div>
-
-            <div className="d-flex justify-content-end gap-2">
-              <button className="btn btn-sm btn-secondary py-0" onClick={() => setSelectedOffer(null)} style={{ fontSize: "11px" }}>Kapat</button>
-              <button className="btn btn-sm btn-danger fw-bold py-0" onClick={handleSaveAction} style={{ fontSize: "11px" }}>Aksiyonu Kaydet</button>
-            </div>
-          </div>
-        </div>
-      )}
 
       <AlertModal
         show={alertConfig.show}

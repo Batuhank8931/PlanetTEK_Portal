@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { motion, AnimatePresence } from "framer-motion";
 import { useTeklifStore } from "../utils/teklifStore";
 import AlertModal from "./modals/AlertModal";
+import API from "../utils/utilRequest";
 
 import SelectCustomer from "./TeklifComponents/SelectCustomer_step_1";
 import SelectPlanetDisk from "./TeklifComponents/SelectPlanetDisk_step_2";
@@ -19,14 +20,16 @@ function TeklifPage() {
   const [showModal, setShowModal] = useState(false);
   const [direction, setDirection] = useState(1);
 
-  // 🌟 AlertModal kontrolü için state
+  // 🌟 Form sıfırlandığında alt bileşenleri yeniden mount etmek için key state'i
+  const [resetKey, setResetKey] = useState(0);
+
   const [alertConfig, setAlertConfig] = useState({
     show: false,
     title: "",
     message: "",
     type: "success",
-    showCancel: false, // İptal butonu olsun mu?
-    action: null       // "Evet" denirse ne çalışsın?
+    showCancel: false,
+    action: null
   });
 
   const steps = [
@@ -37,13 +40,10 @@ function TeklifPage() {
     { id: 5, label: "Özet & Onay", icon: "bi-check2-circle" }
   ];
 
-  // Doğrudan bir adıma zıplamayı sağlayan fonksiyon
   const handleStepClick = (targetStepId) => {
     if (targetStepId === currentStep) return;
-
     const nextDirection = targetStepId > currentStep ? 1 : -1;
     setDirection(nextDirection);
-
     setCurrentStepStore(targetStepId);
   };
 
@@ -73,28 +73,45 @@ function TeklifPage() {
   };
 
   const handleResetForm = () => {
+    console.log(formData.customerInfo.teklifNo)
+
     setAlertConfig({
       show: true,
       title: "Formu Sıfırla",
       message: "Formdaki tüm verileri sıfırlamak istediğinize emin misiniz?",
       type: "warning",
       showCancel: true,
-      action: () => {
+      action: async () => {
+        const currentTeklifNo = formData?.customerInfo?.teklifNo;
+
+        // 🔒 Form sıfırlanmadan önce rezerve edilen teklif numarasını tablodan siliyoruz
+        if (currentTeklifNo) {
+          try {
+            await API.unSetOfferNumber(currentTeklifNo);
+          } catch (err) {
+            console.error("Teklif numarası rezerve iptali başarısız oldu:", err);
+          }
+        }
+
         resetForm();
+        setResetKey((prev) => prev + 1); // 🌟 Sıfırlama yapılınca key değiştirilip component refresh edilir
         setAlertConfig((prev) => ({ ...prev, show: false }));
       }
     });
   };
 
+
+
   const isFormDataNotEmpty = formData && Object.keys(formData).length > 0;
 
+  // 🌟 Her bileşene resetKey ile tanımlama yapıyoruz
   const renderStepComponent = () => {
     switch (currentStep) {
-      case 1: return <SelectCustomer />;
-      case 2: return <SelectPlanetDisk />;
-      case 3: return <SelectEquiptments />;
-      case 4: return <SelectTables />;
-      case 5: return <SelectFinal onSubmit={handleSubmit} />;
+      case 1: return <SelectCustomer key={resetKey} />;
+      case 2: return <SelectPlanetDisk key={resetKey} />;
+      case 3: return <SelectEquiptments key={resetKey} />;
+      case 4: return <SelectTables key={resetKey} />;
+      case 5: return <SelectFinal key={resetKey} onSubmit={handleSubmit} />;
       default: return <div>Hatalı Adım</div>;
     }
   };
@@ -115,7 +132,6 @@ function TeklifPage() {
         paddingTop: typeof window !== "undefined" && window.innerWidth < 768 ? "75px" : "20px"
       }}
     >
-      {/* ÜST BAŞLIK */}
       <div className="d-flex justify-content-between align-items-center mb-4 pb-3 border-bottom" style={{ borderColor: "#334155" }}>
         <div>
           <h5 className="mb-1 fw-semibold tracking-tight" style={{ color: "#94a3b8" }}>
@@ -124,11 +140,9 @@ function TeklifPage() {
         </div>
       </div>
 
-      {/* PROGRESS STEP BAR & AKSİYON BUTONLARI */}
       <div className="p-3 mb-4 rounded-3" style={{ backgroundColor: "#0f172a", borderColor: "#334155" }}>
         <div className="d-flex align-items-center justify-content-between flex-wrap gap-3">
 
-          {/* GERİ BUTONU */}
           <button
             type="button"
             className="btn btn-sm text-white px-3 py-2 fw-semibold d-flex align-items-center"
@@ -147,7 +161,6 @@ function TeklifPage() {
             <i className="bi bi-arrow-left me-1.5"></i> Geri
           </button>
 
-          {/* ADIMLAR (PROGRESS STEPS) */}
           <div className="d-flex justify-content-around align-items-center flex-grow-1 flex-wrap gap-2 px-md-4">
             {steps.map((step) => {
               const isActive = currentStep === step.id;
@@ -202,9 +215,7 @@ function TeklifPage() {
             })}
           </div>
 
-          {/* SAĞ TARAF: AKSİYON + MODAL BUTON GRUBU */}
           <div className="d-flex align-items-center gap-2">
-            {/* İLERİ BUTONU (Yalnızca 5. adımdan önce görünür) */}
             {currentStep < steps.length && (
               <button
                 type="button"
@@ -216,7 +227,6 @@ function TeklifPage() {
               </button>
             )}
 
-            {/* DÖKÜMAN LOGOLU KÜÇÜK MODAL BUTONU */}
             <button
               type="button"
               className="btn btn-sm text-white py-2 px-2.5 d-flex align-items-center justify-content-center border-0 shadow-sm"
@@ -227,7 +237,6 @@ function TeklifPage() {
               <i className="bi bi-file-earmark-code"></i>
             </button>
 
-            {/* FORM SIFIRLA BUTONU */}
             {isFormDataNotEmpty && (
               <button
                 type="button"
@@ -249,7 +258,6 @@ function TeklifPage() {
         </div>
       </div>
 
-      {/* MERKEZİ BİLEŞEN KARTI */}
       <div className="overflow-hidden position-relative" style={{ borderRadius: "8px" }}>
         <AnimatePresence mode="wait" custom={direction}>
           <motion.div

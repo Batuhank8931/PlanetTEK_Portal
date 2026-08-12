@@ -1,3 +1,4 @@
+// CalculationChangeUpdateConfirmationModal.jsx
 import React from "react";
 
 function CalculationChangeUpdateConfirmationModal({ show, onClose, onConfirm, changesList }) {
@@ -41,9 +42,18 @@ function CalculationChangeUpdateConfirmationModal({ show, onClose, onConfirm, ch
                                 <div>
                                     <h6 className="m-0 fw-bold text-white fs-6">Katsayı Değişiklik Kontrolü</h6>
                                     <p className="text-white small m-0">
-                                        Toplam <span className="text-success fw-bold">{changesList.length}</span> hücre üzerinde güncelleme yapılıyor.
+                                        Toplam <span className="text-success fw-bold">{changesList.length}</span> hücre üzerinde işlem yapılacaktır.
                                     </p>
                                 </div>
+                            </div>
+
+                            {/* 🚀 BİLGİLENDİRME UYARISI */}
+                            <div 
+                                className="alert py-2 px-3 mb-3 d-flex align-items-center gap-2 border-0" 
+                                style={{ backgroundColor: "#0284c71a", color: "#38bdf8", fontSize: "0.8rem", borderRadius: "8px" }}
+                            >
+                                <i className="bi bi-info-circle-fill fs-6"></i>
+                                <span>Bu matris ekranından kayıtlı parametre silme işlemi yapılamaz. Yalnızca katsayı güncellemeleri ve yeni tanımlamalar işlenecektir.</span>
                             </div>
 
                             <div
@@ -65,9 +75,7 @@ function CalculationChangeUpdateConfirmationModal({ show, onClose, onConfirm, ch
                                         {changesList.map((change, index) => {
                                             let typeBadge = <span className="badge bg-warning text-dark px-2 py-1">UPDATE</span>;
                                             if (change.type === "INSERT") typeBadge = <span className="badge bg-success text-white px-2 py-1">INSERT</span>;
-                                            if (change.type === "DELETE") typeBadge = <span className="badge bg-danger text-white px-2 py-1">DELETE</span>;
 
-                                            // Sayısal değerleri biçimlendiren yardımcı formatlayıcı
                                             const formatNum = (val) => {
                                                 if (val === undefined || val === null || isNaN(val)) return val;
                                                 return Number(val).toLocaleString('tr-TR', { minimumFractionDigits: 2, maximumFractionDigits: 4 });
@@ -86,8 +94,8 @@ function CalculationChangeUpdateConfirmationModal({ show, onClose, onConfirm, ch
                                                         {change.type === "INSERT" ? "—" : formatNum(change.oldValue)}
                                                     </td>
                                                     <td className="py-2 text-success"><i className="bi bi-chevron-right"></i></td>
-                                                    <td className="fw-bold py-2" style={{ color: change.type === "DELETE" ? "#ef4444" : "#4ade80" }}>
-                                                        {change.type === "DELETE" ? "SİLİNECEK" : formatNum(change.newValue)}
+                                                    <td className="fw-bold py-2" style={{ color: "#4ade80" }}>
+                                                        {formatNum(change.newValue)}
                                                     </td>
                                                 </tr>
                                             );

@@ -33,6 +33,7 @@ const { getPumpCurve, updatePumpCurve, getAllPumpCurves, getCentrifugePumps } = 
 const { sendFormData, getDocData, getTeklifData, getAllOffers } = require("../../models/offer_functions.js");
 
 const { getCustomers, addCustomer, putCustomer, deleteCustomer, getCustomerById, customerForOffer } = require("../../models/customer_data.js");
+const { setOfferNumber, unSetOfferNumber } = require("../../models/set_offer_number.js");
 
 
 
@@ -98,5 +99,8 @@ router.put('/putCustomer/:id', verifyToken, putCustomer);
 router.delete('/deleteCustomer/:id', verifyToken, deleteCustomer);
 router.get('/getCustomer/:id', verifyToken, getCustomerById);
 router.post('/customerForOffer', verifyToken, customerForOffer);
+
+router.get('/setOfferNumer', verifyToken , setOfferNumber);
+router.post('/unsetOfferNumber', verifyToken , unSetOfferNumber);
 
 module.exports = router;

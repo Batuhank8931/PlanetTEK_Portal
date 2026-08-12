@@ -286,7 +286,17 @@ const API = {
     // ➕ 3. Yeni Müşteri Ekleme (POST api/addCustomer)
     customerForOffer: async (searchTerm) => {
         return crudClient.post("api/customerForOffer", { searchTerm }); // <-- { searchTerm: "acme" } gidiyor
-    }
+    },
+
+    // 🔢 Teklif Numarası Alma (GET api/setOfferNumber)
+    setOfferNumber: async () => {
+        return crudClient.get("api/setOfferNumer");
+    },
+
+    // 🗑️ Teklif Numarası Rezerve İptal (POST api/unsetOfferNumber)
+    unSetOfferNumber: async (numara) => {
+        return crudClient.post("api/unsetOfferNumber", { numara });
+    },
 };
 
 export default API;

@@ -17,7 +17,8 @@ const TEXT_FIELDS = [
   "parametre_adi",
   "parametre_key",
   "plakaboyut", "mekKisi", "mekGun",
-  "elkKisi", "elkGun", "hacim", "alan"
+  "elkKisi", "elkGun", "hacim", "alan",
+  "teklif_numarasi"
 ];
 
 const ExcelGrid = ({

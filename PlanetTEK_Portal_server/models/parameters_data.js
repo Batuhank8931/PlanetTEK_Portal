@@ -14,7 +14,34 @@ const ALLOWED_COLUMNS = ["parametre_key", "parametre_adi", "deger"];
 
 const getParamteters = async (req, res) => {
     try {
+        // 1. Proses parametrelerini çek
         const [rows] = await pool.execute("SELECT * FROM process_parameters ORDER BY id ASC");
+        
+        // 2. Teklif numarasını teklif_numarasi tablosundan en güncel kaydı alarak çek
+        const [teklifRows] = await pool.execute("SELECT numara FROM teklif_numarasi ORDER BY created_at DESC LIMIT 1");
+        const teklifNum = teklifRows.length > 0 ? teklifRows[0].numara : "";
+
+        // Eğer veritabanı parametrelerinde teklif_numarasİ kaydı yoksa listeye dinamik olarak ekle
+        const hasTeklifKey = rows.some(r => 
+            ["teklif_numarasi", "teklif_numarasi"].includes(String(r.parametre_key).toLowerCase())
+        );
+
+        if (!hasTeklifKey) {
+            rows.push({
+                id: "teklif_numarasi_db_row",
+                parametre_key: "teklif_numarasi",
+                parametre_adi: "Teklif Numarasi",
+                deger: teklifNum
+            });
+        } else {
+            // Var olan teklif numarası parametresinin değerini teklif_numarasi tablosuyla eşitle
+            rows.forEach(r => {
+                if (["teklif_numarasi", "teklif_numarasi"].includes(String(r.parametre_key).toLowerCase())) {
+                    r.deger = teklifNum;
+                }
+            });
+        }
+
         return res.json(rows);
     } catch (error) {
         console.error("getParamteters Error:", error.message);
@@ -36,41 +63,54 @@ const updateParametersData = async (req, res) => {
 
     let eklenenSatir = 0;
     let guncellenenSatir = 0;
-    let silinenSatir = 0;
     const loglar = [];
 
     try {
         for (const change of updates) {
             const { id, type, columnName, newValue, oldValue, rowName } = change;
 
-            // ❌ DURUM 1: SİLME
-            if (newValue === null || newValue === undefined || type === "DELETE") {
-                if (id && String(id).startsWith("new_")) continue;
-
-                const [delResult] = await connection.execute(
-                    "DELETE FROM process_parameters WHERE id = ? OR parametre_key = ?",
-                    [id || null, rowName || null]
-                );
-
-                if (delResult.affectedRows > 0) {
-                    silinenSatir++;
-                    loglar.push({
-                        userId,
-                        payload: { tip: "parametre_silme", tablo: "process_parameters", kayit_id: id, sutun: "all", eski_deger: oldValue, yeni_deger: null, not: `Parametre silindi: ${rowName || id}`, tarih: new Date().toISOString() }
-                    });
-                }
+            // ❌ SİLME İŞLEMLERİ İPTAL EDİLDİ
+            // Eğer gelen istek DELETE tipindeyse veya değer null ise işlem yapmadan pas geçiyoruz
+            if (type === "DELETE" || (newValue === null && type !== "UPDATE")) {
                 continue;
             }
 
-            // Sayısal değer senkronizasyonu (Virgülü noktaya çevirme fonksiyonu)
+            // 🎯 TEKLİF NUMARASI GÜNCELLEME İŞLEMİ (teklif_numarasi tablosuna yazar)
+            const paramKeyCheck = String(rowName || change.additionalData?.parametre_key || "").toLowerCase();
+            if (["teklif_numarasi", "teklif_numarasi"].includes(paramKeyCheck)) {
+                const yeniTeklifNo = String(newValue || "").trim();
+
+                // Mevcut teklif numarasını temizleyip yenisini ekliyoruz
+                await connection.execute("DELETE FROM teklif_numarasi");
+                if (yeniTeklifNo) {
+                    await connection.execute("INSERT INTO teklif_numarasi (numara) VALUES (?)", [yeniTeklifNo]);
+                }
+
+                guncellenenSatir++;
+                loglar.push({
+                    userId,
+                    payload: { 
+                        tip: "teklif_numarasi_guncelleme", 
+                        tablo: "teklif_numarasi", 
+                        kayit_id: 1, 
+                        sutun: "numara", 
+                        eski_deger: oldValue, 
+                        yeni_deger: yeniTeklifNo, 
+                        not: `Teklif numarası güncellendi: ${yeniTeklifNo}`, 
+                        tarih: new Date().toISOString() 
+                    }
+                });
+                continue;
+            }
+
+            // Sayısal değer dönüştürme fonksiyonu
             const parseToNumber = (val) => {
                 if (val === undefined || val === null) return 0;
-                // "130,00" -> "130.00" dönüşümü yapar
                 const formatted = String(val).replace(",", "."); 
                 return isNaN(Number(formatted)) ? 0 : Number(formatted);
             };
 
-            // ➕ DURUM 2: INSERT
+            // ➕ DURUM 1: INSERT
             if (!id || String(id).startsWith("new_") || type === "INSERT") {
                 const parametreKey = (type === "INSERT" ? rowName : change.additionalData?.parametre_key) || `NEW_PARAM_${Date.now()}`;
                 const parametreAdi = change.additionalData?.parametre_adi || rowName || "Yeni Tanımlanan Parametre";
@@ -85,14 +125,22 @@ const updateParametersData = async (req, res) => {
                     eklenenSatir++;
                     loglar.push({
                         userId,
-                        payload: { tip: "parametre_ekleme", tablo: "process_parameters", kayit_id: insResult.insertId, sutun: "deger", eski_deger: 0, yeni_deger: baslangicDegeri, not: `Yeni parametre eklendi: ${parametreKey}`, tarih: new Date().toISOString() }
+                        payload: { 
+                            tip: "parametre_ekleme", 
+                            tablo: "process_parameters", 
+                            kayit_id: insResult.insertId, 
+                            sutun: "deger", 
+                            eski_deger: 0, 
+                            yeni_deger: baslangicDegeri, 
+                            not: `Yeni parametre eklendi: ${parametreKey}`, 
+                            tarih: new Date().toISOString() 
+                        }
                     });
                 }
                 continue;
             }
 
-            // 🔄 DURUM 3: UPDATE
-            // Gelen sütun adını küçük harfe çevirerek whitelist kontrolü yapıyoruz (DEGER -> deger)
+            // 🔄 DURUM 2: UPDATE
             const lowerColumnName = String(columnName).toLowerCase();
             const targetColumn = ALLOWED_COLUMNS.includes(lowerColumnName) ? lowerColumnName : "deger";
 
@@ -110,7 +158,16 @@ const updateParametersData = async (req, res) => {
                 guncellenenSatir++;
                 loglar.push({
                     userId,
-                    payload: { tip: "parametre_guncelleme", tablo: "process_parameters", kayit_id: id, sutun: targetColumn, eski_deger: oldValue, yeni_deger: parsedValue, not: `Parametre hücresi güncellendi (${rowName})`, tarih: new Date().toISOString() }
+                    payload: { 
+                        tip: "parametre_guncelleme", 
+                        tablo: "process_parameters", 
+                        kayit_id: id, 
+                        sutun: targetColumn, 
+                        eski_deger: oldValue, 
+                        yeni_deger: parsedValue, 
+                        not: `Parametre hücresi güncellendi (${rowName})`, 
+                        tarih: new Date().toISOString() 
+                    }
                 });
             }
         }
@@ -124,7 +181,7 @@ const updateParametersData = async (req, res) => {
         await connection.commit();
         return res.json({
             success: true,
-            message: `İşlemler başarıyla tamamlandı. (${eklenenSatir} Eklendi, ${guncellenenSatir} Güncellendi, ${silinenSatir} Silindi)`
+            message: `İşlemler başarıyla tamamlandı. (${eklenenSatir} Eklendi, ${guncellenenSatir} Güncellendi)`
         });
 
     } catch (error) {
