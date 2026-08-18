@@ -443,8 +443,11 @@ export const ekipmanTabloHesap = (formData) => {
         { id: `s5_14`, type: `spec`, label: teklifDili === "Yabancı" ? "RBC Unit Manufacturer" : "RBC Ünitesi İmalatçısı", value: "PlanetTEK Environmental and Water Wastewater Treatment Technologies Inc." },
         { id: `s5_15`, type: `spec`, label: teklifDili === "Yabancı" ? "Motor Manufacturer" : "Motor İmalatçısı", value: teklifDili === "Yabancı" ? "WAT or equivalent" : "WAT veya muadili" },
         { id: `s5_16`, type: `spec`, label: teklifDili === "Yabancı" ? "Gearbox Manufacturer" : "Redüktör İmalatçısı", value: teklifDili === "Yabancı" ? "PGR or equivalent" : "PGR veya muadili" },
+        ...(atiksuType === "endustriyel" ? [
+            { id: `e5.1`, type: `equip`, label: teklifDili === "Yabancı" ? `Blower` : `Blower`, isUrgent: false },
 
-        { id: `e5.1`, type: `equip`, label: teklifDili === "Yabancı" ? `Blower` : `Blower`, isUrgent: false },
+        ] : []),
+
         { id: `s5.1_1`, type: `spec`, label: teklifDili === "Yabancı" ? "Quantity" : "Miktar", value: teklifDili === "Yabancı" ? `1 Unit` : ` 1 Adet` },
         {
             id: "s5.1_2",

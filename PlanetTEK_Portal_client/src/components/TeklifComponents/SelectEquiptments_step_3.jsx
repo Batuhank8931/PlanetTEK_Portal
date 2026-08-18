@@ -59,7 +59,7 @@ function SelectEquiptments() {
     ileriAritma: { id: "ileriAritma", label: "3. İleri Arıtma Ünitesi", checked: false, visited: false, isActiveTab: false },
     filtrasyon: { id: "filtrasyon", label: "4. Filtrasyon Sistemi", checked: false, visited: false, isActiveTab: false },
     sludgeDewatering: { id: "sludgeDewatering", label: "5. Çamur Susuzlaştırma", checked: false, visited: false, isActiveTab: false },
-    membrane: { id: "membrane", label: "6. Memebran Sistemi", checked: false, visited: false, isActiveTab: false }
+    membrane: { id: "membrane", label: "6. Membran Sistemi", checked: false, visited: false, isActiveTab: false }
   };
 
   const activeModule = Object.values(modules).find((m) => m.isActiveTab && m.checked);

@@ -187,6 +187,7 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
         resolveMontajPrices(formData, priceData)
     ]);
 
+
     const dinamikOpsiyonKalemleri = Object.entries(camurOpsiyonlari)
         .filter(([key, value]) => isCamurAktif && value?.secili === true)
         .map(([key, value]) => {
@@ -280,11 +281,19 @@ export default async function capexHesapFonksiyonu(formData, priceData) {
             discount: planetTekIndirim
         },
         {
-            id: "2_rbc_sase",
+            id: "2_rbc_sase_kapaksiz",
             type: 3,
-            piece: rbcRotor ? toplamRbcAdeti : 0,
-            label: dict.rbc_sase(rbcModeli, uniteBasinaDiskSayisi, uniteBasinaDiskAlani),
+            piece: rbcRotor ? (UniteTipi === "Kapaksız" ? toplamRbcAdeti : 0) : 0,
+            label: dict.rbc_sase_kapaksiz(rbcModeli, uniteBasinaDiskSayisi, uniteBasinaDiskAlani),
             unitPrice: rbcPrices.sase,
+            discount: planetTekIndirim
+        },
+        {
+            id: "2_rbc_sase_kapakli",
+            type: 3,
+            piece: rbcRotor ? (UniteTipi === "Kapaklı" ? toplamRbcAdeti : 0) : 0,
+            label: dict.rbc_sase_kapakli(rbcModeli, uniteBasinaDiskSayisi, uniteBasinaDiskAlani),
+            unitPrice: (rbcPrices.sase + rbcPrices.kapak) ,
             discount: planetTekIndirim
         },
         {

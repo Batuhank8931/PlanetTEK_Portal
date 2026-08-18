@@ -190,7 +190,7 @@ function DiskParameters() {
     // UI Görünüm Koşulları
     const uiAktifModel = getUIAktifModel();
     const showKapakDropdown = uiAktifModel !== "MX_ROTOR"; // MX Rotor seçilirse Kapak Seçimi Gizlenir
-    const columnClass = showKapakDropdown ? "col-3" : "col-4";
+    const columnClass = "col-4";
 
     return (
         <div className="card-body p-0 px-4">
@@ -204,7 +204,7 @@ function DiskParameters() {
             <div className="p-3 rounded mb-3" style={{ backgroundColor: "#1e293b", border: "1px solid #334155" }}>
                 <div className="row g-2">
                     {/* Model / Tipi */}
-                    <div className={columnClass}>
+                    <div className="col-3">
                         <label className="text-white-50 mb-1 d-block text-truncate" style={{ fontSize: "11px" }}>Model / Tipi</label>
                         <select
                             name="RBCUnite"
@@ -218,10 +218,7 @@ function DiskParameters() {
                             <option value="MX_ROTOR">MX Rotor</option>
                         </select>
                     </div>
-
-                    {/* Koşullu Kapak Seçimi Dropdown */}
-                    {showKapakDropdown && (
-                        <div className={columnClass}>
+                        <div className="col-3">
                             <label className="text-white-50 mb-1 d-block text-truncate" style={{ fontSize: "11px" }}>Kapak Seçimi</label>
                             <select
                                 name="kapakSecimi"
@@ -234,10 +231,8 @@ function DiskParameters() {
                                 <option value="Kapaksız">Kapaksız</option>
                             </select>
                         </div>
-                    )}
-
                     {/* Max Disk Adedi */}
-                    <div className={columnClass}>
+                    <div className="col-3">
                         <label className="text-white-50 mb-1 d-block text-truncate" style={{ fontSize: "11px" }}>Max Disk Adedi</label>
                         <div className="d-flex align-items-center bg-dark rounded" style={{ height: "31px", overflow: "hidden" }}>
                             <button
@@ -263,7 +258,7 @@ function DiskParameters() {
                     </div>
 
                     {/* Min Disk Adedi */}
-                    <div className={columnClass}>
+                    <div className="col-3">
                         <label className="text-white-50 mb-1 d-block text-truncate" style={{ fontSize: "11px" }}>Min Disk Adedi</label>
                         <div className="d-flex align-items-center bg-dark rounded" style={{ height: "31px", overflow: "hidden" }}>
                             <button

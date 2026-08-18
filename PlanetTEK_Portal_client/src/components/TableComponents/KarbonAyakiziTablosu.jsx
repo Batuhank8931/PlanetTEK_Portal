@@ -103,13 +103,12 @@ function KarbonAyakiziTablosu() {
   }
 
   // Ağaç eşdeğeri hesabı
-  const rawEquivalentTrees = isUS
-    ? (savedCo2 * 2000) / 48.5  // Ton -> lbs ve 48.5 lbs/ağaç emilimi
-    : (savedCo2 * 1000) / 22;   // Metrik ton -> kg ve 22 kg/ağaç emilimi
+const rawEquivalentTrees = isUS
+    ? (savedCo2 * 2000) / 942.5  
+    : (savedCo2 * 1000) / 427.5; // 37.2 ton * (1000 / 427.5) = 87 ağaç
 
-  const equivalentTrees = rawEquivalentTrees > 1000
-    ? Math.round(rawEquivalentTrees / 1000) * 1000
-    : Math.round(rawEquivalentTrees / 100) * 100;
+  // Binlik yuvarlama yerine tam/en yakın sayıya yuvarlama:
+  const equivalentTrees = Math.round(rawEquivalentTrees);
 
   const altSystemName = selectedSystem === "aktif_camur"
     ? (isForeign ? "Activated Sludge System" : "Klasik Aktif Çamur Sistemi")

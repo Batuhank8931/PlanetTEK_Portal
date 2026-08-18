@@ -28,7 +28,8 @@ export const CAPEX_LABELS = {
         yapi_dagitim: (giris, cikis) => `Debi Dağıtım Yapısı (Giriş: ${giris}, Çıkış: ${cikis})`,
 
         rbc_kapakli: (rbcModeli, uniteBasinaDiskSayisi, uniteBasinaDiskAlani) => `PlanetDISK® ${rbcModeli} 1 DBD Ünitesi;\n- Epoksi Boyalı AISI 1045 (C45) Karbon Çelik Dolu Mil,\n- Islak Parçalar SS304 Paslanmaz ve Galvaniz Kaplı Çelik,\n- Mil Başına ${uniteBasinaDiskSayisi},\n- Disk Yüzey Alanı ${uniteBasinaDiskAlani}`,
-        rbc_sase: (rbcModeli, uniteBasinaDiskSayisi, uniteBasinaDiskAlani) => `PlanetDISK® ${rbcModeli} 1 DBD Rotor;\n- Epoksi Boyalı AISI 1045 (C45) Karbon Çelik Dolu Mil,\n- Islak Parçalar SS304 Paslanmaz ve Galvaniz Kaplı Çelik,\n- Mil Başına ${uniteBasinaDiskSayisi},\n- Disk Yüzey Alanı ${uniteBasinaDiskAlani}`,
+        rbc_sase_kapakli: (rbcModeli, uniteBasinaDiskSayisi, uniteBasinaDiskAlani) => `PlanetDISK® ${rbcModeli} 1 DBD Rotor;\n- Epoksi Boyalı AISI 1045 (C45) Karbon Çelik Dolu Mil,\n- Islak Parçalar SS304 Paslanmaz ve Galvaniz Kaplı Çelik,\n- Mil Başına ${uniteBasinaDiskSayisi},\n- Disk Yüzey Alanı ${uniteBasinaDiskAlani}`,
+        rbc_sase_kapaksiz: (rbcModeli, uniteBasinaDiskSayisi, uniteBasinaDiskAlani) => `PlanetDISK® ${rbcModeli} 1 DBD Rotor(Kapaksız);\n- Epoksi Boyalı AISI 1045 (C45) Karbon Çelik Dolu Mil,\n- Islak Parçalar SS304 Paslanmaz ve Galvaniz Kaplı Çelik,\n- Mil Başına ${uniteBasinaDiskSayisi},\n- Disk Yüzey Alanı ${uniteBasinaDiskAlani}`,
         rbc_kapaksiz: (rbcModeli, uniteBasinaDiskSayisi, uniteBasinaDiskAlani) => `PlanetDISK® ${rbcModeli} 1 DBD Ünitesi(Kapaksız);\n- Epoksi Boyalı AISI 1045 (C45) Karbon Çelik Dolu Mil,\n- Islak Parçalar SS304 Paslanmaz ve Galvaniz Kaplı Çelik,\n- Mil Başına ${uniteBasinaDiskSayisi},\n- Disk Yüzey Alanı ${uniteBasinaDiskAlani}`,
         rbc_kapak: (rbcModeli) => `PlanetDISK® ${rbcModeli} 1 DBD Ünitesi Kapağı`,
         rbc_blower: (rbcModeli) => `Blower`,
@@ -101,7 +102,8 @@ export const CAPEX_LABELS = {
         yapi_dagitim: (giris, cikis) => `Flow Distribution Structure (Influent: ${giris}, Effluent: ${cikis})`,
 
         rbc_kapakli: (rbcModeli, uniteBasinaDiskSayisi, uniteBasinaDiskAlani) => `PlanetDISK® ${rbcModeli} 1 RBC Unit;\n- Epoxy Painted AISI 1045 (C45) Carbon Steel Solid Shaft,\n- Wet Parts SS304 Stainless and Galvanized Coated Steel,\n- ${uniteBasinaDiskSayisi} per Shaft,\n- Disk Surface Area ${uniteBasinaDiskAlani}`,
-        rbc_sase: (rbcModeli, uniteBasinaDiskSayisi, uniteBasinaDiskAlani) => `PlanetDISK® ${rbcModeli} 1 RBC Rotor;\n- Epoxy Painted AISI 1045 (C45) Carbon Steel Solid Shaft,\n- Wet Parts SS304 Stainless and Galvanized Coated Steel,\n- ${uniteBasinaDiskSayisi} per Shaft,\n- Disk Surface Area ${uniteBasinaDiskAlani}`,
+        rbc_sase_kapakli: (rbcModeli, uniteBasinaDiskSayisi, uniteBasinaDiskAlani) => `PlanetDISK® ${rbcModeli} 1 RBC Rotor;\n- Epoxy Painted AISI 1045 (C45) Carbon Steel Solid Shaft,\n- Wet Parts SS304 Stainless and Galvanized Coated Steel,\n- ${uniteBasinaDiskSayisi} per Shaft,\n- Disk Surface Area ${uniteBasinaDiskAlani}`,
+        rbc_sase_kapaksiz: (rbcModeli, uniteBasinaDiskSayisi, uniteBasinaDiskAlani) => `PlanetDISK® ${rbcModeli} 1 RBC Rotor (Without Lid);\n- Epoxy Painted AISI 1045 (C45) Carbon Steel Solid Shaft,\n- Wet Parts SS304 Stainless and Galvanized Coated Steel,\n- ${uniteBasinaDiskSayisi} per Shaft,\n- Disk Surface Area ${uniteBasinaDiskAlani}`,
         rbc_kapaksiz: (rbcModeli, uniteBasinaDiskSayisi, uniteBasinaDiskAlani) => `PlanetDISK® ${rbcModeli} 1 RBC Unit (Without Lid);\n- Epoxy Painted AISI 1045 (C45) Carbon Steel Solid Shaft,\n- Wet Parts SS304 Stainless and Galvanized Coated Steel,\n- ${uniteBasinaDiskSayisi} per Shaft,\n- Disk Surface Area ${uniteBasinaDiskAlani}`,
         rbc_kapak: (rbcModeli) => `PlanetDISK® ${rbcModeli} 1 RBC Unit Lid`,
         rbc_blower: (rbcModeli) => `Blower`,

@@ -54,24 +54,18 @@ export const hesaplaKlasikSistemEkipmanlari = (planetData, selectedSystem = "akt
     const planetActualPower = planetTotalPower * (planetData.consumptionFactor / 100);
     const planetDailyKwh = planetActualPower * planetData.dailyHours;
 
-    // input güvenliği için küçük harfe çeviriyoruz
     const systemKey = selectedSystem.toLowerCase();
-
-    // Eğer "mbbr" ise 5, değilse (veya aktif_camur ise) 6
     const carpan = systemKey === "mbbr" ? 5 : 6;
 
     const hedefKlasikDailyKwh = planetDailyKwh * carpan;
 
-    // Alternatif sistem tüketim kırılımı: %85 Blower, %15 Çamur Pompası
-    const blowerHedefKwh = hedefKlasikDailyKwh * 0.85;
-    const pompaHedefKwh = hedefKlasikDailyKwh * 0.15;
-
-    // Blower (24 saat) ve Pompa (4 saat) için gerekli net kurulu güç hedefleri
-    const gerekenBlowerToplamKuruluKw = (blowerHedefKwh / 24) / 0.90;
-    const gerekenPompaToplamKuruluKw = (pompaHedefKwh / 4) / 0.90;
-
-    // Standart array'lerden gerçekçi adet ve güç seçimi yapılıyor
+    // 1. Blower gücünü ana tüketim üzerinden belirle (24 saat çalışma)
+    const gerekenBlowerToplamKuruluKw = (hedefKlasikDailyKwh / 24) / 0.90;
     const secilenBlower = enUygunEkipmaniSec(gerekenBlowerToplamKuruluKw, STANDART_BLOWERLAR);
+
+    // 2. Pompa kurulu gücünü seçilen blower toplam gücünün %12-%15'i olarak hedefle
+    const toplamBlowerKw = secilenBlower.qty * secilenBlower.power;
+    const gerekenPompaToplamKuruluKw = toplamBlowerKw * 0.14; // 11 kW için ~1.54 kW hedef çıkar
     const secilenPompa = enUygunEkipmaniSec(gerekenPompaToplamKuruluKw, STANDART_POMPALAR);
 
     return {
