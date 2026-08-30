@@ -29,22 +29,22 @@ function EnerjiIsletmeTablosu() {
     };
 
     // 🌟 Input Alanlarında Formatlı Gösterim İçin Yardımcı Fonksiyon
-    const formatInputValue = (val) => {
+    const formatInputValue = (val, maxDigits = 2) => {
         if (val === undefined || val === null || val === "") return "";
         const num = parseFloat(val);
         if (isNaN(num)) return val;
 
         return num.toLocaleString(activeLocale, {
             minimumFractionDigits: 0,
-            maximumFractionDigits: 2
+            maximumFractionDigits: maxDigits
         });
     };
 
     // 🌟 Formatlanmış string değerini temiz JS float'ına çevirir
     const parseInputValue = (val) => {
-        if (!val) return 0;
+        if (!val && val !== 0) return 0;
 
-        let cleanVal = val.toString();
+        let cleanVal = val.toString().trim();
         if (isForeign) {
             cleanVal = cleanVal.replace(/,/g, "");
         } else {
@@ -59,24 +59,25 @@ function EnerjiIsletmeTablosu() {
     });
 
     // İnputların anlık string değerlerini tutacak local stateler
-    const [inputHydraulic, setInputHydraulic] = useState(formatInputValue(storeDebi));
-    const [inputEnergyPrice, setInputEnergyPrice] = useState(formatInputValue((13 * exchangeRate).toFixed(2)));
+    const [inputHydraulic, setInputHydraulic] = useState(formatInputValue(storeDebi, 2));
+    const [inputEnergyPrice, setInputEnergyPrice] = useState(formatInputValue((13 * exchangeRate).toFixed(2), 2));
 
     const [rows, setRows] = useState(() => {
         if (storeTabloVerisi && storeTabloVerisi.length > 0) return storeTabloVerisi;
         return [];
     });
 
+    const [editingCell, setEditingCell] = useState(null);
     const [history, setHistory] = useState([]);
     const [activeMenuId, setActiveMenuId] = useState(null);
 
     // Sync input values when params or exchangeRate changes
     useEffect(() => {
-        setInputHydraulic(formatInputValue(params.hydraulicLoad));
+        setInputHydraulic(formatInputValue(params.hydraulicLoad, 2));
     }, [params.hydraulicLoad]);
 
     useEffect(() => {
-        setInputEnergyPrice(formatInputValue((params.energyPrice * exchangeRate).toFixed(2)));
+        setInputEnergyPrice(formatInputValue((params.energyPrice * exchangeRate).toFixed(2), 2));
     }, [params.energyPrice, exchangeRate]);
 
     const getCurrencySymbol = () => {
@@ -105,7 +106,7 @@ function EnerjiIsletmeTablosu() {
         return q * p * c * h;
     };
 
-    // 🌟 ÖZET HESAPLAMA FONKSİYONU (Dışarıdan verilen rows array'i üzerinden anlık hesaplar)
+    // 🌟 ÖZET HESAPLAMA FONKSİYONU
     const getSummaryPayload = (targetRows = rows, currentParams = params) => {
         const totalKwhDayVal = (targetRows || []).reduce((sum, row) => sum + calculateRowConsumption(row), 0);
 
@@ -160,7 +161,6 @@ function EnerjiIsletmeTablosu() {
         };
     };
 
-    // Render hesaplamaları (UI için)
     const summaryData = getSummaryPayload(rows, params).summary;
 
     useEffect(() => {
@@ -290,7 +290,10 @@ function EnerjiIsletmeTablosu() {
 
     const handleCellChange = (id, field, val) => {
         saveToHistory(rows);
-        const parsedVal = parseInputValue(val);
+        let parsedVal = val;
+        if (field === "qty" || field === "power" || field === "consumed" || field === "hours") {
+            parsedVal = parseInputValue(val);
+        }
         const updatedRows = rows.map(row => row.id === id ? { ...row, [field]: parsedVal } : row);
         updateStoreWithNewRows(updatedRows);
     };
@@ -320,6 +323,40 @@ function EnerjiIsletmeTablosu() {
         if (row.isSubHeader) return row.isLight ? "#2a3a52" : "#1e2d42";
         if (!row.isHeader && !row.isSubHeader && (parseFloat(row.qty) === 0)) return "#2a1515";
         return "#151f32";
+    };
+
+    // 🌟 Formatlı Input Hücresi Render Metodu (Sarf Malzeme ile Aynı Mantık)
+    const renderManagedInput = (row, field, rawValue, maxDigits = 2, widthStyle = "100%", extraClass = "") => {
+        const isCurrent = editingCell?.id === row.id && editingCell?.field === field;
+
+        let displayValue = "";
+        if (isCurrent) {
+            displayValue = editingCell.value;
+        } else {
+            const valNum = parseFloat(rawValue || 0);
+            displayValue = formatInputValue(valNum, maxDigits);
+        }
+
+        return (
+            <input
+                type="text"
+                className={`form-control form-control-sm text-center text-white bg-transparent border-0 energy-input ${extraClass}`}
+                style={{ fontSize: "12px", boxShadow: "none", width: widthStyle }}
+                value={displayValue}
+                onChange={(e) => {
+                    setEditingCell({ ...editingCell, value: e.target.value });
+                }}
+                onFocus={() => {
+                    const valNum = parseFloat(rawValue || 0);
+                    const cleanString = isForeign ? valNum.toString() : valNum.toString().replace(".", ",");
+                    setEditingCell({ id: row.id, field, value: cleanString });
+                }}
+                onBlur={(e) => {
+                    handleCellChange(row.id, field, e.target.value);
+                    setEditingCell(null);
+                }}
+            />
+        );
     };
 
     return (
@@ -365,7 +402,7 @@ function EnerjiIsletmeTablosu() {
                                                 onBlur={(e) => {
                                                     const parsed = parseInputValue(e.target.value);
                                                     setParams({ ...params, hydraulicLoad: parsed });
-                                                    setInputHydraulic(formatInputValue(parsed));
+                                                    setInputHydraulic(formatInputValue(parsed, 2));
                                                 }}
                                             />
                                             <span className="text-white fw-semibold" style={{ fontSize: "12px" }}>{getFlowUnitLabel()}</span>
@@ -387,7 +424,7 @@ function EnerjiIsletmeTablosu() {
                                                     const displayVal = parseInputValue(e.target.value);
                                                     const targetBasePrice = displayVal / exchangeRate;
                                                     setParams({ ...params, energyPrice: targetBasePrice });
-                                                    setInputEnergyPrice(formatInputValue((targetBasePrice * exchangeRate).toFixed(2)));
+                                                    setInputEnergyPrice(formatInputValue((targetBasePrice * exchangeRate).toFixed(2), 2));
                                                 }}
                                             />
                                             <span className="text-warning fw-semibold" style={{ fontSize: "12px" }}>{getCentSymbol()}/kWh</span>
@@ -502,66 +539,42 @@ function EnerjiIsletmeTablosu() {
                                     </div>
                                     <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
 
+                                    {/* Adet */}
                                     <div className="p-1 d-flex align-items-center justify-content-center" style={{ width: "6%" }}>
-                                        {!isHeading && (
-                                            <input
-                                                type="text"
-                                                className="form-control form-control-sm text-center bg-transparent border-0 energy-input fw-bold text-white"
-                                                style={{ fontSize: "12px", boxShadow: "none" }}
-                                                value={formatInputValue(row.qty)}
-                                                onChange={(e) => handleCellChange(row.id, "qty", e.target.value)}
-                                            />
-                                        )}
+                                        {!isHeading && renderManagedInput(row, "qty", row.qty, 0, "100%", "fw-bold")}
                                     </div>
                                     <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
 
+                                    {/* Birim Güç (kW) */}
                                     <div className="p-1 d-flex align-items-center justify-content-center" style={{ width: "10%" }}>
-                                        {!isHeading && (
-                                            <input
-                                                type="text"
-                                                className="form-control form-control-sm text-center text-white bg-transparent border-0 energy-input"
-                                                style={{ fontSize: "12px", boxShadow: "none" }}
-                                                value={formatInputValue(row.power)}
-                                                onChange={(e) => handleCellChange(row.id, "power", e.target.value)}
-                                            />
-                                        )}
+                                        {!isHeading && renderManagedInput(row, "power", row.power, 2, "100%")}
                                     </div>
                                     <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
 
+                                    {/* Toplam Güç (Hesaplanan) */}
                                     <div className="p-1 d-flex align-items-center justify-content-center fw-bold text-white" style={{ width: "10%", fontSize: "12px" }}>
                                         {!isHeading && formatNumber(totalPower, 0, 2)}
                                     </div>
                                     <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
 
+                                    {/* Tüketim (%) */}
                                     <div className="p-1 d-flex align-items-center justify-content-center" style={{ width: "9%" }}>
                                         {!isHeading && (
                                             <div className="d-flex align-items-center justify-content-center w-100">
-                                                <input
-                                                    type="text"
-                                                    className="form-control form-control-sm text-center text-white bg-transparent border-0 energy-input"
-                                                    style={{ fontSize: "12px", boxShadow: "none", width: "65%" }}
-                                                    value={formatInputValue(row.consumed)}
-                                                    onChange={(e) => handleCellChange(row.id, "consumed", e.target.value)}
-                                                />
+                                                {renderManagedInput(row, "consumed", row.consumed, 1, "65%")}
                                                 <span className="text-white-50" style={{ fontSize: "10px" }}>%</span>
                                             </div>
                                         )}
                                     </div>
                                     <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
 
+                                    {/* Çalışma Saati */}
                                     <div className="p-1 d-flex align-items-center justify-content-center" style={{ width: "10%" }}>
-                                        {!isHeading && (
-                                            <input
-                                                type="text"
-                                                className="form-control form-control-sm text-center text-white bg-transparent border-0 energy-input"
-                                                style={{ fontSize: "12px", boxShadow: "none" }}
-                                                value={formatInputValue(row.hours)}
-                                                onChange={(e) => handleCellChange(row.id, "hours", e.target.value)}
-                                            />
-                                        )}
+                                        {!isHeading && renderManagedInput(row, "hours", row.hours, 1, "100%")}
                                     </div>
                                     <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
 
+                                    {/* Elektrik Tüketimi */}
                                     <div className="p-1 px-3 d-flex align-items-center justify-content-end fw-bold" style={{ width: "18%", fontSize: "12px", color: "#4ade80" }}>
                                         {!isHeading && formatNumber(consumption, 0, 3)}
                                     </div>

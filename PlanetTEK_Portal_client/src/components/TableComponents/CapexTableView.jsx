@@ -1,4 +1,4 @@
-//CapexTableView.jsx
+// CapexTableView.jsx
 
 import React, { useEffect, useRef, useState } from "react";
 
@@ -26,6 +26,48 @@ const AutoResizeTextarea = ({ value, onChange, disabled, style, className }) => 
             style={{ ...style, resize: "none", overflowY: "hidden" }}
             className={className}
             rows={1}
+        />
+    );
+};
+
+// 🌟 Birim fiyat girişini akıcı kılan, format ve silme kilitlenmesini çözen bileşen
+const UnitPriceInput = ({ value, exchangeRate, teklifDili, onChange }) => {
+    const rate = parseFloat(exchangeRate) || 1;
+    const [isFocused, setIsFocused] = useState(false);
+    const [localText, setLocalText] = useState("");
+
+    const handleFocus = () => {
+        setIsFocused(true);
+        const converted = Number(value || 0) * rate;
+        setLocalText(converted === 0 ? "" : String(Math.round(converted * 100) / 100));
+    };
+
+    const handleChange = (e) => {
+        setLocalText(e.target.value);
+    };
+
+    const handleBlur = () => {
+        setIsFocused(false);
+        const parsed = parseFloat(localText);
+        const validParsed = isNaN(parsed) ? 0 : parsed;
+        onChange(validParsed / rate);
+    };
+
+    const locale = teklifDili === "Yerli" ? "de-DE" : "en-US";
+    const displayFormatted = (Number(value || 0) * rate).toLocaleString(locale, {
+        minimumFractionDigits: 0,
+        maximumFractionDigits: 2
+    });
+
+    return (
+        <input
+            type="text"
+            className="form-control form-control-sm text-end text-white bg-transparent border-0 p-0 capex-input fw-bold"
+            style={{ fontSize: "12px", boxShadow: "none" }}
+            value={isFocused ? localText : displayFormatted}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+            onChange={handleChange}
         />
     );
 };
@@ -69,7 +111,7 @@ function CapexTableView({
         return "€";
     };
 
-    // DÜZELTME 1: Genel toplam hesaplanırken sarı boncuklu (isLocalSupply) olanları da düşüyoruz
+    // Genel toplam hesaplanırken sarı boncuklu (isLocalSupply) olanları da düşüyoruz
     const totalNetPrice = numberedRows.reduce((sum, row) => {
         if (row.type === 3 && !row.isUrgent && !row.isOptional && !row.isLocalSupply && row.piece > 0) {
             const netVal = typeof row.netTotal === "number" ? row.netTotal : parseFloat(row.netTotal) || 0;
@@ -79,17 +121,9 @@ function CapexTableView({
     }, 0);
 
     // 🌟 Döviz Kuruna Göre Çevrim Yapan ve Formatlayan Fonksiyon
-    const formatPrice = (value, isInputActive = false) => {
+    const formatPrice = (value) => {
         if (typeof value === "string") return value;
-
-        // Ham Euro değerini gelen pariteyle çarpıyoruz
         const convertedValue = Number(value) * parseFloat(exchangeRate);
-
-        // Düzenleme modundayken binlik ayırıcılar (nokta/virgül) olmasın ki sayı rahat silinsin
-        if (isInputActive) {
-            return convertedValue.toFixed(2);
-        }
-
         const locale = teklifDili === "Yerli" ? "de-DE" : "en-US";
         return convertedValue.toLocaleString(locale, {
             minimumFractionDigits: 0,
@@ -231,7 +265,7 @@ function CapexTableView({
                 <div className="d-flex align-items-stretch border-bottom" style={{ borderBottomColor: "#334155" }}>
                     <div className="p-2 px-2 header-title-cell text-center" style={{ width: "4%" }}>No</div>
                     <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
-                    <div className="p-2 px-3 header-title-cell" style={{ width: "46%" }}>{teklifDili === "Yabancı" ? "Dsscription" : "Tanım"}</div>
+                    <div className="p-2 px-3 header-title-cell" style={{ width: "46%" }}>{teklifDili === "Yabancı" ? "Description" : "Tanım"}</div>
                     <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
                     <div className="p-2 px-2 header-title-cell text-center" style={{ width: "5%" }}>{teklifDili === "Yabancı" ? "Piece" : "Adet"}</div>
                     <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
@@ -252,7 +286,6 @@ function CapexTableView({
                         const rawTotal = row.rawTotal ?? 0;
                         const netTotal = row.netTotal ?? 0;
 
-                        // 🌟 Fiyat metinleri Euro (€) simgesinden güncel simgeye geçirildi
                         let totalStr = `${formatPrice(rawTotal)} ${getCurrencySymbol()}`;
                         let netStr = `${formatPrice(netTotal)} ${getCurrencySymbol()}`;
 
@@ -301,26 +334,16 @@ function CapexTableView({
                                 </div>
                                 <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
                                 
-                                {/* BİRİM FİYAT INPUTU */}
+                                {/* 🌟 BİRİM FİYAT INPUTU */}
                                 <div className="p-1 px-2 d-flex align-items-center justify-content-end" style={{ width: "11%" }}>
                                     {row.type < 3 || row.isUrgent ? null : (
-                                        <input
-                                            type={activeMenuId === `edit-${row.id}` ? "number" : "text"}
-                                            className="form-control form-control-sm text-end text-white bg-transparent border-0 p-0 capex-input fw-bold"
-                                            style={{ fontSize: "12px", boxShadow: "none" }}
-                                            // 🌟 Odaklanma anında parite çarpanlı ham sayıyı, odak yokken formatlı halini basar
-                                            value={activeMenuId === `edit-${row.id}` ? formatPrice(row.unitPrice, true) : formatPrice(row.unitPrice)}
-                                            onFocus={() => setActiveMenuId(`edit-${row.id}`)}
-                                            onBlur={() => setActiveMenuId(null)}
-                                            onChange={(e) => {
-                                                // 🌟 Kullanıcı yeni kurla girdiğinde arka plandaki Euro tabanını korumak için değeri pariteye bölüyoruz
-                                                const currentVal = parseFloat(e.target.value) || 0;
-                                                const baseEuroVal = currentVal / parseFloat(exchangeRate);
-                                                handleCellChange(row.id, "unitPrice", isNaN(baseEuroVal) ? 0 : baseEuroVal);
-                                            }}
+                                        <UnitPriceInput
+                                            value={row.unitPrice}
+                                            exchangeRate={exchangeRate}
+                                            teklifDili={teklifDili}
+                                            onChange={(newBaseEuro) => handleCellChange(row.id, "unitPrice", newBaseEuro)}
                                         />
                                     )}
-                                    {/* 🌟 Dinamik Simgeler */}
                                     {(row.type === 3 && !row.isUrgent) && <span className="text-white-50 ms-1" style={{ fontSize: "11px" }}>{getCurrencySymbol()}</span>}
                                 </div>
                                 <div style={{ width: "1px", backgroundColor: "#334155" }}></div>
@@ -420,7 +443,6 @@ function CapexTableView({
                     </div>
                     <div className="d-flex align-items-center gap-3">
                         <span className="fw-bold text-uppercase" style={{ fontSize: "12px", color: "#94a3b8", letterSpacing: "1px" }}>İndirim Sonrası Genel Toplam:</span>
-                        {/* 🌟 İndirim Sonrası Genel Toplam Kur Simge Dönüşümü */}
                         <span className="fw-extrabold text-white px-3 py-1 rounded bg-success bg-opacity-20" style={{ fontSize: "16px", border: "1px solid #22c55e", boxShadow: "0 0 10px rgba(34, 197, 94, 0.15)" }}>
                             {formatPrice(totalNetPrice)} {getCurrencySymbol()}
                         </span>
