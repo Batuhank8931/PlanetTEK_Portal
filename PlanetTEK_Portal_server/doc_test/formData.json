@@ -1,31 +1,32 @@
 {
   "customerInfo": {
-    "teklifNo": "0346",
-    "revizyonNo": "R0",
-    "unitSystem": "Metric",
-    "currency": "TRY",
-    "exchangeRate": "54.9691",
-    "ticari_unvan": "Acme Endüstri A.Ş.",
-    "teklifDili": "Yerli",
-    "planetTekIndirim": 20,
-    "ekipmanIndirim": 12,
-    "ilgiliKisi": "Mehmet Kaya (Operasyon)",
-    "offer_number": "YDD R0 06 08 2026 1 MX 1 70 25 114",
-    "##delivery1##": "10",
+    "##delivery1##": "1",
     "##delivery2##": "8-10",
     "##delivery3##": "3-4",
     "##delivery4##": "1",
-    "ilgiliKisi_email": "mehmet.kaya@acme.com"
+    "teklifNo": "0298",
+    "revizyonNo": "R0",
+    "unitSystem": "Metric",
+    "currency": "EUR",
+    "exchangeRate": "1.0000",
+    "customer_id": 1,
+    "ticari_unvan": "Acme Endüstri A.Ş.\t",
+    "teklifDili": "Yerli",
+    "planetTekIndirim": 20,
+    "ekipmanIndirim": 12,
+    "ilgiliKisi": "Ahmet Yılmaz",
+    "ilgiliKisi_email": "ahmet@acme.com",
+    "offer_number": "YDD R0 21 09 2026 1 MX 1 76 23 112"
   },
   "planetDiskDetails": {
-    "debi": 70,
+    "debi": 75.708823,
     "tasarim": {
       "aritmaParametreleri": {
         "hesapYontemi": "hidrolik",
         "atiksutype": "evsel",
         "RBCUnite": "MX",
-        "girisBoi": 350,
-        "debi": 70,
+        "girisBoi": 300,
+        "debi": 75.708823,
         "cikisBoi": 40,
         "sicaklik": 19,
         "giderimVerimi": 33,
@@ -38,7 +39,7 @@
         "isEmperikManual": false,
         "kaynaklar": [
           {
-            "id": 1786020026857,
+            "id": 1789974330475,
             "ad": "1. KAYNAK",
             "kisiSayisi": 3000,
             "organikYuk": 60,
@@ -51,28 +52,12 @@
       "finalMetrekare": [
         {
           "kademeAdi": "Genel Kademe",
-          "alan": "746.14",
-          "girisBoi": "350",
+          "alan": "691.7",
+          "girisBoi": "300",
           "cikisBoi": "40",
           "emperik": "22"
         }
       ],
-      "lamella": {
-        "secilenLamellaDebisi": 70,
-        "secilenLamellaModeli": "LS_15",
-        "gerekliLamellaAlani": "1.17",
-        "gerekliLamellaHacmi": "1.46",
-        "lamellaAdet": 1,
-        "camurPompasi": {
-          "id": 9,
-          "name": "smt 100A",
-          "pompa_tipi": "centrifuge",
-          "kw": "0.8"
-        },
-        "camurPompasiAdet": 1,
-        "secilenModelAlan": 15,
-        "secilenModelHacim": 1.5
-      },
       "secilenUnite": 1,
       "secilenSira": 1,
       "yerlesimDuzeni": [],
@@ -82,9 +67,9 @@
           "genelSiraNo": 1,
           "siraTipi": 0,
           "adet": 1,
-          "milBasinaDisk": 114,
-          "OrginalDiskAdedi": 114,
-          "beklemeSuresi": 1.54,
+          "milBasinaDisk": 112,
+          "OrginalDiskAdedi": 105,
+          "beklemeSuresi": 1.43,
           "color": "#15803d",
           "borderColor": "#16a34a",
           "textColor": "#4ade80"
@@ -94,9 +79,9 @@
           "genelSiraNo": 2,
           "kademeNo": "Çökeltim",
           "adet": 1,
-          "model": "LS_15",
-          "alan": "1.17",
-          "hacim": "1.46",
+          "model": "LS_30",
+          "alan": "1.26",
+          "hacim": "1.58",
           "color": "#0f766e",
           "borderColor": "#14b8a6",
           "textColor": "#2dd4bf"
@@ -106,12 +91,28 @@
       "lastCalculatedFinalMetrekare": [
         {
           "kademeAdi": "Genel Kademe",
-          "alan": "746.14",
-          "girisBoi": "350",
+          "alan": "691.7",
+          "girisBoi": "300",
           "cikisBoi": "40",
           "emperik": "22"
         }
-      ]
+      ],
+      "lamella": {
+        "secilenLamellaDebisi": 75.708823,
+        "secilenLamellaModeli": "LS_30",
+        "gerekliLamellaAlani": "1.26",
+        "gerekliLamellaHacmi": "1.58",
+        "lamellaAdet": 1,
+        "camurPompasi": {
+          "id": 9,
+          "name": "smt 100A",
+          "pompa_tipi": "centrifuge",
+          "kw": "0.8"
+        },
+        "camurPompasiAdet": 1,
+        "secilenModelAlan": 30,
+        "secilenModelHacim": 3
+      }
     }
   },
   "equipments": {
@@ -153,21 +154,21 @@
       },
       "membrane": {
         "id": "membrane",
-        "label": "6. Memebran Sistemi",
+        "label": "6. Membran Sistemi",
         "checked": false,
         "visited": false,
         "isActiveTab": false
       }
     },
     "feedPump": {
-      "manualHourlyFlow": "2.92",
+      "manualHourlyFlow": "3.15",
       "manualMinMss": "5.9",
       "pumpOffset": 0,
       "pompaAdeti": 1,
       "secilenPompaMetni": "City Pumps Ranger 10 35",
       "pumpkW": 0.8,
       "isManualUserControl": false,
-      "calculatedMainDebi": 70,
+      "calculatedMainDebi": 75.708823,
       "hasDistributionStructure": false,
       "distributionGirisAdet": 0,
       "distributionCikisAdet": 0
@@ -179,7 +180,7 @@
       "yagTutucuBoyut": "1000 x 1000 mm",
       "onAritmaKapasite": 200,
       "isManualUserControl": false,
-      "calculatedMainDebi": 70
+      "calculatedMainDebi": 75.708823
     }
   },
   "tables": {
@@ -188,7 +189,7 @@
         "id": "design_hidrolikYuk_0",
         "label": "Toplam Atıksu Miktarı (max) – Hidrolik Yük",
         "unit": "m³/gün",
-        "giriş": "70",
+        "giriş": "75,71",
         "çıkış": "-",
         "isUrgent": false
       },
@@ -196,7 +197,7 @@
         "id": "design_organikYuk_1",
         "label": "Toplam Kirlilik (max) – Organik Yük",
         "unit": "kg/gün",
-        "giriş": "24,5",
+        "giriş": "22,71",
         "çıkış": "-",
         "isUrgent": false
       },
@@ -204,7 +205,7 @@
         "id": "design_dizaynDebisi_2",
         "label": "Tesis Dizayn Debisi",
         "unit": "m³/saat",
-        "giriş": "2,92",
+        "giriş": "3,15",
         "çıkış": "-",
         "isUrgent": false
       },
@@ -212,7 +213,7 @@
         "id": "design_boi_3",
         "label": "Biyolojik Oksijen İhtiyacı (BOİ₅)",
         "unit": "mg/L",
-        "giriş": "350",
+        "giriş": "300",
         "çıkış": "40",
         "isUrgent": false
       },
@@ -220,7 +221,7 @@
         "id": "design_koi_4",
         "label": "Kimyasal Oksijen İhtiyacı (KOİ)",
         "unit": "mg/L",
-        "giriş": "630",
+        "giriş": "540",
         "çıkış": "72",
         "isUrgent": false
       },
@@ -228,7 +229,7 @@
         "id": "design_akm_5",
         "label": "Askıda Katı Madde (AKM)",
         "unit": "mg/L",
-        "giriş": "350",
+        "giriş": "300",
         "çıkış": "<40",
         "isUrgent": false
       },
@@ -349,7 +350,7 @@
           "id": "1_pompa_terfi",
           "type": 3,
           "piece": 2,
-          "label": "Terfi Pompası (1 asil + 1 yedek) - City Pumps Ranger 10 35",
+          "label": "Terfi Pompası (1 asil + 1 yedek)",
           "unitPrice": 493.68,
           "discount": 12,
           "rawTotal": 987.36,
@@ -375,7 +376,7 @@
           "id": "2_rbc_kapakli",
           "type": 3,
           "piece": 1,
-          "label": "PlanetDISK® MX 1 DBD Ünitesi;\n- Epoksi Boyalı AISI 1045 (C45) Karbon Çelik Dolu Mil,\n- Islak Parçalar SS304 Paslanmaz ve Galvaniz Kaplı Çelik,\n- Mil Başına 114 disk / ünite ,\n- Disk Yüzey Alanı 752,40 m² / ünite",
+          "label": "PlanetDISK® MX 1 DBD Ünitesi;\n- Epoksi Boyalı AISI 1045 (C45) Karbon Çelik Dolu Mil,\n- Islak Parçalar SS304 Paslanmaz ve Galvaniz Kaplı Çelik,\n- Mil Başına 112 disk / ünite ,\n- Disk Yüzey Alanı 739,20 m² / ünite",
           "unitPrice": 29625,
           "discount": 20,
           "rawTotal": 29625,
@@ -388,11 +389,11 @@
           "id": "2_lamella_seperator",
           "type": 3,
           "piece": 1,
-          "label": "LS_15 Lamella Seperatör Son Çöktürme Tankı",
-          "unitPrice": 6570,
+          "label": "LS_30 Lamella Seperatör Son Çöktürme Tankı",
+          "unitPrice": 8015,
           "discount": 20,
-          "rawTotal": 6570,
-          "netTotal": 5256,
+          "rawTotal": 8015,
+          "netTotal": 6412,
           "no": "1.2.2.",
           "computedNo": "1.2.2.",
           "isPrice": true
@@ -629,7 +630,7 @@
           "isPrice": true
         }
       ],
-      "totalNetPrice": 43586.32
+      "totalNetPrice": 44742.32
     },
     "enerjiisletmettablosu": {
       "rows": [
@@ -675,9 +676,9 @@
       ],
       "yearlyCostEuro": 1233.3204,
       "inputEnergyPrice": "13",
-      "inputHydraulic": "70",
+      "inputHydraulic": "75,71",
       "energyPrice": 13,
-      "hydraulicLoad": 70,
+      "hydraulicLoad": 75.708823,
       "summary": {
         "totalElectricityConsumption": {
           "value": 25.992,
@@ -685,24 +686,24 @@
           "unit": "kWh/gün"
         },
         "consumptionPerUnitWastewater": {
-          "value": 0.3713142857142857,
-          "formatted": "0,371314",
+          "value": 0.3433153359153398,
+          "formatted": "0,343315",
           "unit": "kWh/m³"
         },
         "costPerUnitWastewater": {
-          "value": 4.827085714285714,
-          "formatted": "4,827086",
-          "unit": "krş/m³"
+          "value": 4.463099366899417,
+          "formatted": "4,463099",
+          "unit": "ct/m³"
         },
         "dailyElectricityCost": {
           "value": 3.37896,
           "formatted": "3,38",
-          "unit": "₺ / gün"
+          "unit": "€ / gün"
         },
         "yearlyElectricityCost": {
           "value": 1233.3204,
           "formatted": "1.233",
-          "unit": "₺ / yıl"
+          "unit": "€ / yıl"
         }
       }
     },
@@ -732,7 +733,7 @@
           "consumption": 0.5,
           "consumptionUnit": "kg/yıl.rulman",
           "unitPrice": 6,
-          "priceUnit": "₺/kg"
+          "priceUnit": "€/kg"
         },
         {
           "id": "r2",
@@ -742,7 +743,7 @@
           "consumption": 7.4,
           "consumptionUnit": "lt/yıl.redüktör",
           "unitPrice": 4,
-          "priceUnit": "₺/lt"
+          "priceUnit": "€/lt"
         }
       ],
       "grandTotal": 35.6,
@@ -778,7 +779,7 @@
         },
         "blower": {
           "qty": 1,
-          "power": 2,
+          "power": 3,
           "consumptionFactor": 90,
           "price": 0.13,
           "dailyHours": 24,
@@ -786,7 +787,7 @@
         },
         "pump": {
           "qty": 1,
-          "power": 2.2,
+          "power": 0.55,
           "consumptionFactor": 90,
           "price": 0.13,
           "dailyHours": 4,
@@ -796,36 +797,99 @@
       },
       "selectedSystem": "aktif_camur",
       "altSystemName": "Klasik Aktif Çamur Sistemi",
-      "currency": "TRY",
+      "currency": "EUR",
       "exchangeRate": 1,
+      "headersAndLabels": {
+        "panelTitle": "Enerji ve İşletme Maliyeti Karşılaştırma Analizi",
+        "currencyModeBadge": "EUR Modu",
+        "systemToggleBtnActivated": "Aktif Çamur ile Kıyasla (6x)",
+        "systemToggleBtnMBBR": "MBBR ile Kıyasla (5x)",
+        "colHeaderSystemComponents": "SİSTEM BİLEŞENLERİ",
+        "colHeaderPlanetDisk": "PlanetDISK® Ünitesi",
+        "colHeaderAltSystem": "Klasik Aktif Çamur Sistemi",
+        "colHeaderTechParams": "Teknik Parametreler",
+        "colHeaderMotorReducer": "Motor Redüktörü",
+        "colHeaderBlower": "Blower",
+        "colHeaderPump": "Çamur Geri Devir Pompası",
+        "rowLabelQty": "Ünite / Ekipman Adedi",
+        "rowLabelPower": "Birim Motor Gücü (kW)",
+        "rowLabelTotalPower": "Toplam Kurulu Güç",
+        "rowLabelConsumptionFactor": "Anlık Güç Tüketim Oranı (%)",
+        "rowLabelActualPower": "Kullanılacak Gerçek Net Güç",
+        "rowLabelPrice": "Elektrik Birim Fiyatı (€/kWh)",
+        "rowLabelDailyHours": "Günlük Çalışma Süresi (saat)",
+        "rowLabelYearlyCost": "Yıllık Tüketim Maliyeti",
+        "card1Title": "\"Klasik Aktif Çamur Sistemi\"'ne Kıyasla Yıllık Enerji Tasarrufu:",
+        "card2Title": "Sistem Ömrü Boyunca 10 Yıllık Elektrik Kazancı:",
+        "card3Title": "Blower, Difüzör Yenileme ve Bakım Maliyetleri Dahil Yaklaşık Toplam Tasarruf (10 Yıl)"
+      },
       "planetMetrics": {
         "totalPower": 0.37,
         "actualPower": 0.333,
         "yearlyCostConverted": 379
       },
       "blowerMetrics": {
-        "totalPower": 2,
-        "actualPower": 1.8,
-        "yearlyCostConverted": 2050
+        "totalPower": 3,
+        "actualPower": 2.7,
+        "yearlyCostConverted": 3075
       },
       "pumpMetrics": {
-        "totalPower": 2.2,
-        "actualPower": 1.9800000000000002,
-        "yearlyCostConverted": 376
+        "totalPower": 0.55,
+        "actualPower": 0.49500000000000005,
+        "yearlyCostConverted": 94
       },
-      "yearlySaving": 2046.4236,
-      "tenYearsSaving": 20464.236,
-      "totalGainWithMaintenance": 20958.236,
-      "yearlySavingConverted": 2046,
-      "tenYearsSavingConverted": 20464,
-      "totalGainWithMaintenanceConverted": 21000,
-      "renderedSummary": {
-        "planetYearlyCostFormatted": "379 ₺",
-        "blowerYearlyCostFormatted": "2.050 ₺",
-        "pumpYearlyCostFormatted": "376 ₺",
-        "yearlySavingFormatted": "2.046 ₺ / yıl",
-        "tenYearsSavingFormatted": "20.464 ₺ / 10 yıl",
-        "totalGainWithMaintenanceFormatted": "21.000 ₺"
+      "yearlySaving": 2789.4906000000005,
+      "tenYearsSaving": 27894.906000000006,
+      "totalGainWithMaintenance": 28388.906000000006,
+      "yearlySavingConverted": 2789,
+      "tenYearsSavingConverted": 27895,
+      "totalGainWithMaintenanceConverted": 28000,
+      "renderedTableContent": {
+        "qtyRow": {
+          "planet": "1 Adet",
+          "blower": "1 Adet",
+          "pump": "1 Adet"
+        },
+        "powerRow": {
+          "planet": "0,37 kW",
+          "blower": "3 kW",
+          "pump": "0,55 kW"
+        },
+        "totalPowerRow": {
+          "planet": "0,37 kW",
+          "blower": "3,00 kW",
+          "pump": "0,55 kW"
+        },
+        "consumptionFactorRow": {
+          "planet": "90 %",
+          "blower": "90 %",
+          "pump": "90 %"
+        },
+        "actualPowerRow": {
+          "planet": "0,33 kW",
+          "blower": "2,70 kW",
+          "pump": "0,50 kW"
+        },
+        "priceRow": {
+          "planet": "0,13 €/kWh",
+          "blower": "0,13 €/kWh",
+          "pump": "0,13 €/kWh"
+        },
+        "dailyHoursRow": {
+          "planet": "24 saat",
+          "blower": "24 saat",
+          "pump": "4 saat"
+        },
+        "yearlyCostRow": {
+          "planet": "379 € / yıl",
+          "blower": "3.075 € / yıl",
+          "pump": "94 € / yıl"
+        },
+        "summaryCards": {
+          "yearlySavingFormatted": "2.789 € / yıl",
+          "tenYearsSavingFormatted": "27.895 € / 10 yıl",
+          "totalGainWithMaintenanceFormatted": "28.000 €"
+        }
       }
     },
     "karbonayakizitablosu": {
@@ -837,145 +901,145 @@
       "unitSystemUsed": "Metric",
       "co2Factor": 0.43,
       "currentPlanetDailyKwh": 7.992000000000001,
-      "currentAltDailyKwh": 51.120000000000005,
+      "currentAltDailyKwh": 66.78000000000002,
       "planetYearlyKwh": 2917.0800000000004,
-      "altYearlyKwh": 18658.800000000003,
+      "altYearlyKwh": 24374.700000000004,
       "planetCo2": 1.2543444000000001,
-      "altCo2": 8.023284000000002,
-      "savedCo2": 6.768939600000002,
-      "equivalentTrees": 300,
+      "altCo2": 10.481121000000002,
+      "savedCo2": 9.2267766,
+      "equivalentTrees": 22,
       "renderedSummary": {
         "planetDailyKwhFormatted": "8,0 kWh/gün",
-        "altDailyKwhFormatted": "51,1 kWh/gün",
+        "altDailyKwhFormatted": "66,8 kWh/gün",
         "planetYearlyKwhFormatted": "2.917 kWh/yıl",
-        "altYearlyKwhFormatted": "18.659 kWh/yıl",
+        "altYearlyKwhFormatted": "24.375 kWh/yıl",
         "co2FactorFormatted": "0,43 kg CO₂ / kWh",
         "planetCo2Formatted": "1,3 ton CO₂/yıl",
-        "altCo2Formatted": "8,0 ton CO₂/yıl",
-        "savedCo2Formatted": "+6,8 ton CO₂",
-        "treesFormatted": "~ 300 Ağaç / yıl"
+        "altCo2Formatted": "10,5 ton CO₂/yıl",
+        "savedCo2Formatted": "+9,2 ton CO₂",
+        "treesFormatted": "~ 22 Ağaç / yıl"
       }
     },
     "onyillikmaliyettablosu": {
       "data": {
         "inflationRate": 5,
         "planet": {
-          "capex": 43586.32,
+          "capex": 44742.32,
           "energy": 379.22040000000004,
           "operator": 1219,
           "maintenance": 35.6
         },
         "aktif_camur": {
-          "capex": 32689.739999999998,
-          "energy": 2425.6440000000002,
+          "capex": 33556.74,
+          "energy": 3168.7110000000007,
           "operator": 4876,
           "maintenance": 106.80000000000001
         },
         "mbbr": {
-          "capex": 43586.32,
-          "energy": 2061.7974,
+          "capex": 44742.32,
+          "energy": 2693.4043500000007,
           "operator": 4876,
           "maintenance": 106.80000000000001
         }
       },
       "selectedSystem": "aktif_camur",
       "altSystemName": "Klasik Aktif Çamur Sistemi",
-      "currency": "TRY",
+      "currency": "EUR",
       "exchangeRate": 1,
-      "inflationRate": 5,
-      "tenYearMultiplier": 12.57789253554884,
+      "inflationRate": "5",
+      "tenYearMultiplier": "12.57789253554884",
       "planetRendered": {
-        "capex": 43586,
-        "energy": 379,
-        "operator": 1219,
-        "maintenance": 36,
-        "totalTCO": 64136
+        "capex": "44.742 €",
+        "energy": "379 €",
+        "operator": "1.219 €",
+        "maintenance": "36 €",
+        "totalTCO": "65.292 €"
       },
       "altSystemRendered": {
-        "capex": 32690,
-        "energy": 2426,
-        "operator": 4876,
-        "maintenance": 107,
-        "totalTCO": 125872
+        "capex": "33.557 €",
+        "energy": "3.169 €",
+        "operator": "4.876 €",
+        "maintenance": "107 €",
+        "totalTCO": "136.086 €"
       },
-      "totalSavings10Y": 60000,
-      "totalSavings10YConverted": 60000,
+      "totalSavings10Y": "70.000 €",
+      "totalSavings10YConverted": "70.000 €",
       "renderedSummary": {
-        "planetCapexFormatted": "43.586 ₺",
-        "planetEnergyFormatted": "379 ₺ / yıl",
-        "planetOperatorFormatted": "1.219 ₺ / yıl",
-        "planetMaintenanceFormatted": "36 ₺",
-        "planetTcoFormatted": "64.136 ₺",
-        "altCapexFormatted": "32.690 ₺",
-        "altEnergyFormatted": "2.426 ₺ / yıl",
-        "altOperatorFormatted": "4.876 ₺ / yıl",
-        "altMaintenanceFormatted": "107 ₺",
-        "altTcoFormatted": "125.872 ₺",
-        "totalSavings10YFormatted": "~ 60.000 ₺",
-        "excelSavingsText": "PlanetDISK® DBD sistemin 10 yıl sonundaki toplam kazancı 60.000 ₺'dur"
+        "planetCapexFormatted": "44.742 €",
+        "planetEnergyFormatted": "379 € / yıl",
+        "planetOperatorFormatted": "1.219 € / yıl",
+        "planetMaintenanceFormatted": "36 €",
+        "planetTcoFormatted": "65.292 €",
+        "altCapexFormatted": "33.557 €",
+        "altEnergyFormatted": "3.169 € / yıl",
+        "altOperatorFormatted": "4.876 € / yıl",
+        "altMaintenanceFormatted": "107 €",
+        "altTcoFormatted": "136.086 €",
+        "totalSavings10YFormatted": "~ 70.000 €",
+        "excelSavingsText": "PlanetDISK® DBD sistemin 10 yıl sonundaki toplam kazancı 70.000 EURO'dur"
       }
     },
     "amortisman": {
-      "dailyUsage": 70,
+      "dailyUsage": 75.708823,
       "activeMonths": 7,
       "waterPrice": 1.59,
-      "plantCost": 43586.32,
+      "plantCost": 44742.32,
       "annualOpex": 35.6,
-      "currency": "TRY",
+      "currency": "EUR",
       "unitSystem": "Metric",
       "exchangeRate": 1,
       "renderedMetrics": {
-        "dailyUsage": 70,
-        "monthlyUsage": 2100,
-        "yearlyUsage": 14700,
+        "dailyUsage": 75.708823,
+        "monthlyUsage": 2271.26469,
+        "yearlyUsage": 15898.85283,
         "waterPrice": 1.59,
-        "yearlyWaterCost": 23373,
-        "plantCost": 43586.32,
+        "yearlyWaterCost": 25279.1759997,
+        "plantCost": 44742.32,
         "annualOpex": 35.6,
-        "netAnnualSaving": 23337.4,
-        "roiYears": 1.867659636463359,
-        "roiMonths": 22.41191563756031,
+        "netAnnualSaving": 25243.575999700002,
+        "roiYears": 1.7724240020721203,
+        "roiMonths": 21.269088024865443,
         "exactYearRound": 2
       },
       "renderedSummary": {
-        "dailyUsageFormatted": "70m³/gün",
-        "monthlyUsageFormatted": "2.100m³/ay",
-        "yearlyUsageFormatted": "14.700m³/yıl",
-        "waterPriceFormatted": "1,59 ₺/m³",
-        "yearlyWaterCostFormatted": "23.373₺",
-        "plantCostFormatted": "43.586₺",
-        "annualOpexFormatted": "36₺",
-        "roiYearsFormatted": "1,87",
-        "roiMonthsFormatted": "22",
+        "dailyUsageFormatted": "75,71m³/gün",
+        "monthlyUsageFormatted": "2.271m³/ay",
+        "yearlyUsageFormatted": "15.899m³/yıl",
+        "waterPriceFormatted": "1,59 €/m³",
+        "yearlyWaterCostFormatted": "25.279€",
+        "plantCostFormatted": "44.742€",
+        "annualOpexFormatted": "36€",
+        "roiYearsFormatted": "1,77",
+        "roiMonthsFormatted": "21",
         "exactYearRoundFormatted": "2",
         "summaryBannerText": "Sistem kendisini ancak tam 2 YILDA geri döndürebilmektedir."
       }
     },
     "bilgisayfasitablosu": {
-      "title1": "Acme Endüstri A.Ş.",
-      "title2": "70 m³/gün Kapasiteli - Alıcı Ortama Deşarj",
+      "title1": "Acme Endüstri A.Ş.\t",
+      "title2": "75,71 m³/gün Kapasiteli - Alıcı Ortama Deşarj",
       "title3": "Dönen Biyolojik Disk Atıksu Arıtma Tesisi Teklifi",
       "detailsHeader": "PROJE DETAYLARI",
       "projectDetails": [
         {
           "id": "d4",
           "label": "Hidrolik Yük",
-          "value": ": 70 m³/gün"
+          "value": ": 75,71 m³/gün"
         },
         {
           "id": "d5",
           "label": "Organik Yük",
-          "value": ": 24,50 kg/gün (70 m³/gün x 350 mg/l)"
+          "value": ": 22,71 kg/gün (75,71 m³/gün x 300 mg/l)"
         },
         {
           "id": "d6",
           "label": "Ön Arıtmada Giderilen Organik Yük",
-          "value": ": 8,09 kg/gün ( 33% )"
+          "value": ": 7,50 kg/gün ( 33% )"
         },
         {
           "id": "d7",
           "label": "PlanetDISK® Ünitesine Giren Organik Yük",
-          "value": ": 16,42 kg/gün"
+          "value": ": 15,22 kg/gün"
         },
         {
           "id": "d8",
@@ -990,22 +1054,22 @@
         {
           "id": "d10",
           "label": "Atıksuyun PlanetDISK® Ünitesinde Bekleme Süresi",
-          "value": ": 1,54 saat (>45 dakika minimum)"
+          "value": ": 1,43 saat (>45 dakika minimum)"
         }
       ],
       "noteText": "Bu parametreler müşteri tarafından verilmiştir/ deneyimlerimiz ve literatür değerlerine göre seçilmiştir.",
       "sourceHeader": "Atıksu Kaynağı",
       "sourceText": "Tuvaletlerden ve her türlü tüketimden kaynaklanan evsel atıksular alınacaktır.\nTesise yemekhanelerden kaynaklanan yağ içerikli atıksular yağ kapanından geçirilmeden alınmayacaktır. Ayrıca yağmur suyu girişi olmayacaktır.",
       "systemHeader": "Önerilen Sistem",
-      "systemText": "· 1 adet PlanetDISK® MX 1 ünitesi (114 diskli) - Toplam 114 adet, 2,05 m çaplı disk, CTP (fiber) gövde.\n· TOPLAM YÜZEY ALANI: 114 disk x 6,6 m² x 1 adet = 752,4 m² yüzey alanı.\n· 1 adet LS 15 Lamella Seperatör Çökeltim Tankı, CTP (fiber) gövde.\n· TOPLAM 15 m² x 1 adet = 15 m² lamella yüzey alanı.",
+      "systemText": "· 1 adet PlanetDISK® MX 1 ünitesi (112 diskli) - Toplam 112 adet, 2,05 m çaplı disk, CTP (fiber) gövde.\n· TOPLAM YÜZEY ALANI: 112 disk x 6,6 m² x 1 adet = 739,2 m² yüzey alanı.\n· 1 adet LS 30 Lamella Seperatör Çökeltim Tankı, CTP (fiber) gövde.\n· TOPLAM 30 m² x 1 adet = 30 m² lamella yüzey alanı.",
       "calcHeader": "Disk Yüzey Alanı Hesaplaması",
-      "calcText": "π x r x r x 2 taraf x 114 disk -> 3.14 x 1,025 x 1,025 x 2 x 114 = 752,2 m²"
+      "calcText": "π x r x r x 2 taraf x 112 disk -> 3.14 x 1,025 x 1,025 x 2 x 112 = 739,0 m²"
     },
     "ozettablosu": {
       "generalInfo": {
-        "offerNo": "2026 / 0346 ",
-        "refNo": "YDD R0 06 08 2026 1 MX 1 70 25 114",
-        "clientName": "Acme Endüstri A.Ş."
+        "offerNo": "2026 / 0298 ",
+        "refNo": "YDD R0 21 09 2026 1 MX 1 76 23 112",
+        "clientName": "Acme Endüstri A.Ş.\t"
       },
       "params": [
         {
@@ -1024,25 +1088,25 @@
         {
           "id": 3,
           "label": "- Hidrolik Yük",
-          "value": "70,00",
+          "value": "75,71",
           "unit": "m³/gün"
         },
         {
           "id": 4,
           "label": "- Saatlik Debi",
-          "value": "2,92",
+          "value": "3,15",
           "unit": "m³/saat"
         },
         {
           "id": 5,
           "label": "- Pik Debi",
-          "value": "5,83",
+          "value": "6,31",
           "unit": "m³/saat"
         },
         {
           "id": 6,
           "label": "- Organik Yük",
-          "value": "25,00",
+          "value": "23,00",
           "unit": "kg/gün"
         },
         {
@@ -1054,7 +1118,7 @@
         {
           "id": 8,
           "label": "- PlanetDISK® Ünitesi Alıkonma Süresi",
-          "value": "1,54",
+          "value": "1,43",
           "unit": "saat"
         },
         {
@@ -1066,7 +1130,7 @@
         {
           "id": 10,
           "label": "- Disk Adedi",
-          "value": "114",
+          "value": "112",
           "unit": "adet/ünite"
         },
         {
@@ -1084,31 +1148,31 @@
         {
           "id": 13,
           "label": "- PlanetDISK® MX 1 DBD Ünitesi Yüzey Alanı",
-          "value": "752,40",
+          "value": "739,20",
           "unit": "m²/ünite"
         },
         {
           "id": 14,
           "label": "- Bu Projedeki Toplam Disk Yüzey Alanı",
-          "value": "752,40",
+          "value": "739,20",
           "unit": "m²"
         },
         {
           "id": 15,
-          "label": "- Lamella Seperatör LS 15 Son Çöktürme Tankı",
+          "label": "- Lamella Seperatör LS 30 Son Çöktürme Tankı",
           "value": "1",
           "unit": "adet"
         },
         {
           "id": 16,
-          "label": "- 1 Adet Lamella Seperatör LS 15 Son Çöktürme Tankı",
-          "value": "15,00",
+          "label": "- 1 Adet Lamella Seperatör LS 30 Son Çöktürme Tankı",
+          "value": "30,00",
           "unit": "m²/ünite"
         },
         {
           "id": 17,
-          "label": "- Lamella Seperatör LS 15 Son Çöktürme Tankı Toplam Yüzey Alanı",
-          "value": "15,00",
+          "label": "- Lamella Seperatör LS 30 Son Çöktürme Tankı Toplam Yüzey Alanı",
+          "value": "30,00",
           "unit": "m²"
         }
       ],
@@ -1160,14 +1224,14 @@
           "isChecked": true,
           "qty": "1",
           "unit": "adet",
-          "desc": "LS 15 Lamella Seperatör Son Çöktürme Tankı"
+          "desc": "LS 30 Lamella Seperatör Son Çöktürme Tankı"
         },
         {
           "id": 8,
           "isChecked": true,
           "qty": "1",
           "unit": "adet",
-          "desc": "LS 15 Lamella Seperatör Son Çöktürme Tankı Çamur Pompası"
+          "desc": "LS 30 Lamella Seperatör Son Çöktürme Tankı Çamur Pompası"
         },
         {
           "id": 22,
@@ -1314,7 +1378,7 @@
           "id": "s4_2",
           "type": "spec",
           "label": "Kapasite",
-          "value": "2,9 m³/sa @ 5,9 mSS"
+          "value": "3,2 m³/sa @ 5,9 mSS"
         },
         {
           "id": "s4_3",
@@ -1374,13 +1438,13 @@
           "id": "s5_5",
           "type": "spec",
           "label": "Her bir Ünitedeki Disk Sayısı",
-          "value": "114 disk / ünite "
+          "value": "112 disk / ünite "
         },
         {
           "id": "s5_6",
           "type": "spec",
           "label": "Minimum Toplam Disk Alanı",
-          "value": " 752,4 m²"
+          "value": " 739,2 m²"
         },
         {
           "id": "s5_7",
@@ -1443,12 +1507,6 @@
           "value": "PGR veya muadili"
         },
         {
-          "id": "e5.1",
-          "type": "equip",
-          "label": "Blower",
-          "isUrgent": false
-        },
-        {
           "id": "s5.1_1",
           "type": "spec",
           "label": "Miktar",
@@ -1463,7 +1521,7 @@
         {
           "id": "e6",
           "type": "equip",
-          "label": "LS 15 Lamella Seperatör Son Çöktürme Tankı",
+          "label": "LS 30 Lamella Seperatör Son Çöktürme Tankı",
           "isUrgent": false
         },
         {
@@ -1482,13 +1540,13 @@
           "id": "s6_3",
           "type": "spec",
           "label": "Lamella Plaka Alanı",
-          "value": "15 m²/tank"
+          "value": "30 m²/tank"
         },
         {
           "id": "s6_4",
           "type": "spec",
           "label": "Tank Hacmi",
-          "value": "2 m³/tank"
+          "value": "3 m³/tank"
         },
         {
           "id": "s6_5",
@@ -1571,7 +1629,7 @@
           "id": "s01_4",
           "type": "spec",
           "label": "Bekleme Süresi",
-          "value": "5,8 m³/sa pik debide 30 dakika"
+          "value": "6,3 m³/sa pik debide 30 dakika"
         },
         {
           "id": "e03",
@@ -1589,7 +1647,7 @@
           "id": "s03_2",
           "type": "spec",
           "label": "Kapasite",
-          "value": "15 m³ ıslak hacim"
+          "value": "16 m³ ıslak hacim"
         },
         {
           "id": "s03_3",
@@ -1601,7 +1659,7 @@
           "id": "s03_4",
           "type": "spec",
           "label": "Bekleme Süresi",
-          "value": "5,8 m³/sa pik debide 2,5 saat"
+          "value": "6,3 m³/sa pik debide 2,5 saat"
         },
         {
           "id": "e04",
@@ -1619,7 +1677,7 @@
           "id": "s04_2",
           "type": "spec",
           "label": "Kapasite",
-          "value": "12 m³ ıslak hacim"
+          "value": "13 m³ ıslak hacim"
         },
         {
           "id": "s04_3",
@@ -1631,7 +1689,7 @@
           "id": "s04_4",
           "type": "spec",
           "label": "Bekleme Süresi",
-          "value": "5,8 m³/sa pik debide 2 saat"
+          "value": "6,3 m³/sa pik debide 2 saat"
         },
         {
           "id": "e05",
@@ -1649,7 +1707,7 @@
           "id": "s05_2",
           "type": "spec",
           "label": "Kapasite",
-          "value": "12 m³ ıslak hacim"
+          "value": "13 m³ ıslak hacim"
         },
         {
           "id": "s05_3",
@@ -1661,7 +1719,7 @@
           "id": "s05_4",
           "type": "spec",
           "label": "Bekleme Süresi",
-          "value": "5,8 m³/sa pik debide 2 saat"
+          "value": "6,3 m³/sa pik debide 2 saat"
         }
       ]
     },
@@ -1669,7 +1727,7 @@
       {
         "id": "design_debi_0",
         "label": "Debi",
-        "value": "70",
+        "value": "75,71",
         "isNumeric": true,
         "unit": "m³/gün",
         "isUrgent": false
@@ -1677,7 +1735,7 @@
       {
         "id": "design_girisBoi_1",
         "label": "Giriş BOİ₅",
-        "value": "350",
+        "value": "300",
         "isNumeric": true,
         "unit": "mg/l",
         "isUrgent": false

@@ -3,12 +3,21 @@ import hesaplaDiskKatsayisiDetayli from "../../../../utils/hesaplaDiskKatsayisiD
 import { useTeklifStore } from "../../../../utils/teklifStore";
 import API from "../../../../utils/utilRequest";
 
+// Dönüşüm sabitleri
+const M3_TO_GAL = 264.172;
+const LT_TO_GAL = 0.264172;
+const G_TO_LBS = 0.00220462;
+
 function InputParameters() {
     const [showInfoModal, setShowInfoModal] = useState(false);
     const [loading, setLoading] = useState(true);
 
     const formData = useTeklifStore((state) => state.formData);
     const updateSection = useTeklifStore((state) => state.updateSection);
+
+    // US / Metric kontrolü
+    const unitSystem = formData?.customerInfo?.unitSystem || "Metric";
+    const isUS = unitSystem === "US";
 
     const [diskSinirlariMatrisi, setDiskSinirlariMatrisi] = useState({});
     const [nitrifikasyonKatsayilari, setNitrifikasyonKatsayilari] = useState([]);
@@ -17,9 +26,7 @@ function InputParameters() {
     const hesaplaNitrifikasyonEmperik = (sicaklik, katsayilarListesi) => {
         const s = Number(sicaklik);
         const liste = katsayilarListesi || nitrifikasyonKatsayilari;
-        const uygunKural = liste.find(
-            (kural) => s >= kural.min && s <= kural.max
-        );
+        const uygunKural = liste.find((kural) => s >= kural.min && s <= kural.max);
         return uygunKural ? uygunKural.katsayi : 1.0;
     };
 
@@ -40,7 +47,7 @@ function InputParameters() {
                 const data = response.data || [];
 
                 const paramMap = {};
-                data.forEach(item => {
+                data.forEach((item) => {
                     paramMap[item.parametre_key] = parseFloat(item.deger);
                 });
 
@@ -61,8 +68,8 @@ function InputParameters() {
                 const etiketEkleri = { nit_1: "Sıcaklık > 23 °C", nit_2: "Sıcaklık 17 - 23 °C", nit_3: "Sıcaklık 13 - 16 °C", nit_4: "Sıcaklık < 13 °C" };
 
                 const yeniNitrifikasyon = data
-                    .filter(item => item.parametre_key.startsWith("nit_"))
-                    .map(item => {
+                    .filter((item) => item.parametre_key.startsWith("nit_"))
+                    .map((item) => {
                         const key = item.parametre_key;
                         const tanim = item.parametre_adi.trim();
                         let min = -Infinity;
@@ -110,7 +117,7 @@ function InputParameters() {
                         sicaklik: storeAritmaParametreleri.sicaklik !== undefined ? storeAritmaParametreleri.sicaklik : 19,
                         giderimVerimi: storeAritmaParametreleri.giderimVerimi !== undefined ? storeAritmaParametreleri.giderimVerimi : 33,
                         emperik: storeAritmaParametreleri.emperik !== undefined ? storeAritmaParametreleri.emperik : maxEmp,
-                        maksimumEmperik: maxEmp, // <-- İlk yüklemede store içerisine ekledik
+                        maksimumEmperik: maxEmp,
                         nitrifikasyon: storeAritmaParametreleri.nitrifikasyon || "nitrifikasyonYok",
                         girisAmonyum: storeAritmaParametreleri.girisAmonyum !== undefined ? storeAritmaParametreleri.girisAmonyum : 48,
                         cikisAmonyum: storeAritmaParametreleri.cikisAmonyum !== undefined ? storeAritmaParametreleri.cikisAmonyum : 8,
@@ -148,18 +155,15 @@ function InputParameters() {
     const storeAritmaParametreleri = storePlanetDisk.tasarim?.aritmaParametreleri || {};
     const rootDebi = storePlanetDisk.debi !== undefined ? storePlanetDisk.debi : 70;
 
-    // Dinamik otomatik hesaplama yapan useEffect (GÜNCELLENDİ)
     useEffect(() => {
         if (loading || !storeAritmaParametreleri.sicaklik) return;
 
         const currentSicaklik = Number(storeAritmaParametreleri.sicaklik ?? 19);
         const currentCikisBoi = Number(storeAritmaParametreleri.cikisBoi ?? 40);
 
-        // 1. NORMAL EMPERİK HESAPLAMA & GÜNCELLEME
         const yeniEmperikRaw = hesaplaDiskKatsayisiDetayli(currentSicaklik, currentCikisBoi, Number(maksimumEmperik));
         const yeniEmperik = parseFloat(yeniEmperikRaw) || 0;
 
-        // Hem hesaplanan emperik katsayısı hem de API'den gelen maksimumEmperik değeri değiştiyse store'u tek seferde güncelliyoruz.
         if (yeniEmperik !== storeAritmaParametreleri.emperik || maksimumEmperik !== storeAritmaParametreleri.maksimumEmperik) {
             useTeklifStore.setState((state) => {
                 const diskDetails = state.formData.planetDiskDetails || {};
@@ -176,7 +180,7 @@ function InputParameters() {
                                 aritmaParametreleri: {
                                     ...params,
                                     emperik: yeniEmperik,
-                                    maksimumEmperik: maksimumEmperik // <-- Değişiklik durumunda store'da update ettik
+                                    maksimumEmperik: maksimumEmperik
                                 }
                             }
                         }
@@ -185,7 +189,6 @@ function InputParameters() {
             });
         }
 
-        // 2. NİTRİFİKASYON EMPERİĞİ HESAPLAMA & GÜNCELLEME
         const yeniNitrifikasyonEmperik = hesaplaNitrifikasyonEmperik(currentSicaklik);
 
         if (!storeAritmaParametreleri.isEmperikManual && yeniNitrifikasyonEmperik !== storeAritmaParametreleri.nitrifikasyonEmperik) {
@@ -211,37 +214,41 @@ function InputParameters() {
                 };
             });
         }
-
     }, [
         storeAritmaParametreleri.sicaklik,
         storeAritmaParametreleri.cikisBoi,
         maksimumEmperik,
         loading,
         storeAritmaParametreleri.emperik,
-        storeAritmaParametreleri.maksimumEmperik, // <-- Bağımlılıklara ekledik
+        storeAritmaParametreleri.maksimumEmperik,
         storeAritmaParametreleri.nitrifikasyonEmperik,
         storeAritmaParametreleri.isEmperikManual
     ]);
 
     const currentParamData = storeAritmaParametreleri;
     const kaynaklarListesi = currentParamData.kaynaklar || [];
-    const toplamLitreGun = kaynaklarListesi.reduce((acc, k) => acc + (Number(k.kisiSayisi || 0) * Number(k.hidrolikYuk || 0)), 0);
+    const toplamLitreGun = kaynaklarListesi.reduce((acc, k) => acc + Number(k.kisiSayisi || 0) * Number(k.hidrolikYuk || 0), 0);
     const toplamM3Gun = toplamLitreGun / 1000;
-    const toplamOrganikYukGram = kaynaklarListesi.reduce((acc, k) => acc + (Number(k.kisiSayisi || 0) * Number(k.organikYuk || 0)), 0);
-    const hesaplananGirisBoi = toplamM3Gun > 0 ? Math.round((toplamOrganikYukGram / toplamM3Gun)) : 0;
+    const toplamOrganikYukGram = kaynaklarListesi.reduce((acc, k) => acc + Number(k.kisiSayisi || 0) * Number(k.organikYuk || 0), 0);
+    const hesaplananGirisBoi = toplamM3Gun > 0 ? Math.round(toplamOrganikYukGram / toplamM3Gun) : 0;
 
-    const recalculateNihaiDegerler = (kaynaklarListesi) => {
-        const tLitre = kaynaklarListesi.reduce((acc, k) => acc + (Number(k.kisiSayisi || 0) * Number(k.hidrolikYuk || 0)), 0);
+    const recalculateNihaiDegerler = (liste) => {
+        const tLitre = liste.reduce((acc, k) => acc + Number(k.kisiSayisi || 0) * Number(k.hidrolikYuk || 0), 0);
         const nihaiDebi = tLitre / 1000;
-        const tGram = kaynaklarListesi.reduce((acc, k) => acc + (Number(k.kisiSayisi || 0) * Number(k.organikYuk || 0)), 0);
-        const nihaiGirisBoi = nihaiDebi > 0 ? Math.round((tGram / nihaiDebi)) : 0;
+        const tGram = liste.reduce((acc, k) => acc + Number(k.kisiSayisi || 0) * Number(k.organikYuk || 0), 0);
+        const nihaiGirisBoi = nihaiDebi > 0 ? Math.round(tGram / nihaiDebi) : 0;
         return { nihaiDebi, nihaiGirisBoi };
     };
 
     const handleChange = (e) => {
         const rawValue = e.target.value;
-        const val = rawValue === "" ? 0 : (!isNaN(Number(rawValue)) ? Number(rawValue) : rawValue);
         const name = e.target.name;
+        let val = rawValue === "" ? 0 : !isNaN(Number(rawValue)) ? Number(rawValue) : rawValue;
+
+        // Eğer US modundaysak ve debi giriliyorsa (GPD -> m3/gün)
+        if (isUS && name === "debi") {
+            val = val > 0 ? parseFloat((val / M3_TO_GAL).toFixed(4)) : 0;
+        }
 
         let updatedParamData = { ...currentParamData, [name]: val };
 
@@ -369,11 +376,24 @@ function InputParameters() {
         });
     };
 
+    // Kaynak tablosu input değişimleri: US modunda girilse dahi arkada Metrik saklanır
     const handleKaynakChange = (id, field, value) => {
+        const rawNum = value === "" ? 0 : Number(value) || 0;
+        let actualMetricVal = rawNum;
+
+        if (isUS) {
+            if (field === "hidrolikYuk") {
+                // gal/k/g -> lt/k/g
+                actualMetricVal = rawNum > 0 ? parseFloat((rawNum / LT_TO_GAL).toFixed(2)) : 0;
+            } else if (field === "organikYuk") {
+                // lbs/k/g -> g/k/g
+                actualMetricVal = rawNum > 0 ? parseFloat((rawNum / G_TO_LBS).toFixed(2)) : 0;
+            }
+        }
+
         const yeniKaynaklar = currentParamData.kaynaklar.map((k) => {
             if (k.id === id) {
-                const val = value === "" ? 0 : Number(value) || 0;
-                return { ...k, [field]: val };
+                return { ...k, [field]: actualMetricVal };
             }
             return k;
         });
@@ -404,16 +424,26 @@ function InputParameters() {
         };
     };
 
+    // UI Gösterim Değerleri
+    const displayDebi = isUS
+        ? currentParamData.debi ? Math.round(currentParamData.debi * M3_TO_GAL) : ""
+        : currentParamData.debi || "";
+
+    const displayToplamHidrolik = isUS
+        ? (toplamM3Gun * M3_TO_GAL).toLocaleString("en-US", { minimumFractionDigits: 0, maximumFractionDigits: 0 })
+        : toplamM3Gun.toLocaleString("tr-TR", { minimumFractionDigits: 0, maximumFractionDigits: 2 });
+
     return (
-        // JSX kodunuzda herhangi bir değişiklik yapılması gerekmedi, aynen kalabilir.
         <div className="card-body p-4 d-flex flex-column gap-3" style={{ position: "relative" }}>
-            {/* ...Mevcut JSX render alanınız... */}
-            <div className="d-flex align-items-center">
+            <div className="d-flex align-items-center justify-content-between">
                 <span className="fw-bold text-uppercase pe-2" style={{ fontSize: "11px", letterSpacing: "0.7px", color: "#00874e" }}>
                     Arıtma Parametreleri
                 </span>
-                <div className="flex-grow-1 border-bottom" style={{ borderColor: "rgba(255,255,255,0.1)" }}></div>
+                <span className={`badge ${isUS ? "bg-warning text-dark" : "bg-secondary text-white"}`} style={{ fontSize: "10px" }}>
+                    {isUS ? "Birim: US (Imperial)" : "Birim: Metrik"}
+                </span>
             </div>
+            <div className="border-bottom" style={{ borderColor: "rgba(255,255,255,0.1)" }}></div>
 
             <div>
                 <div className="btn-group w-100" role="group" style={{ backgroundColor: "#1e293b", padding: "4px", borderRadius: "8px" }}>
@@ -441,11 +471,13 @@ function InputParameters() {
                             />
                         </div>
                         <div className="col-6">
-                            <label className="text-white-50 mb-1" style={{ fontSize: "11px" }}>Debi (m³/gün)</label>
+                            <label className="text-white-50 mb-1" style={{ fontSize: "11px" }}>
+                                {isUS ? "Debi (GPD)" : "Debi (m³/gün)"}
+                            </label>
                             <input
                                 type="number"
                                 name="debi"
-                                value={(currentParamData.debi === 0 || currentParamData.debi === undefined) ? "" : currentParamData.debi}
+                                value={displayDebi}
                                 onChange={handleChange}
                                 className="form-control form-control-sm text-white fw-bold border-0 text-center"
                                 style={{ backgroundColor: "rgba(239, 68, 68, 0.15)", borderRadius: "6px" }}
@@ -455,40 +487,82 @@ function InputParameters() {
                 ) : (
                     <div className="p-1">
                         <div className="d-flex justify-content-between align-items-center mb-2 px-1">
-                            <span className="text-white-50 fw-medium" style={{ fontSize: "11px" }}><i className="bi bi-layers-half me-1"></i> Atıksu Kaynakları</span>
-                            <button type="button" onClick={handleAddKaynak} className="btn btn-sm py-0.5 px-2 fw-semibold text-white border-0" style={{ backgroundColor: "#059669", fontSize: "10px", borderRadius: "4px" }}>+ Kaynak Ekle</button>
+                            <span className="text-white-50 fw-medium" style={{ fontSize: "11px" }}>
+                                <i className="bi bi-layers-half me-1"></i> Atıksu Kaynakları
+                            </span>
+                            <button type="button" onClick={handleAddKaynak} className="btn btn-sm py-0.5 px-2 fw-semibold text-white border-0" style={{ backgroundColor: "#059669", fontSize: "10px", borderRadius: "4px" }}>
+                                + Kaynak Ekle
+                            </button>
                         </div>
                         <div style={{ maxHeight: "200px", overflowY: "auto", paddingRight: "2px" }}>
-                            {currentParamData.kaynaklar?.map((kaynak) => (
-                                <div key={kaynak.id} className="p-2 mb-2 rounded border" style={{ backgroundColor: "#0f172a", borderColor: "#334155" }}>
-                                    <div className="d-flex justify-content-between align-items-center mb-1.5">
-                                        <span className="fw-bold text-success" style={{ fontSize: "10px", letterSpacing: "0.5px" }}>{kaynak.ad}</span>
-                                        {currentParamData.kaynaklar.length > 1 && (
-                                            <button type="button" className="btn-close btn-close-white" style={{ transform: "scale(0.65)", padding: "0" }} onClick={() => handleRemoveKaynak(kaynak.id)}></button>
-                                        )}
+                            {currentParamData.kaynaklar?.map((kaynak) => {
+                                // Ekran gösterim değerleri (US seçiliyse anlık çevrilir)
+                                const displayOrg = isUS
+                                    ? kaynak.organikYuk ? parseFloat((kaynak.organikYuk * G_TO_LBS).toFixed(3)) : ""
+                                    : (kaynak.organikYuk || "");
+
+                                const displayHid = isUS
+                                    ? kaynak.hidrolikYuk ? parseFloat((kaynak.hidrolikYuk * LT_TO_GAL).toFixed(1)) : ""
+                                    : (kaynak.hidrolikYuk || "");
+
+                                return (
+                                    <div key={kaynak.id} className="p-2 mb-2 rounded border" style={{ backgroundColor: "#0f172a", borderColor: "#334155" }}>
+                                        <div className="d-flex justify-content-between align-items-center mb-1.5">
+                                            <span className="fw-bold text-success" style={{ fontSize: "10px", letterSpacing: "0.5px" }}>{kaynak.ad}</span>
+                                            {currentParamData.kaynaklar.length > 1 && (
+                                                <button type="button" className="btn-close btn-close-white" style={{ transform: "scale(0.65)", padding: "0" }} onClick={() => handleRemoveKaynak(kaynak.id)}></button>
+                                            )}
+                                        </div>
+                                        <div className="row g-1">
+                                            <div className="col-4">
+                                                <label className="text-white-50 d-block text-center" style={{ fontSize: "9px" }}>Kişi</label>
+                                                <input
+                                                    type="number"
+                                                    value={kaynak.kisiSayisi === 0 ? "" : kaynak.kisiSayisi}
+                                                    onChange={(e) => handleKaynakChange(kaynak.id, "kisiSayisi", e.target.value)}
+                                                    className="form-control form-control-sm bg-dark text-white border-0 text-center py-0.5 fw-semibold"
+                                                    style={{ fontSize: "11px" }}
+                                                />
+                                            </div>
+                                            <div className="col-4">
+                                                <label className="text-white-50 d-block text-center" style={{ fontSize: "9px" }}>
+                                                    {isUS ? "Org (lbs/k/g)" : "Org (g/k/g)"}
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    step={isUS ? "0.001" : "1"}
+                                                    value={displayOrg}
+                                                    onChange={(e) => handleKaynakChange(kaynak.id, "organikYuk", e.target.value)}
+                                                    className="form-control form-control-sm bg-dark text-white border-0 text-center py-0.5 fw-semibold"
+                                                    style={{ fontSize: "11px" }}
+                                                />
+                                            </div>
+                                            <div className="col-4">
+                                                <label className="text-white-50 d-block text-center" style={{ fontSize: "9px" }}>
+                                                    {isUS ? "Hid (gal/k/g)" : "Hid (l/k/g)"}
+                                                </label>
+                                                <input
+                                                    type="number"
+                                                    step={isUS ? "0.1" : "1"}
+                                                    value={displayHid}
+                                                    onChange={(e) => handleKaynakChange(kaynak.id, "hidrolikYuk", e.target.value)}
+                                                    className="form-control form-control-sm bg-dark text-white border-0 text-center py-0.5 fw-semibold"
+                                                    style={{ fontSize: "11px" }}
+                                                />
+                                            </div>
+                                        </div>
                                     </div>
-                                    <div className="row g-1">
-                                        <div className="col-4">
-                                            <label className="text-white-50 d-block text-center" style={{ fontSize: "9px" }}>Kişi</label>
-                                            <input type="number" value={kaynak.kisiSayisi === 0 ? "" : kaynak.kisiSayisi} onChange={(e) => handleKaynakChange(kaynak.id, "kisiSayisi", e.target.value)} className="form-control form-control-sm bg-dark text-white border-0 text-center py-0.5 fw-semibold" style={{ fontSize: "11px" }} />
-                                        </div>
-                                        <div className="col-4">
-                                            <label className="text-white-50 d-block text-center" style={{ fontSize: "9px" }}>Org (g/k/g)</label>
-                                            <input type="number" value={kaynak.organikYuk === 0 ? "" : kaynak.organikYuk} onChange={(e) => handleKaynakChange(kaynak.id, "organikYuk", e.target.value)} className="form-control form-control-sm bg-dark text-white border-0 text-center py-0.5 fw-semibold" style={{ fontSize: "11px" }} />
-                                        </div>
-                                        <div className="col-4">
-                                            <label className="text-white-50 d-block text-center" style={{ fontSize: "9px" }}>Hid (l/k/g)</label>
-                                            <input type="number" value={kaynak.hidrolikYuk === 0 ? "" : kaynak.hidrolikYuk} onChange={(e) => handleKaynakChange(kaynak.id, "hidrolikYuk", e.target.value)} className="form-control form-control-sm bg-dark text-white border-0 text-center py-0.5 fw-semibold" style={{ fontSize: "11px" }} />
-                                        </div>
-                                    </div>
-                                </div>
-                            ))}
+                                );
+                            })}
                         </div>
                         <div className="mt-2 p-2 rounded row g-0 border border-dashed" style={{ backgroundColor: "rgba(16, 185, 129, 0.05)", borderColor: "rgba(16, 185, 129, 0.2)" }}>
                             <div className="col-6 border-end border-secondary border-opacity-25 d-flex flex-column align-items-center justify-content-center">
                                 <span className="text-white-50" style={{ fontSize: "9px" }}>TOPLAM HİDROLİK YÜK</span>
                                 <span className="text-white fw-bold mt-0.5" style={{ fontSize: "12px" }}>
-                                    {toplamM3Gun.toLocaleString("tr-TR", { minimumFractionDigits: 0, maximumFractionDigits: 2 })} <small className="text-white-50 fw-normal" style={{ fontSize: "9px" }}>m³/gün</small>
+                                    {displayToplamHidrolik}{" "}
+                                    <small className="text-white-50 fw-normal" style={{ fontSize: "9px" }}>
+                                        {isUS ? "GPD" : "m³/gün"}
+                                    </small>
                                 </span>
                             </div>
                             <div className="col-6 d-flex flex-column align-items-center justify-content-center">
@@ -515,7 +589,7 @@ function InputParameters() {
                     />
                 </div>
                 <div className="col-4">
-                    <label className="text-white-50 d-block text-center mb-1" style={{ fontSize: "10px" }}>Sıcaklık</label>
+                    <label className="text-white-50 d-block text-center mb-1" style={{ fontSize: "10px" }}>Sıcaklık (°C)</label>
                     <input
                         type="number"
                         name="sicaklik"

@@ -53,7 +53,12 @@ if planet_rendered:
 
 # Karşılaştırılan Sistem String Verileri
 if target_rendered:
-    system_label = "MBBR" if is_mbbr else "Aktif Çamur"
+    default_name = (
+        ("MBBR" if is_mbbr else "Activated Sludge System")
+        if is_foreign
+        else ("MBBR" if is_mbbr else "Aktif Çamur")
+    )
+    system_label = data_obj.get("altSystemName", default_name)
     rows_data.append(
         {
             "system": system_label,
